@@ -30,6 +30,7 @@
 
 #import "CompletionHandlerCallChecker.h"
 #import "NavigationActionData.h"
+#import "WKConcreteOpenPanelResultListener.h"
 #import "WKFrameInfoInternal.h"
 #import "WKNavigationActionInternal.h"
 #import "WKSecurityOriginInternal.h"
@@ -37,6 +38,9 @@
 #import "WKWebViewInternal.h"
 #import "WKWindowFeaturesInternal.h"
 #import "WKUIDelegatePrivate.h"
+#import "WKURLCF.h"
+#import "WebOpenPanelParameters.h"
+#import "WebOpenPanelResultListenerProxy.h"
 #import "_WKContextMenuElementInfo.h"
 #import "_WKFrameHandleInternal.h"
 #import <WebCore/SecurityOriginData.h>
@@ -93,6 +97,11 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewActionsForElementDefaultActions = [delegate respondsToSelector:@selector(_webView:actionsForElement:defaultActions:)];
     m_delegateMethods.webViewDidNotHandleTapAsClickAtPoint = [delegate respondsToSelector:@selector(_webView:didNotHandleTapAsClickAtPoint:)];
 #endif
+
+#if PLATFORM(MAC)
+    m_delegateMethods.webViewRunOpenPanelWithResultListenerAllowsMultipleFiles = [delegate respondsToSelector:@selector(webView:runOpenPanelWithResultListener:allowsMultipleFiles:)];
+#endif
+
     m_delegateMethods.webViewImageOrMediaDocumentSizeChanged = [delegate respondsToSelector:@selector(_webView:imageOrMediaDocumentSizeChanged:)];
 
 #if ENABLE(CONTEXT_MENUS)
@@ -227,6 +236,40 @@ void UIDelegate::UIClient::runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF:
         checker->didCallCompletionHandler();
     }];
 }
+#if PLATFORM(MAC)
+bool UIDelegate::UIClient::runOpenPanel(WebKit::WebPageProxy *page, WebKit::WebFrameProxy *frame, WebKit::WebOpenPanelParameters *parameters, WebKit::WebOpenPanelResultListenerProxy *listener)
+{
+    // If our delegate does not support this method, invalidate the listener and return false.
+    if (!m_uiDelegate.m_delegateMethods.webViewRunOpenPanelWithResultListenerAllowsMultipleFiles) {
+        listener->invalidate();
+        return false;
+    }
+
+    if (!m_uiDelegate.m_webView) {
+        listener->invalidate();
+        return false;
+    }
+
+    NSWindow *window = [m_uiDelegate.m_webView window];
+
+    if (!window) {
+        listener->invalidate();
+        return false;
+    }
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+
+    // If we have no delegate, invalide the listener and return false.
+    if (!delegate) {
+        listener->invalidate();
+        return false;
+    }
+
+    [((id <WKUIDelegate>) delegate) webView:m_uiDelegate.m_webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)adoptNS([[WKConcreteOpenPanelResultListener alloc] initWithListenerProxy:listener]) allowsMultipleFiles:parameters->allowMultipleFiles()];
+
+    return true;
+}
+#endif
 
 void UIDelegate::UIClient::exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin* securityOrigin, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, std::function<void (unsigned long long)> completionHandler)
 {

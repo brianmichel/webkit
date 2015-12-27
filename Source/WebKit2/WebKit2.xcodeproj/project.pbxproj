@@ -1076,6 +1076,8 @@
 		6EE849C81368D9390038D481 /* WKInspectorPrivateMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EE849C61368D92D0038D481 /* WKInspectorPrivateMac.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		728E86F11795188C0087879E /* WebColorPickerMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 728E86EF1795188C0087879E /* WebColorPickerMac.h */; };
 		728E86F21795188C0087879E /* WebColorPickerMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = 728E86F01795188C0087879E /* WebColorPickerMac.mm */; };
+		72FCB6B41C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 72FCB6B11C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		72FCB6B61C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FCB6B21C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m */; };
 		753E3E0D1887398500188496 /* SessionTracker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 753E3E0B1887397300188496 /* SessionTracker.cpp */; };
 		753E3E0E1887398900188496 /* SessionTracker.h in Headers */ = {isa = PBXBuildFile; fileRef = 753E3E091887394B00188496 /* SessionTracker.h */; };
 		75A8D2C8187CCFAB00C39C9E /* WKWebsiteDataStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 75A8D2C4187CCF9F00C39C9E /* WKWebsiteDataStore.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -3261,6 +3263,8 @@
 		6EE849C61368D92D0038D481 /* WKInspectorPrivateMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WKInspectorPrivateMac.h; path = mac/WKInspectorPrivateMac.h; sourceTree = "<group>"; };
 		728E86EF1795188C0087879E /* WebColorPickerMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebColorPickerMac.h; sourceTree = "<group>"; };
 		728E86F01795188C0087879E /* WebColorPickerMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebColorPickerMac.mm; sourceTree = "<group>"; };
+		72FCB6B11C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKConcreteOpenPanelResultListener.h; sourceTree = "<group>"; };
+		72FCB6B21C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = WKConcreteOpenPanelResultListener.m; sourceTree = "<group>"; };
 		753E3E091887394B00188496 /* SessionTracker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SessionTracker.h; sourceTree = "<group>"; };
 		753E3E0B1887397300188496 /* SessionTracker.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SessionTracker.cpp; sourceTree = "<group>"; };
 		75A8D2C4187CCF9F00C39C9E /* WKWebsiteDataStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKWebsiteDataStore.h; sourceTree = "<group>"; };
@@ -4934,6 +4938,8 @@
 				2D7AAFD218C8640600A7ACD4 /* WKWebViewContentProvider.h */,
 				2DC6D9C118C44A610043BAD4 /* WKWebViewContentProviderRegistry.h */,
 				2DC6D9C218C44A610043BAD4 /* WKWebViewContentProviderRegistry.mm */,
+				72FCB6B11C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h */,
+				72FCB6B21C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m */,
 			);
 			path = Cocoa;
 			sourceTree = "<group>";
@@ -8176,6 +8182,7 @@
 				BC7043CC12F75EE0006472B9 /* WKBundleNavigationAction.h in Headers */,
 				51A728DE1B1BAD3800102EEE /* WKBundleNavigationActionPrivate.h in Headers */,
 				BC4BEFE1120A1A4C00FBA0C7 /* WKBundleNodeHandle.h in Headers */,
+				72FCB6B41C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h in Headers */,
 				BC57450C1263B155006F0F12 /* WKBundleNodeHandlePrivate.h in Headers */,
 				BC20528111C94284008F3375 /* WKBundlePage.h in Headers */,
 				7CF47FF717275B71008ACB91 /* WKBundlePageBanner.h in Headers */,
@@ -9843,6 +9850,7 @@
 				2DA944BA1884EA3C00ED86DB /* WebPageIOS.mm in Sources */,
 				BC963D6E113DD1A500574BE2 /* WebPageMac.mm in Sources */,
 				C0CE72A01247E71D00BC0EC4 /* WebPageMessageReceiver.cpp in Sources */,
+				72FCB6B61C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m in Sources */,
 				2D5C9D0519C81D8F00B3C5C1 /* WebPageOverlay.cpp in Sources */,
 				BC111B0F112F5E4F00337BAB /* WebPageProxy.cpp in Sources */,
 				1AC0273F196622D600C12B75 /* WebPageProxyCocoa.mm in Sources */,

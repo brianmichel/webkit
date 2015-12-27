@@ -35,6 +35,24 @@ WK_ASSUME_NONNULL_BEGIN
 @class WKNavigationAction;
 @class WKWebViewConfiguration;
 @class WKWindowFeatures;
+@class WKWebView;
+
+/*! A class conforming to WKOpenPanelResultListener provides methods methods
+for interacting with files.
+*/
+@protocol WKOpenPanelResultListener <NSObject>
+
+/*! @abstract passes an array of file urls to the web view.
+ @param fileURLs The array of file urls to pass to the web view.
+ @discussion passing nil, or an empty array will have the effect of calling the cancel selector.
+ */
+- (void)chooseFiles:(NSArray *)fileURLs;
+
+/*! @abstract Cancels a file open interaction in progress.
+ */
+- (void)cancel;
+
+@end
 
 /*! A class conforming to the WKUIDelegate protocol provides methods for
  presenting native UI on behalf of a webpage.
@@ -113,6 +131,17 @@ WK_ASSUME_NONNULL_BEGIN
  If you do not implement this method, the web view will behave as if the user selected the Cancel button.
  */
 - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(WK_NULLABLE NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString * WK_NULLABLE_SPECIFIER result))completionHandler;
+
+/*! @abstract Displays a file open panel.
+ @param webView The web view invoking the delegate method.
+ @param listener The listener object to be called when selection has completed
+ or cancelled.
+ @param allowsMultipleFiles Whether or not the open panel should allow multiple
+ selection.
+
+ If you do not implement this method, the web view will behave as if the user selected the Cancel button.
+ */
+- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)listener allowsMultipleFiles:(BOOL)allowsMultipleFiles;
 
 @end
 

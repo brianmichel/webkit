@@ -96,6 +96,10 @@ private:
 #endif
         virtual void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&) override;
 
+#if PLATFORM(MAC)
+        virtual bool runOpenPanel(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, WebKit::WebOpenPanelParameters*, WebKit::WebOpenPanelResultListenerProxy*) override;
+#endif
+
         UIDelegate& m_uiDelegate;
     };
 
@@ -121,6 +125,10 @@ private:
 #endif
         bool webViewActionsForElementDefaultActions : 1;
         bool webViewDidNotHandleTapAsClickAtPoint : 1;
+#endif
+
+#if PLATFORM(MAC)
+        bool webViewRunOpenPanelWithResultListenerAllowsMultipleFiles : 1;
 #endif
         bool webViewImageOrMediaDocumentSizeChanged : 1;
 
