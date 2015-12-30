@@ -74,6 +74,8 @@
 		52B8CF9815868D9100281053 /* SetDocumentURI.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 52B8CF9415868CF000281053 /* SetDocumentURI.html */; };
 		52D673EE1AFB127300FA19FE /* WKPageCopySessionStateWithFiltering.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52D673EC1AFB126800FA19FE /* WKPageCopySessionStateWithFiltering.cpp */; };
 		52E5CE4914D21EAB003B2BD8 /* ParentFrame_Bundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52E5CE4814D21EAB003B2BD8 /* ParentFrame_Bundle.cpp */; };
+		72FCB6B91C30CB2800E8A012 /* WKUIDelegateOpenPanelTest.mm in Sources */ = {isa = PBXBuildFile; fileRef = 72FCB6B71C30BED400E8A012 /* WKUIDelegateOpenPanelTest.mm */; };
+		72FCB6BB1C30D47900E8A012 /* basic-input-element.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 72FCB6BA1C30D33D00E8A012 /* basic-input-element.html */; };
 		764322D71B61CCC30024F801 /* WordBoundaryTypingAttributes.mm in Sources */ = {isa = PBXBuildFile; fileRef = 764322D51B61CCA40024F801 /* WordBoundaryTypingAttributes.mm */; };
 		7673499D1930C5BB00E44DF9 /* StopLoadingDuringDidFailProvisionalLoad_bundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7673499A1930182E00E44DF9 /* StopLoadingDuringDidFailProvisionalLoad_bundle.cpp */; };
 		76E182DD1547569100F1FADD /* WillSendSubmitEvent_Bundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 76E182DC1547569100F1FADD /* WillSendSubmitEvent_Bundle.cpp */; };
@@ -377,6 +379,7 @@
 			dstPath = TestWebKitAPI.resources;
 			dstSubfolderSpec = 7;
 			files = (
+				72FCB6BB1C30D47900E8A012 /* basic-input-element.html in Copy Resources */,
 				CDC8E4941BC6F10800594FEC /* video-with-audio.html in Copy Resources */,
 				CDC8E4951BC6F10800594FEC /* video-with-audio.mp4 in Copy Resources */,
 				CDC8E4961BC6F10800594FEC /* video-without-audio.html in Copy Resources */,
@@ -593,6 +596,8 @@
 		52D673EC1AFB126800FA19FE /* WKPageCopySessionStateWithFiltering.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKPageCopySessionStateWithFiltering.cpp; sourceTree = "<group>"; };
 		52E5CE4514D21E9D003B2BD8 /* ParentFrame.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ParentFrame.cpp; sourceTree = "<group>"; };
 		52E5CE4814D21EAB003B2BD8 /* ParentFrame_Bundle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ParentFrame_Bundle.cpp; sourceTree = "<group>"; };
+		72FCB6B71C30BED400E8A012 /* WKUIDelegateOpenPanelTest.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WKUIDelegateOpenPanelTest.mm; path = WebKit2ObjC/WKUIDelegateOpenPanelTest.mm; sourceTree = "<group>"; };
+		72FCB6BA1C30D33D00E8A012 /* basic-input-element.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = "basic-input-element.html"; sourceTree = "<group>"; };
 		7560917719259C59009EF06E /* MemoryCacheAddImageToCacheIOS.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MemoryCacheAddImageToCacheIOS.mm; sourceTree = "<group>"; };
 		75F3133F18C171B70041CAEC /* EphemeralSessionPushStateNoHistoryCallback.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EphemeralSessionPushStateNoHistoryCallback.cpp; sourceTree = "<group>"; };
 		764322D51B61CCA40024F801 /* WordBoundaryTypingAttributes.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WordBoundaryTypingAttributes.mm; sourceTree = "<group>"; };
@@ -1045,6 +1050,7 @@
 				2943BE84161DFEB800999E3D /* UserContentTest.mm */,
 				BC3C4C7D14587AA60025FB62 /* WKBrowsingContextGroupTest.mm */,
 				BC3C4C7014575B6A0025FB62 /* WKBrowsingContextLoadDelegateTest.mm */,
+				72FCB6B71C30BED400E8A012 /* WKUIDelegateOpenPanelTest.mm */,
 			);
 			name = "WebKit2 Objective-C";
 			sourceTree = "<group>";
@@ -1233,6 +1239,7 @@
 		BC90977B125571AE00083756 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				72FCB6BA1C30D33D00E8A012 /* basic-input-element.html */,
 				7AE9E5081AE5AE8B00CF874B /* test.pdf */,
 				7A1458FB1AD5C03500E06772 /* mouse-button-listener.html */,
 				C045F9461385C2F800C0F3CD /* 18-characters.html */,
@@ -1735,6 +1742,7 @@
 				7CCE7F4D1A411B9F00447C4C /* RetainPtr.mm in Sources */,
 				7CCE7F4F1A411BA400447C4C /* RetainPtrHashing.cpp in Sources */,
 				7CCE7F431A411B8E00447C4C /* SaturatedArithmeticOperations.cpp in Sources */,
+				72FCB6B91C30CB2800E8A012 /* WKUIDelegateOpenPanelTest.mm in Sources */,
 				7CCE7F121A411AE600447C4C /* ScrollPinningBehaviors.cpp in Sources */,
 				7CCE7ECB1A411A7E00447C4C /* SetAndUpdateCacheModel.mm in Sources */,
 				7CCE7ECC1A411A7E00447C4C /* SetDocumentURI.mm in Sources */,
