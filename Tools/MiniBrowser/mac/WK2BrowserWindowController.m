@@ -33,10 +33,10 @@
 #import <WebKit/WKNavigationDelegate.h>
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKUIDelegate.h>
+#import <WebKit/WKUIOpenPanelParameters.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WebNSURLExtras.h>
-#import <WebKit/WKUIOpenPanelParameters.h>
 
 static void* keyValueObservingContext = &keyValueObservingContext;
 
