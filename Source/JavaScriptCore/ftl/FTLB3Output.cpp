@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,6 +67,11 @@ StackSlotValue* Output::lockedStackSlot(size_t bytes)
     return m_block->appendNew<StackSlotValue>(m_proc, origin(), bytes, StackSlotKind::Locked);
 }
 
+LValue Output::neg(LValue value)
+{
+    return m_block->appendNew<Value>(m_proc, B3::Neg, origin(), value);
+}
+
 LValue Output::bitNot(LValue value)
 {
     return m_block->appendNew<B3::Value>(m_proc, B3::BitXor, origin(),
@@ -123,6 +128,11 @@ LValue Output::doubleToUInt(LValue value)
         });
     result->effects = Effects::none();
     return result;
+}
+
+LValue Output::unsignedToDouble(LValue value)
+{
+    return intToDouble(zeroExt(value, Int64));
 }
 
 LValue Output::load8SignExt32(TypedPointer pointer)
@@ -203,6 +213,18 @@ void Output::branch(LValue condition, LBasicBlock taken, Weight takenWeight, LBa
         m_proc, B3::Branch, origin(), condition,
         FrequentedBlock(taken, takenWeight.frequencyClass()),
         FrequentedBlock(notTaken, notTakenWeight.frequencyClass()));
+}
+
+void Output::check(LValue condition, WeightedTarget taken, Weight notTakenWeight)
+{
+    LBasicBlock continuation = FTL_NEW_BLOCK(*this, ("Output::check continuation"));
+    branch(condition, taken, WeightedTarget(continuation, notTakenWeight));
+    appendTo(continuation);
+}
+
+void Output::check(LValue condition, WeightedTarget taken)
+{
+    check(condition, taken, taken.weight().inverse());
 }
 
 } } // namespace JSC::FTL

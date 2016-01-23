@@ -268,15 +268,15 @@
     macro(match) \
     macro(replace) \
     macro(search) \
-    macro(species) \
     macro(split) \
     macro(toPrimitive)
 
 #define JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(macro) \
     macro(hasInstance) \
     macro(iterator) \
-    macro(unscopables) \
-    macro(toStringTag)
+    macro(species) \
+    macro(toStringTag) \
+    macro(unscopables)
 
 #define JSC_COMMON_BYTECODE_INTRINSICS_EACH_NAME(macro) \
     macro(assert) \
@@ -357,11 +357,18 @@
     macro(Collator) \
     macro(DateTimeFormat) \
     macro(NumberFormat) \
+    macro(thisTimeValue) \
     macro(newTargetLocal) \
     macro(derivedConstructor) \
     macro(isBoundFunction) \
     macro(hasInstanceBoundFunction) \
     macro(instanceOf) \
+    macro(isSet) \
+    macro(isMap) \
+    macro(SetIterator) \
+    macro(setIteratorNext) \
+    macro(MapIterator) \
+    macro(mapIteratorNext) \
 
 
 namespace JSC {

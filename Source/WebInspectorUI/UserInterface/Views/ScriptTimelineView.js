@@ -38,7 +38,13 @@ WebInspector.ScriptTimelineView = class ScriptTimelineView extends WebInspector.
         columns.location.title = WebInspector.UIString("Location");
         columns.location.width = "15%";
 
-        columns.callCount.title = WebInspector.UIString("Calls");
+        let isSamplingProfiler = !!window.ScriptProfilerAgent;
+        if (isSamplingProfiler)
+            columns.callCount.title = WebInspector.UIString("Samples");
+        else {
+            // COMPATIBILITY(iOS 9): ScriptProfilerAgent did not exist yet, we had call counts, not samples.
+            columns.callCount.title = WebInspector.UIString("Calls");
+        }
         columns.callCount.width = "5%";
         columns.callCount.aligned = "right";
 
@@ -64,8 +70,8 @@ WebInspector.ScriptTimelineView = class ScriptTimelineView extends WebInspector.
         this._dataGrid = new WebInspector.ScriptTimelineDataGrid(this.navigationSidebarTreeOutline, columns, this);
         this._dataGrid.addEventListener(WebInspector.TimelineDataGrid.Event.FiltersDidChange, this._dataGridFiltersDidChange, this);
         this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SelectedNodeChanged, this._dataGridNodeSelected, this);
-        this._dataGrid.sortColumnIdentifier = "startTime";
-        this._dataGrid.sortOrder = WebInspector.DataGrid.SortOrder.Ascending;
+        this._dataGrid.sortColumnIdentifierSetting = new WebInspector.Setting("script-timeline-view-sort", "startTime");
+        this._dataGrid.sortOrderSetting = new WebInspector.Setting("script-timeline-view-sort-order", WebInspector.DataGrid.SortOrder.Ascending);
 
         this.element.classList.add("script");
         this.addSubview(this._dataGrid);

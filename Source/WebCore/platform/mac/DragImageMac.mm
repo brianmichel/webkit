@@ -38,6 +38,7 @@
 #import "ResourceResponse.h"
 #import "StringTruncator.h"
 #import "TextRun.h"
+#import <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -160,7 +161,7 @@ const float DragLinkUrlFontSize = 10;
 static FontCascade& fontFromNSFont(NSFont *font)
 {
     static NSFont *currentFont;
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontCascade, currentRenderer, ());
+    static NeverDestroyed<FontCascade> currentRenderer;
     
     if ([font isEqual:currentFont])
         return currentRenderer;
@@ -168,7 +169,7 @@ static FontCascade& fontFromNSFont(NSFont *font)
         CFRelease(currentFont);
     currentFont = font;
     CFRetain(currentFont);
-    currentRenderer = FontCascade(FontPlatformData(toCTFont(font), [font pointSize]));
+    currentRenderer.get() = FontCascade(FontPlatformData(toCTFont(font), [font pointSize]));
     return currentRenderer;
 }
 
@@ -193,7 +194,6 @@ static float widthWithFont(NSString *string, NSFont *font)
     if (canUseFastRenderer(buffer.data(), length)) {
         FontCascade webCoreFont(FontPlatformData(toCTFont(font), [font pointSize]));
         TextRun run(StringView(buffer.data(), length));
-        run.disableRoundingHacks();
         return webCoreFont.width(run);
     }
     
@@ -225,7 +225,6 @@ static void drawAtPoint(NSString *string, NSPoint point, NSFont *font, NSColor *
             
         FontCascade webCoreFont(FontPlatformData(toCTFont(font), [font pointSize]), Antialiased);
         TextRun run(StringView(buffer.data(), length));
-        run.disableRoundingHacks();
 
         CGFloat red;
         CGFloat green;

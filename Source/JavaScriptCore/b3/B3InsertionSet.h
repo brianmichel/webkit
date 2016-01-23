@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,6 +48,8 @@ public:
     {
     }
 
+    bool isEmpty() const { return m_insertions.isEmpty(); }
+
     Procedure& code() { return m_procedure; }
 
     void appendInsertion(const Insertion& insertion)
@@ -62,10 +64,13 @@ public:
     }
 
     template<typename ValueType, typename... Arguments>
-    Value* insert(size_t index, Arguments... arguments);
+    ValueType* insert(size_t index, Arguments... arguments);
 
     Value* insertIntConstant(size_t index, Origin, Type, int64_t value);
     Value* insertIntConstant(size_t index, Value* likeValue, int64_t value);
+
+    Value* insertBottom(size_t index, Origin, Type);
+    Value* insertBottom(size_t index, Value*);
 
     void execute(BasicBlock*);
 

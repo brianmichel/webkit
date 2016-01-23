@@ -16,11 +16,6 @@ if (NOT DEFINED ENABLE_TOOLS AND EXISTS "${CMAKE_SOURCE_DIR}/Tools")
     set(ENABLE_TOOLS ON)
 endif ()
 
-include(WebKitMacros)
-include(WebKitFS)
-include(WebKitHelpers)
-include(WebKitFeatures)
-
 # -----------------------------------------------------------------------------
 # Determine which port will be built
 # -----------------------------------------------------------------------------
@@ -110,17 +105,22 @@ set(WebCoreTestSupport_LIBRARY_TYPE STATIC)
 option(SHOULD_INSTALL_JS_SHELL "generate an installation rule to install the built JavaScript shell")
 
 # -----------------------------------------------------------------------------
-# Common options
+# Common configuration
 #------------------------------------------------------------------------------
-include(OptionsCommon)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+include(WebKitCommon)
 
 # -----------------------------------------------------------------------------
-# Port-specific options
-# -----------------------------------------------------------------------------
-include(Options${PORT})
+# Output directories
+#------------------------------------------------------------------------------
+if (NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+endif ()
+if (NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+endif ()
+if (NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif ()
 
 # -----------------------------------------------------------------------------
 # Enable API unit tests and create a target for the test runner
@@ -150,8 +150,3 @@ endif ()
 # Print the features list last, for maximum visibility.
 # -----------------------------------------------------------------------------
 PRINT_WEBKIT_OPTIONS()
-
-# -----------------------------------------------------------------------------
-# Create the configuration header
-# -----------------------------------------------------------------------------
-CREATE_CONFIGURATION_HEADER()

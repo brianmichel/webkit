@@ -141,8 +141,8 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SortChanged, this._sortDataGrid, this);
         this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SelectedNodeChanged, this._selectedDataGridNodeChanged, this);
 
-        this.sortColumnIdentifier = "memory";
-        this.sortOrder = WebInspector.DataGrid.SortOrder.Descending;
+        this.sortColumnIdentifierSetting = new WebInspector.Setting("layer-tree-details-sidebar-panel-sort", "memory");
+        this.sortOrderSetting = new WebInspector.Setting("layer-tree-details-sidebar-panel-sort-order", WebInspector.DataGrid.SortOrder.Descending);
 
         var element = this._dataGrid.element;
         element.classList.add("inline");

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 
 namespace JSC { namespace B3 { namespace Air {
 
+class BlockInsertionSet;
 class Code;
 class InsertionSet;
 
@@ -64,6 +65,11 @@ public:
     const Inst& at(unsigned index) const { return m_insts[index]; }
     Inst& at(unsigned index) { return m_insts[index]; }
 
+    Inst* get(unsigned index)
+    {
+        return index < size() ? &at(index) : nullptr;
+    }
+
     const Inst& last() const { return m_insts.last(); }
     Inst& last() { return m_insts.last(); }
 
@@ -73,15 +79,17 @@ public:
     InstList& insts() { return m_insts; }
 
     template<typename Inst>
-    void appendInst(Inst&& inst)
+    Inst& appendInst(Inst&& inst)
     {
         m_insts.append(std::forward<Inst>(inst));
+        return m_insts.last();
     }
 
     template<typename... Arguments>
-    void append(Arguments&&... arguments)
+    Inst& append(Arguments&&... arguments)
     {
         m_insts.append(Inst(std::forward<Arguments>(arguments)...));
+        return m_insts.last();
     }
 
     // The "0" case is the case to which the branch jumps, so the "then" case. The "1" case is the
@@ -119,7 +127,11 @@ public:
     void dump(PrintStream&) const;
     void deepDump(PrintStream&) const;
 
+    void dumpHeader(PrintStream&) const;
+    void dumpFooter(PrintStream&) const;
+
 private:
+    friend class BlockInsertionSet;
     friend class Code;
     friend class InsertionSet;
     

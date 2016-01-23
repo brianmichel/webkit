@@ -34,7 +34,7 @@
 namespace WebCore {
 
 TreeWalker::TreeWalker(Node& rootNode, unsigned long whatToShow, RefPtr<NodeFilter>&& filter)
-    : NodeIteratorBase(rootNode, whatToShow, WTF::move(filter))
+    : NodeIteratorBase(rootNode, whatToShow, WTFMove(filter))
     , m_current(root())
 {
 }
@@ -48,7 +48,7 @@ void TreeWalker::setCurrentNode(Node* node, ExceptionCode& ec)
     m_current = node;
 }
 
-inline Node* TreeWalker::setCurrent(PassRefPtr<Node> node)
+inline Node* TreeWalker::setCurrent(RefPtr<Node>&& node)
 {
     m_current = node;
     return m_current.get();
@@ -63,7 +63,7 @@ Node* TreeWalker::parentNode()
             return nullptr;
         short acceptNodeResult = acceptNode(node.get());
         if (acceptNodeResult == NodeFilter::FILTER_ACCEPT)
-            return setCurrent(node.release());
+            return setCurrent(WTFMove(node));
     }
     return nullptr;
 }
@@ -141,7 +141,7 @@ template<TreeWalker::SiblingTraversalType type> Node* TreeWalker::traverseSiblin
         for (RefPtr<Node> sibling = isNext ? node->nextSibling() : node->previousSibling(); sibling; ) {
             short acceptNodeResult = acceptNode(sibling.get());
             if (acceptNodeResult == NodeFilter::FILTER_ACCEPT) {
-                m_current = WTF::move(sibling);
+                m_current = WTFMove(sibling);
                 return m_current.get();
             }
             node = sibling;
@@ -196,7 +196,7 @@ Node* TreeWalker::previousNode()
         node = parent;
         short acceptNodeResult = acceptNode(node.get());
         if (acceptNodeResult == NodeFilter::FILTER_ACCEPT)
-            return setCurrent(node.release());
+            return setCurrent(WTFMove(node));
     }
     return nullptr;
 }
@@ -209,7 +209,7 @@ Children:
         node = firstChild;
         short acceptNodeResult = acceptNode(node.get());
         if (acceptNodeResult == NodeFilter::FILTER_ACCEPT)
-            return setCurrent(node.release());
+            return setCurrent(WTFMove(node));
         if (acceptNodeResult == NodeFilter::FILTER_REJECT)
             break;
     }
@@ -217,7 +217,7 @@ Children:
         node = nextSibling;
         short acceptNodeResult = acceptNode(node.get());
         if (acceptNodeResult == NodeFilter::FILTER_ACCEPT)
-            return setCurrent(node.release());
+            return setCurrent(WTFMove(node));
         if (acceptNodeResult == NodeFilter::FILTER_SKIP)
             goto Children;
     }

@@ -54,16 +54,6 @@ void CSSSegmentedFontFace::pruneTable()
     m_descriptionToRangesMap.clear();
 }
 
-bool CSSSegmentedFontFace::isValid() const
-{
-    // Valid if at least one font face is valid.
-    for (auto& face : m_fontFaces) {
-        if (face->isValid())
-            return true;
-    }
-    return false;
-}
-
 void CSSSegmentedFontFace::fontLoaded(CSSFontFace*)
 {
     pruneTable();
@@ -86,19 +76,19 @@ void CSSSegmentedFontFace::appendFontFace(Ref<CSSFontFace>&& fontFace)
 {
     pruneTable();
     fontFace->addedToSegmentedFontFace(this);
-    m_fontFaces.append(WTF::move(fontFace));
+    m_fontFaces.append(WTFMove(fontFace));
 }
 
 static void appendFontWithInvalidUnicodeRangeIfLoading(FontRanges& ranges, Ref<Font>&& font, const Vector<CSSFontFace::UnicodeRange>& unicodeRanges)
 {
     if (font->isLoading()) {
-        ranges.appendRange(FontRanges::Range(0, 0, WTF::move(font)));
+        ranges.appendRange(FontRanges::Range(0, 0, WTFMove(font)));
         return;
     }
 
     unsigned numRanges = unicodeRanges.size();
     if (!numRanges) {
-        ranges.appendRange(FontRanges::Range(0, 0x7FFFFFFF, WTF::move(font)));
+        ranges.appendRange(FontRanges::Range(0, 0x7FFFFFFF, WTFMove(font)));
         return;
     }
 
@@ -108,9 +98,6 @@ static void appendFontWithInvalidUnicodeRangeIfLoading(FontRanges& ranges, Ref<F
 
 FontRanges CSSSegmentedFontFace::fontRanges(const FontDescription& fontDescription)
 {
-    if (!isValid())
-        return FontRanges();
-
     FontTraitsMask desiredTraitsMask = fontDescription.traitsMask();
 
     auto addResult = m_descriptionToRangesMap.add(FontDescriptionKey(fontDescription), FontRanges());

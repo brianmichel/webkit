@@ -342,7 +342,7 @@ StepRange HTMLInputElement::createStepRange(AnyStepHandling anyStepHandling) con
 }
 
 #if ENABLE(DATALIST_ELEMENT)
-Decimal HTMLInputElement::findClosestTickMarkValue(const Decimal& value)
+Optional<Decimal> HTMLInputElement::findClosestTickMarkValue(const Decimal& value)
 {
     return m_inputType->findClosestTickMarkValue(value);
 }
@@ -464,7 +464,7 @@ void HTMLInputElement::updateType()
 
     m_inputType->destroyShadowSubtree();
 
-    m_inputType = WTF::move(newType);
+    m_inputType = WTFMove(newType);
     m_inputType->createShadowSubtree();
     updateInnerTextElementEditability();
 
@@ -641,7 +641,7 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomicStr
         addToRadioButtonGroup();
         HTMLTextFormControlElement::parseAttribute(name, value);
     } else if (name == autocompleteAttr) {
-        if (equalIgnoringCase(value, "off")) {
+        if (equalLettersIgnoringASCIICase(value, "off")) {
             m_autocomplete = Off;
             registerForSuspensionCallbackIfNeeded();
         } else {
@@ -765,7 +765,7 @@ bool HTMLInputElement::rendererIsNeeded(const RenderStyle& style)
 
 RenderPtr<RenderElement> HTMLInputElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return m_inputType->createInputRenderer(WTF::move(style));
+    return m_inputType->createInputRenderer(WTFMove(style));
 }
 
 void HTMLInputElement::willAttachRenderers()

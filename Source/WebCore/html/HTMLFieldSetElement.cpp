@@ -146,13 +146,13 @@ bool HTMLFieldSetElement::supportsFocus() const
 
 const AtomicString& HTMLFieldSetElement::formControlType() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, fieldset, ("fieldset", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> fieldset("fieldset", AtomicString::ConstructFromLiteral);
     return fieldset;
 }
 
 RenderPtr<RenderElement> HTMLFieldSetElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderFieldset>(*this, WTF::move(style));
+    return createRenderer<RenderFieldset>(*this, WTFMove(style));
 }
 
 HTMLLegendElement* HTMLFieldSetElement::legend() const

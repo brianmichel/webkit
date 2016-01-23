@@ -53,7 +53,7 @@
 namespace WebCore {
 
 RenderFlowThread::RenderFlowThread(Document& document, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(document, WTF::move(style))
+    : RenderBlockFlow(document, WTFMove(style))
     , m_previousRegionCount(0)
     , m_autoLogicalHeightRegionsCount(0)
     , m_currentRegionMaintainer(nullptr)
@@ -106,7 +106,7 @@ void RenderFlowThread::removeRegionFromThread(RenderRegion* renderRegion)
     m_regionList.remove(renderRegion);
 }
 
-void RenderFlowThread::invalidateRegions()
+void RenderFlowThread::invalidateRegions(MarkingBehavior markingParents)
 {
     ASSERT(!inFinalLayoutPhase());
 
@@ -125,7 +125,7 @@ void RenderFlowThread::invalidateRegions()
     if (m_lineToRegionMap)
         m_lineToRegionMap->clear();
     m_layersToRegionMappingsDirty = true;
-    setNeedsLayout();
+    setNeedsLayout(markingParents);
 
     m_regionsInvalidated = true;
 }

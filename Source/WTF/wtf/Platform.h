@@ -531,6 +531,7 @@
 #define HAVE_SEC_KEYCHAIN 1
 
 #if CPU(X86_64)
+#define HAVE_NETWORK_EXTENSION 1
 #define USE_PLUGIN_HOST_PROCESS 1
 #endif
 
@@ -544,6 +545,7 @@
 
 #if PLATFORM(IOS)
 
+#define HAVE_NETWORK_EXTENSION 1
 #define HAVE_READLINE 1
 #if USE(APPLE_INTERNAL_SDK)
 #define USE_CFNETWORK 1
@@ -781,7 +783,7 @@
 
 /* The B3 compiler is an experimental backend that is still in development. We will keep it building
    on Mac/x86-64 for now, though it is unused except for tests. */
-#if PLATFORM(MAC) && CPU(X86_64) && ENABLE(FTL_JIT)
+#if (PLATFORM(MAC) || PLATFORM(IOS)) && (CPU(X86_64) || CPU(ARM64)) && ENABLE(FTL_JIT)
 #define ENABLE_B3_JIT 1
 #endif
 
@@ -792,7 +794,15 @@
 #undef ENABLE_B3_JIT
 #define ENABLE_DFG_JIT 0
 #define ENABLE_FTL_JIT 0
-#define Enable_B3_JIT 0
+#define ENABLE_B3_JIT 0
+#endif
+
+/* The SamplingProfiler is the probabilistic and low-overhead profiler used by
+ * JSC to measure where time is spent inside a JavaScript program. */
+#if (OS(DARWIN) || OS(WINDOWS)) && ENABLE(JIT)
+#define ENABLE_SAMPLING_PROFILER 1
+#else
+#define ENABLE_SAMPLING_PROFILER 0
 #endif
 
 /* Counts uses of write barriers using sampling counters. Be sure to also
@@ -1126,7 +1136,7 @@
 #define USE_MEDIATOOLBOX 1
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
 #define ENABLE_VIDEO_PRESENTATION_MODE 1
 #endif
 

@@ -69,7 +69,6 @@ namespace WebKit {
 
 class DownloadAuthenticationClient;
 class DownloadManager;
-class NetworkDataTask;
 class NetworkSession;
 class WebPage;
 
@@ -77,16 +76,16 @@ class Download : public IPC::MessageSender {
     WTF_MAKE_NONCOPYABLE(Download);
 public:
 #if USE(NETWORK_SESSION)
-    Download(DownloadManager&, const NetworkSession&, DownloadID, const WebCore::ResourceRequest&);
+    Download(DownloadManager&, DownloadID);
 #else
     Download(DownloadManager&, DownloadID, const WebCore::ResourceRequest&);
 #endif
     ~Download();
 
-    void start();
 #if USE(NETWORK_SESSION) && PLATFORM(COCOA)
     void dataTaskDidBecomeDownloadTask(const NetworkSession&, RetainPtr<NSURLSessionDownloadTask>&&);
 #else
+    void start();
     void startWithHandle(WebCore::ResourceHandle*, const WebCore::ResourceResponse&);
 #endif
     void resume(const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
@@ -94,8 +93,12 @@ public:
 
     DownloadID downloadID() const { return m_downloadID; }
 
+#if USE(NETWORK_SESSION)
+    void didStart(const WebCore::ResourceRequest&);
+#else
     void didStart();
     void didReceiveAuthenticationChallenge(const WebCore::AuthenticationChallenge&);
+#endif
     void didReceiveResponse(const WebCore::ResourceResponse&);
     void didReceiveData(uint64_t length);
     bool shouldDecodeSourceDataOfMIMEType(const String& mimeType);
@@ -110,6 +113,7 @@ public:
     DownloadAuthenticationClient* authenticationClient();
 #endif
 
+#if !USE(NETWORK_SESSION)
     // Authentication
     static void receivedCredential(const WebCore::AuthenticationChallenge&, const WebCore::Credential&);
     static void receivedRequestToContinueWithoutCredential(const WebCore::AuthenticationChallenge&);
@@ -120,6 +124,7 @@ public:
     void useCredential(const WebCore::AuthenticationChallenge&, const WebCore::Credential&);
     void continueWithoutCredential(const WebCore::AuthenticationChallenge&);
     void cancelAuthenticationChallenge(const WebCore::AuthenticationChallenge&);
+#endif
 
 private:
     // IPC::MessageSender
@@ -130,13 +135,14 @@ private:
 
     DownloadManager& m_downloadManager;
     DownloadID m_downloadID;
+#if !USE(NETWORK_SESSION)
     WebCore::ResourceRequest m_request;
+#endif
 
     RefPtr<SandboxExtension> m_sandboxExtension;
 
 #if PLATFORM(COCOA)
 #if USE(NETWORK_SESSION)
-    const NetworkSession& m_session;
     RetainPtr<NSURLSessionDownloadTask> m_download;
 #else
     RetainPtr<NSURLDownload> m_nsURLDownload;

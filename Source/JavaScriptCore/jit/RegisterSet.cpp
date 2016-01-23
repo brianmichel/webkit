@@ -84,6 +84,15 @@ RegisterSet RegisterSet::macroScratchRegisters()
 {
 #if CPU(X86_64)
     return RegisterSet(MacroAssembler::s_scratchRegister);
+#elif CPU(ARM64)
+    return RegisterSet(MacroAssembler::dataTempRegister, MacroAssembler::memoryTempRegister);
+#elif CPU(MIPS)
+    RegisterSet result;
+    result.set(MacroAssembler::immTempRegister);
+    result.set(MacroAssembler::dataTempRegister);
+    result.set(MacroAssembler::addrTempRegister);
+    result.set(MacroAssembler::cmpTempRegister);
+    return result;
 #else
     return RegisterSet();
 #endif
@@ -139,6 +148,7 @@ RegisterSet RegisterSet::calleeSaveRegisters()
         reg <= ARM64Registers::q15;
         reg = static_cast<ARM64Registers::FPRegisterID>(reg + 1))
         result.set(reg);
+#elif CPU(MIPS)
 #else
     UNREACHABLE_FOR_PLATFORM();
 #endif

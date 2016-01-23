@@ -149,7 +149,7 @@ RegisterID* ThisNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst
     if (generator.constructorKind() == ConstructorKind::Derived && generator.needsToUpdateArrowFunctionContext())
         generator.emitLoadThisFromArrowFunctionLexicalEnvironment();
 
-    if (m_shouldAlwaysEmitTDZCheck || generator.constructorKind() == ConstructorKind::Derived || generator.generatorThisMode() == GeneratorThisMode::Empty || generator.isDerivedConstructorContext())
+    if (m_shouldAlwaysEmitTDZCheck || generator.constructorKind() == ConstructorKind::Derived || generator.isDerivedConstructorContext())
         generator.emitTDZCheck(generator.thisRegister());
 
     if (dst == generator.ignoredResult())
@@ -173,12 +173,16 @@ RegisterID* SuperNode::emitBytecode(BytecodeGenerator& generator, RegisterID* ds
 
     RegisterID callee;
     callee.setIndex(JSStack::Callee);
-
     return generator.emitGetById(generator.finalDestination(dst), &callee, generator.propertyNames().underscoreProto);
 }
 
 static RegisterID* emitHomeObjectForCallee(BytecodeGenerator& generator)
 {
+    if (generator.isDerivedClassContext() || generator.isDerivedConstructorContext()) {
+        RegisterID* derivedConstructor = generator.emitLoadDerivedConstructorFromArrowFunctionLexicalEnvironment();
+        return generator.emitGetById(generator.newTemporary(), derivedConstructor, generator.propertyNames().homeObjectPrivateName);
+    }
+
     RegisterID callee;
     callee.setIndex(JSStack::Callee);
     return generator.emitGetById(generator.newTemporary(), &callee, generator.propertyNames().homeObjectPrivateName);
@@ -749,8 +753,8 @@ RegisterID* FunctionCallValueNode::emitBytecode(BytecodeGenerator& generator, Re
     RefPtr<RegisterID> returnValue = generator.finalDestination(dst, func.get());
     CallArguments callArguments(generator, m_args);
     if (m_expr->isSuperNode()) {
-        ASSERT(generator.isConstructor() || generator.isDerivedConstructorContext());
-        ASSERT(generator.constructorKind() == ConstructorKind::Derived || generator.isDerivedConstructorContext());
+        ASSERT(generator.isConstructor() || generator.derivedContextType() == DerivedContextType::DerivedConstructorContext);
+        ASSERT(generator.constructorKind() == ConstructorKind::Derived || generator.derivedContextType() == DerivedContextType::DerivedConstructorContext);
         generator.emitMove(callArguments.thisRegister(), generator.newTarget());
         RegisterID* ret = generator.emitConstruct(returnValue.get(), func.get(), NoExpectedFunction, callArguments, divot(), divotStart(), divotEnd());
         generator.emitMove(generator.thisRegister(), ret);
@@ -2923,7 +2927,8 @@ void TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
             tryData = generator.pushTry(here.get());
         }
 
-        generator.emitPushCatchScope(m_thrownValueIdent, thrownValueRegister.get(), m_lexicalVariables);
+        generator.emitPushCatchScope(m_lexicalVariables);
+        m_catchPattern->bindValue(generator, thrownValueRegister.get());
         generator.emitProfileControlFlow(m_tryBlock->endOffset() + 1);
         if (m_finallyBlock)
             generator.emitNode(dst, m_catchBlock);
@@ -3224,7 +3229,8 @@ RegisterID* ClassExprNode::emitBytecode(BytecodeGenerator& generator, RegisterID
 
         RefPtr<Label> protoParentIsObjectOrNullLabel = generator.newLabel();
         generator.emitJumpIfTrue(generator.emitUnaryOp(op_is_object_or_null, tempRegister.get(), protoParent.get()), protoParentIsObjectOrNullLabel.get());
-        generator.emitThrowTypeError(ASCIILiteral("The superclass's prototype is not an object."));
+        generator.emitJumpIfTrue(generator.emitUnaryOp(op_is_function, tempRegister.get(), protoParent.get()), protoParentIsObjectOrNullLabel.get());
+        generator.emitThrowTypeError(ASCIILiteral("The value of the superclass's prototype property is not an object."));
         generator.emitLabel(protoParentIsObjectOrNullLabel.get());
 
         generator.emitDirectPutById(constructor.get(), generator.propertyNames().underscoreProto, superclass.get(), PropertyNode::Unknown);

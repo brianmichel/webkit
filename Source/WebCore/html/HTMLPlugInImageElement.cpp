@@ -49,6 +49,7 @@
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "StyleResolver.h"
+#include "StyleTreeResolver.h"
 #include "SubframeLoader.h"
 #include "TypedElementDescendantIterator.h"
 #include <JavaScriptCore/APICast.h>
@@ -73,29 +74,29 @@ static const auto removeSnapshotTimerDelay = std::chrono::milliseconds { 1500 };
 
 static const String titleText(Page* page, String mimeType)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(MimeTypeToLocalizedStringMap, mimeTypeToLabelTitleMap, ());
-    String titleText = mimeTypeToLabelTitleMap.get(mimeType);
+    static NeverDestroyed<MimeTypeToLocalizedStringMap> mimeTypeToLabelTitleMap;
+    String titleText = mimeTypeToLabelTitleMap.get().get(mimeType);
     if (!titleText.isEmpty())
         return titleText;
 
     titleText = page->chrome().client().plugInStartLabelTitle(mimeType);
     if (titleText.isEmpty())
         titleText = snapshottedPlugInLabelTitle();
-    mimeTypeToLabelTitleMap.set(mimeType, titleText);
+    mimeTypeToLabelTitleMap.get().set(mimeType, titleText);
     return titleText;
 };
 
 static const String subtitleText(Page* page, String mimeType)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(MimeTypeToLocalizedStringMap, mimeTypeToLabelSubtitleMap, ());
-    String subtitleText = mimeTypeToLabelSubtitleMap.get(mimeType);
+    static NeverDestroyed<MimeTypeToLocalizedStringMap> mimeTypeToLabelSubtitleMap;
+    String subtitleText = mimeTypeToLabelSubtitleMap.get().get(mimeType);
     if (!subtitleText.isEmpty())
         return subtitleText;
 
     subtitleText = page->chrome().client().plugInStartLabelSubtitle(mimeType);
     if (subtitleText.isEmpty())
         subtitleText = snapshottedPlugInLabelSubtitle();
-    mimeTypeToLabelSubtitleMap.set(mimeType, subtitleText);
+    mimeTypeToLabelSubtitleMap.get().set(mimeType, subtitleText);
     return subtitleText;
 };
 
@@ -194,7 +195,7 @@ RenderPtr<RenderElement> HTMLPlugInImageElement::createElementRenderer(Ref<Rende
     ASSERT(!document().inPageCache());
 
     if (displayState() >= PreparingPluginReplacement)
-        return HTMLPlugInElement::createElementRenderer(WTF::move(style), insertionPosition);
+        return HTMLPlugInElement::createElementRenderer(WTFMove(style), insertionPosition);
 
     // Once a PlugIn Element creates its renderer, it needs to be told when the Document goes
     // inactive or reactivates so it can clear the renderer before going into the page cache.
@@ -204,21 +205,21 @@ RenderPtr<RenderElement> HTMLPlugInImageElement::createElementRenderer(Ref<Rende
     }
 
     if (displayState() == DisplayingSnapshot) {
-        auto renderSnapshottedPlugIn = createRenderer<RenderSnapshottedPlugIn>(*this, WTF::move(style));
+        auto renderSnapshottedPlugIn = createRenderer<RenderSnapshottedPlugIn>(*this, WTFMove(style));
         renderSnapshottedPlugIn->updateSnapshot(m_snapshotImage);
-        return WTF::move(renderSnapshottedPlugIn);
+        return WTFMove(renderSnapshottedPlugIn);
     }
 
     // Fallback content breaks the DOM->Renderer class relationship of this
     // class and all superclasses because createObject won't necessarily
     // return a RenderEmbeddedObject or RenderWidget.
     if (useFallbackContent())
-        return RenderElement::createFor(*this, WTF::move(style));
+        return RenderElement::createFor(*this, WTFMove(style));
 
     if (isImageType())
-        return createRenderer<RenderImage>(*this, WTF::move(style));
+        return createRenderer<RenderImage>(*this, WTFMove(style));
 
-    return HTMLPlugInElement::createElementRenderer(WTF::move(style), insertionPosition);
+    return HTMLPlugInElement::createElementRenderer(WTFMove(style), insertionPosition);
 }
 
 bool HTMLPlugInImageElement::childShouldCreateRenderer(const Node& child) const
@@ -407,11 +408,11 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
 
 bool HTMLPlugInImageElement::partOfSnapshotOverlay(const Node* node) const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, selector, (".snapshot-overlay", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> selector(".snapshot-overlay", AtomicString::ConstructFromLiteral);
     ShadowRoot* shadow = userAgentShadowRoot();
     if (!shadow)
         return false;
-    RefPtr<Element> snapshotLabel = shadow->querySelector(selector, ASSERT_NO_EXCEPTION);
+    RefPtr<Element> snapshotLabel = shadow->querySelector(selector.get(), ASSERT_NO_EXCEPTION);
     return node && snapshotLabel && (node == snapshotLabel.get() || node->isDescendantOf(snapshotLabel.get()));
 }
 

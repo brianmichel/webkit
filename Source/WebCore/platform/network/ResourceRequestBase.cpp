@@ -61,7 +61,7 @@ std::unique_ptr<ResourceRequest> ResourceRequestBase::adopt(std::unique_ptr<Cros
     request->setRequester(data->requester);
 
     request->updateResourceRequest();
-    request->m_httpHeaderFields.adopt(WTF::move(data->httpHeaders));
+    request->m_httpHeaderFields.adopt(WTFMove(data->httpHeaders));
 
     size_t encodingCount = data->responseContentDispositionEncodingFallbackArray.size();
     if (encodingCount > 0) {
@@ -76,9 +76,9 @@ std::unique_ptr<ResourceRequest> ResourceRequestBase::adopt(std::unique_ptr<Cros
         ASSERT(encodingCount <= 3);
         request->setResponseContentDispositionEncodingFallbackArray(encoding1, encoding2, encoding3);
     }
-    request->setHTTPBody(data->httpBody);
+    request->setHTTPBody(data->httpBody.copyRef());
     request->setAllowCookies(data->allowCookies);
-    request->doPlatformAdopt(WTF::move(data));
+    request->doPlatformAdopt(WTFMove(data));
     return request;
 }
 
@@ -102,7 +102,7 @@ std::unique_ptr<CrossThreadResourceRequestData> ResourceRequestBase::copyData() 
     if (m_httpBody)
         data->httpBody = m_httpBody->deepCopy();
     data->allowCookies = m_allowCookies;
-    return asResourceRequest().doPlatformCopyData(WTF::move(data));
+    return asResourceRequest().doPlatformCopyData(WTFMove(data));
 }
 
 bool ResourceRequestBase::isEmpty() const
@@ -379,6 +379,16 @@ void ResourceRequestBase::clearHTTPAccept()
         m_platformRequestUpdated = false;
 }
 
+void ResourceRequestBase::clearHTTPAcceptEncoding()
+{
+    updateResourceRequest();
+
+    m_httpHeaderFields.remove(HTTPHeaderName::AcceptEncoding);
+
+    if (url().protocolIsInHTTPFamily())
+        m_platformRequestUpdated = false;
+}
+
 void ResourceRequestBase::setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2, const String& encoding3)
 {
     updateResourceRequest(); 
@@ -403,11 +413,11 @@ FormData* ResourceRequestBase::httpBody() const
     return m_httpBody.get();
 }
 
-void ResourceRequestBase::setHTTPBody(PassRefPtr<FormData> httpBody)
+void ResourceRequestBase::setHTTPBody(RefPtr<FormData>&& httpBody)
 {
     updateResourceRequest();
 
-    m_httpBody = httpBody;
+    m_httpBody = WTFMove(httpBody);
 
     m_resourceRequestBodyUpdated = true;
 
@@ -469,7 +479,7 @@ void ResourceRequestBase::setHTTPHeaderFields(HTTPHeaderMap headerFields)
 {
     updateResourceRequest();
 
-    m_httpHeaderFields = WTF::move(headerFields);
+    m_httpHeaderFields = WTFMove(headerFields);
 
     if (url().protocolIsInHTTPFamily())
         m_platformRequestUpdated = false;

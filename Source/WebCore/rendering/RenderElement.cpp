@@ -99,17 +99,17 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, Ref<Render
     , m_renderBlockFlowLineLayoutPath(RenderBlockFlow::UndeterminedPath)
     , m_firstChild(nullptr)
     , m_lastChild(nullptr)
-    , m_style(WTF::move(style))
+    , m_style(WTFMove(style))
 {
 }
 
 RenderElement::RenderElement(Element& element, Ref<RenderStyle>&& style, BaseTypeFlags baseTypeFlags)
-    : RenderElement(static_cast<ContainerNode&>(element), WTF::move(style), baseTypeFlags)
+    : RenderElement(static_cast<ContainerNode&>(element), WTFMove(style), baseTypeFlags)
 {
 }
 
 RenderElement::RenderElement(Document& document, Ref<RenderStyle>&& style, BaseTypeFlags baseTypeFlags)
-    : RenderElement(static_cast<ContainerNode&>(document), WTF::move(style), baseTypeFlags)
+    : RenderElement(static_cast<ContainerNode&>(document), WTFMove(style), baseTypeFlags)
 {
 }
 
@@ -153,50 +153,50 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, Ref<RenderSt
     const ContentData* contentData = style.get().contentData();
     if (contentData && !contentData->next() && is<ImageContentData>(*contentData) && !element.isPseudoElement()) {
         auto& styleImage = downcast<ImageContentData>(*contentData).image();
-        auto image = createRenderer<RenderImage>(element, WTF::move(style), const_cast<StyleImage*>(&styleImage));
+        auto image = createRenderer<RenderImage>(element, WTFMove(style), const_cast<StyleImage*>(&styleImage));
         image->setIsGeneratedContent();
-        return WTF::move(image);
+        return WTFMove(image);
     }
 
     switch (style.get().display()) {
     case NONE:
         return nullptr;
     case INLINE:
-        return createRenderer<RenderInline>(element, WTF::move(style));
+        return createRenderer<RenderInline>(element, WTFMove(style));
     case BLOCK:
     case INLINE_BLOCK:
     case COMPACT:
-        return createRenderer<RenderBlockFlow>(element, WTF::move(style));
+        return createRenderer<RenderBlockFlow>(element, WTFMove(style));
     case LIST_ITEM:
-        return createRenderer<RenderListItem>(element, WTF::move(style));
+        return createRenderer<RenderListItem>(element, WTFMove(style));
     case TABLE:
     case INLINE_TABLE:
-        return createRenderer<RenderTable>(element, WTF::move(style));
+        return createRenderer<RenderTable>(element, WTFMove(style));
     case TABLE_ROW_GROUP:
     case TABLE_HEADER_GROUP:
     case TABLE_FOOTER_GROUP:
-        return createRenderer<RenderTableSection>(element, WTF::move(style));
+        return createRenderer<RenderTableSection>(element, WTFMove(style));
     case TABLE_ROW:
-        return createRenderer<RenderTableRow>(element, WTF::move(style));
+        return createRenderer<RenderTableRow>(element, WTFMove(style));
     case TABLE_COLUMN_GROUP:
     case TABLE_COLUMN:
-        return createRenderer<RenderTableCol>(element, WTF::move(style));
+        return createRenderer<RenderTableCol>(element, WTFMove(style));
     case TABLE_CELL:
-        return createRenderer<RenderTableCell>(element, WTF::move(style));
+        return createRenderer<RenderTableCell>(element, WTFMove(style));
     case TABLE_CAPTION:
-        return createRenderer<RenderTableCaption>(element, WTF::move(style));
+        return createRenderer<RenderTableCaption>(element, WTFMove(style));
     case BOX:
     case INLINE_BOX:
-        return createRenderer<RenderDeprecatedFlexibleBox>(element, WTF::move(style));
+        return createRenderer<RenderDeprecatedFlexibleBox>(element, WTFMove(style));
     case FLEX:
     case INLINE_FLEX:
     case WEBKIT_FLEX:
     case WEBKIT_INLINE_FLEX:
-        return createRenderer<RenderFlexibleBox>(element, WTF::move(style));
+        return createRenderer<RenderFlexibleBox>(element, WTFMove(style));
 #if ENABLE(CSS_GRID_LAYOUT)
     case GRID:
     case INLINE_GRID:
-        return createRenderer<RenderGrid>(element, WTF::move(style));
+        return createRenderer<RenderGrid>(element, WTFMove(style));
 #endif
     }
     ASSERT_NOT_REACHED();
@@ -440,7 +440,7 @@ void RenderElement::setStyle(Ref<RenderStyle>&& style, StyleDifference minimalSt
 
     styleWillChange(diff, style.get());
 
-    Ref<RenderStyle> oldStyle(m_style.replace(WTF::move(style)));
+    Ref<RenderStyle> oldStyle(m_style.replace(WTFMove(style)));
 
     updateFillImages(oldStyle.get().backgroundLayers(), m_style->backgroundLayers());
     updateFillImages(oldStyle.get().maskLayers(), m_style->maskLayers());
@@ -820,7 +820,7 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
         if (elementChild.isInFlowPositioned() && downcast<RenderBlock>(elementChild).isAnonymousBlockContinuation())
             newStyle.get().setPosition(elementChild.style().position());
 
-        elementChild.setStyle(WTF::move(newStyle));
+        elementChild.setStyle(WTFMove(newStyle));
     }
 }
 
@@ -996,8 +996,13 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     if (s_affectsParentBlock)
         handleDynamicFloatPositionChange();
 
-    if (s_noLongerAffectsParentBlock)
+    if (s_noLongerAffectsParentBlock) {
         removeAnonymousWrappersForInlinesIfNecessary();
+        // Fresh floats need to be reparented if they actually belong to the previous anonymous block.
+        // It copies the logic of RenderBlock::addChildIgnoringContinuation
+        if (style().isFloating() && previousSibling() && previousSibling()->isAnonymousBlock())
+            downcast<RenderBoxModelObject>(*parent()).moveChildTo(&downcast<RenderBoxModelObject>(*previousSibling()), this);
+    }
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -1512,7 +1517,13 @@ bool RenderElement::repaintForPausedImageAnimationsIfNeeded(const IntRect& visib
     ASSERT(m_hasPausedImageAnimations);
     if (!shouldRepaintForImageAnimation(*this, visibleRect))
         return false;
+
     repaint();
+
+    // For directly-composited animated GIFs it does not suffice to call repaint() to resume animation. We need to mark the image as changed.
+    if (is<RenderBoxModelObject>(*this))
+        downcast<RenderBoxModelObject>(*this).contentChanged(ImageChanged);
+
     return true;
 }
 
@@ -1579,12 +1590,12 @@ PassRefPtr<RenderStyle> RenderElement::getUncachedPseudoStyle(const PseudoStyleR
     auto& styleResolver = element()->styleResolver();
 
     if (pseudoStyleRequest.pseudoId == FIRST_LINE_INHERITED) {
-        RefPtr<RenderStyle> result = styleResolver.styleForElement(element(), parentStyle, DisallowStyleSharing);
+        RefPtr<RenderStyle> result = styleResolver.styleForElement(*element(), parentStyle, DisallowStyleSharing);
         result->setStyleType(FIRST_LINE_INHERITED);
         return result.release();
     }
 
-    return styleResolver.pseudoStyleForElement(element(), pseudoStyleRequest, parentStyle);
+    return styleResolver.pseudoStyleForElement(*element(), pseudoStyleRequest, *parentStyle);
 }
 
 RenderBlock* RenderElement::containingBlockForFixedPosition() const
@@ -2026,8 +2037,6 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
         ASSERT(x2 >= x1);
         ASSERT(y2 >= y1);
         if (!adjacentWidth1 && !adjacentWidth2) {
-            // Turn off antialiasing to match the behavior of drawConvexPolygon();
-            // this matters for rects in transformed contexts.
             graphicsContext.setStrokeStyle(NoStroke);
             graphicsContext.setFillColor(color);
             bool wasAntialiased = graphicsContext.shouldAntialias();
@@ -2044,37 +2053,42 @@ void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const F
         x2 = roundToDevicePixel(x2, deviceScaleFactor);
         y2 = roundToDevicePixel(y2, deviceScaleFactor);
 
-        FloatPoint quad[4];
+        Vector<FloatPoint> quad;
+        quad.reserveInitialCapacity(4);
         switch (side) {
         case BSTop:
-            quad[0] = FloatPoint(x1 + std::max<float>(-adjacentWidth1, 0), y1);
-            quad[1] = FloatPoint(x1 + std::max<float>(adjacentWidth1, 0), y2);
-            quad[2] = FloatPoint(x2 - std::max<float>(adjacentWidth2, 0), y2);
-            quad[3] = FloatPoint(x2 - std::max<float>(-adjacentWidth2, 0), y1);
+            quad.uncheckedAppend({ x1 + std::max<float>(-adjacentWidth1, 0), y1 });
+            quad.uncheckedAppend({ x1 + std::max<float>( adjacentWidth1, 0), y2 });
+            quad.uncheckedAppend({ x2 - std::max<float>( adjacentWidth2, 0), y2 });
+            quad.uncheckedAppend({ x2 - std::max<float>(-adjacentWidth2, 0), y1 });
             break;
         case BSBottom:
-            quad[0] = FloatPoint(x1 + std::max<float>(adjacentWidth1, 0), y1);
-            quad[1] = FloatPoint(x1 + std::max<float>(-adjacentWidth1, 0), y2);
-            quad[2] = FloatPoint(x2 - std::max<float>(-adjacentWidth2, 0), y2);
-            quad[3] = FloatPoint(x2 - std::max<float>(adjacentWidth2, 0), y1);
+            quad.uncheckedAppend({ x1 + std::max<float>( adjacentWidth1, 0), y1 });
+            quad.uncheckedAppend({ x1 + std::max<float>(-adjacentWidth1, 0), y2 });
+            quad.uncheckedAppend({ x2 - std::max<float>(-adjacentWidth2, 0), y2 });
+            quad.uncheckedAppend({ x2 - std::max<float>( adjacentWidth2, 0), y1 });
             break;
         case BSLeft:
-            quad[0] = FloatPoint(x1, y1 + std::max<float>(-adjacentWidth1, 0));
-            quad[1] = FloatPoint(x1, y2 - std::max<float>(-adjacentWidth2, 0));
-            quad[2] = FloatPoint(x2, y2 - std::max<float>(adjacentWidth2, 0));
-            quad[3] = FloatPoint(x2, y1 + std::max<float>(adjacentWidth1, 0));
+            quad.uncheckedAppend({ x1, y1 + std::max<float>(-adjacentWidth1, 0) });
+            quad.uncheckedAppend({ x1, y2 - std::max<float>(-adjacentWidth2, 0) });
+            quad.uncheckedAppend({ x2, y2 - std::max<float>( adjacentWidth2, 0) });
+            quad.uncheckedAppend({ x2, y1 + std::max<float>( adjacentWidth1, 0) });
             break;
         case BSRight:
-            quad[0] = FloatPoint(x1, y1 + std::max<float>(adjacentWidth1, 0));
-            quad[1] = FloatPoint(x1, y2 - std::max<float>(adjacentWidth2, 0));
-            quad[2] = FloatPoint(x2, y2 - std::max<float>(-adjacentWidth2, 0));
-            quad[3] = FloatPoint(x2, y1 + std::max<float>(-adjacentWidth1, 0));
+            quad.uncheckedAppend({ x1, y1 + std::max<float>( adjacentWidth1, 0) });
+            quad.uncheckedAppend({ x1, y2 - std::max<float>( adjacentWidth2, 0) });
+            quad.uncheckedAppend({ x2, y2 - std::max<float>(-adjacentWidth2, 0) });
+            quad.uncheckedAppend({ x2, y1 + std::max<float>(-adjacentWidth1, 0) });
             break;
         }
 
         graphicsContext.setStrokeStyle(NoStroke);
         graphicsContext.setFillColor(color);
-        graphicsContext.drawConvexPolygon(4, quad, antialias);
+        bool wasAntialiased = graphicsContext.shouldAntialias();
+        graphicsContext.setShouldAntialias(antialias);
+        graphicsContext.fillPath(Path::polygonPathFromPoints(quad));
+        graphicsContext.setShouldAntialias(wasAntialiased);
+
         graphicsContext.setStrokeStyle(oldStrokeStyle);
         break;
     }

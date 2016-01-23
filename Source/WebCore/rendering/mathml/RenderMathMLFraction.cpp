@@ -44,7 +44,7 @@ static const float gLineThick = 3.f;
 static const float gFractionBarWidth = 0.05f;
 
 RenderMathMLFraction::RenderMathMLFraction(MathMLInlineContainerElement& element, Ref<RenderStyle>&& style)
-    : RenderMathMLBlock(element, WTF::move(style))
+    : RenderMathMLBlock(element, WTFMove(style))
     , m_lineThickness(gLineMedium)
 {
 }
@@ -70,11 +70,11 @@ void RenderMathMLFraction::updateFromElement()
 
     String thickness = element().getAttribute(MathMLNames::linethicknessAttr);
     m_lineThickness = gLineMedium;
-    if (equalIgnoringCase(thickness, "thin"))
+    if (equalLettersIgnoringASCIICase(thickness, "thin"))
         m_lineThickness = gLineThin;
-    else if (equalIgnoringCase(thickness, "medium"))
+    else if (equalLettersIgnoringASCIICase(thickness, "medium"))
         m_lineThickness = gLineMedium;
-    else if (equalIgnoringCase(thickness, "thick"))
+    else if (equalLettersIgnoringASCIICase(thickness, "thick"))
         m_lineThickness = gLineThick;
     else {
         // This function parses the thickness attribute using gLineMedium as

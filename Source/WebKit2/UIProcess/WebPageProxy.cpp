@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2015-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Intel Corporation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -239,12 +239,12 @@ std::unique_ptr<ExceededDatabaseQuotaRecords::Record> ExceededDatabaseQuotaRecor
     record->currentDatabaseUsage = currentDatabaseUsage;
     record->expectedUsage = expectedUsage;
     record->reply = reply;
-    return WTF::move(record);
+    return record;
 }
 
 void ExceededDatabaseQuotaRecords::add(std::unique_ptr<ExceededDatabaseQuotaRecords::Record> record)
 {
-    m_records.append(WTF::move(record));
+    m_records.append(WTFMove(record));
 }
 
 ExceededDatabaseQuotaRecords::Record* ExceededDatabaseQuotaRecords::next()
@@ -298,12 +298,12 @@ private:
 
 Ref<WebPageProxy> WebPageProxy::create(PageClient& pageClient, WebProcessProxy& process, uint64_t pageID, Ref<API::PageConfiguration>&& configuration)
 {
-    return adoptRef(*new WebPageProxy(pageClient, process, pageID, WTF::move(configuration)));
+    return adoptRef(*new WebPageProxy(pageClient, process, pageID, WTFMove(configuration)));
 }
 
 WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uint64_t pageID, Ref<API::PageConfiguration>&& configuration)
     : m_pageClient(pageClient)
-    , m_configuration(WTF::move(configuration))
+    , m_configuration(WTFMove(configuration))
     , m_loaderClient(std::make_unique<API::LoaderClient>())
     , m_policyClient(std::make_unique<API::PolicyClient>())
     , m_formClient(std::make_unique<API::FormClient>())
@@ -443,12 +443,6 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
     m_webProcessLifetimeTracker.addObserver(m_visitedLinkStore);
     m_webProcessLifetimeTracker.addObserver(m_websiteDataStore);
 
-    if (m_process->state() == WebProcessProxy::State::Running) {
-        if (m_userContentController)
-            m_process->addWebUserContentControllerProxy(*m_userContentController);
-        m_process->addVisitedLinkStore(m_visitedLinkStore);
-    }
-
     updateViewState();
     updateActivityToken();
     updateProccessSuppressionState();
@@ -552,12 +546,12 @@ void WebPageProxy::setPreferences(WebPreferences& preferences)
     
 void WebPageProxy::setHistoryClient(std::unique_ptr<API::HistoryClient> historyClient)
 {
-    m_historyClient = WTF::move(historyClient);
+    m_historyClient = WTFMove(historyClient);
 }
 
 void WebPageProxy::setNavigationClient(std::unique_ptr<API::NavigationClient> navigationClient)
 {
-    m_navigationClient = WTF::move(navigationClient);
+    m_navigationClient = WTFMove(navigationClient);
 }
 
 void WebPageProxy::setLoaderClient(std::unique_ptr<API::LoaderClient> loaderClient)
@@ -567,7 +561,7 @@ void WebPageProxy::setLoaderClient(std::unique_ptr<API::LoaderClient> loaderClie
         return;
     }
 
-    m_loaderClient = WTF::move(loaderClient);
+    m_loaderClient = WTFMove(loaderClient);
 }
 
 void WebPageProxy::setPolicyClient(std::unique_ptr<API::PolicyClient> policyClient)
@@ -577,7 +571,7 @@ void WebPageProxy::setPolicyClient(std::unique_ptr<API::PolicyClient> policyClie
         return;
     }
 
-    m_policyClient = WTF::move(policyClient);
+    m_policyClient = WTFMove(policyClient);
 }
 
 void WebPageProxy::setFormClient(std::unique_ptr<API::FormClient> formClient)
@@ -587,7 +581,7 @@ void WebPageProxy::setFormClient(std::unique_ptr<API::FormClient> formClient)
         return;
     }
 
-    m_formClient = WTF::move(formClient);
+    m_formClient = WTFMove(formClient);
 }
 
 void WebPageProxy::setUIClient(std::unique_ptr<API::UIClient> uiClient)
@@ -597,7 +591,7 @@ void WebPageProxy::setUIClient(std::unique_ptr<API::UIClient> uiClient)
         return;
     }
 
-    m_uiClient = WTF::move(uiClient);
+    m_uiClient = WTFMove(uiClient);
 
     if (!isValid())
         return;
@@ -613,7 +607,7 @@ void WebPageProxy::setFindClient(std::unique_ptr<API::FindClient> findClient)
         return;
     }
     
-    m_findClient = WTF::move(findClient);
+    m_findClient = WTFMove(findClient);
 }
 
 void WebPageProxy::setFindMatchesClient(std::unique_ptr<API::FindMatchesClient> findMatchesClient)
@@ -623,7 +617,7 @@ void WebPageProxy::setFindMatchesClient(std::unique_ptr<API::FindMatchesClient> 
         return;
     }
 
-    m_findMatchesClient = WTF::move(findMatchesClient);
+    m_findMatchesClient = WTFMove(findMatchesClient);
 }
 
 void WebPageProxy::setDiagnosticLoggingClient(std::unique_ptr<API::DiagnosticLoggingClient> diagnosticLoggingClient)
@@ -633,7 +627,7 @@ void WebPageProxy::setDiagnosticLoggingClient(std::unique_ptr<API::DiagnosticLog
         return;
     }
 
-    m_diagnosticLoggingClient = WTF::move(diagnosticLoggingClient);
+    m_diagnosticLoggingClient = WTFMove(diagnosticLoggingClient);
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -644,7 +638,7 @@ void WebPageProxy::setContextMenuClient(std::unique_ptr<API::ContextMenuClient> 
         return;
     }
 
-    m_contextMenuClient = WTF::move(contextMenuClient);
+    m_contextMenuClient = WTFMove(contextMenuClient);
 }
 #endif
 
@@ -730,7 +724,7 @@ RefPtr<API::Navigation> WebPageProxy::reattachToWebProcessForReload()
     m_process->send(Messages::WebPage::GoToBackForwardItem(navigation->navigationID(), m_backForwardList->currentItem()->itemID()), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 RefPtr<API::Navigation> WebPageProxy::reattachToWebProcessWithItem(WebBackForwardListItem* item)
@@ -738,21 +732,21 @@ RefPtr<API::Navigation> WebPageProxy::reattachToWebProcessWithItem(WebBackForwar
     if (m_isClosed)
         return nullptr;
 
-    if (item && item != m_backForwardList->currentItem())
-        m_backForwardList->goToItem(item);
-
     ASSERT(!isValid());
     reattachToWebProcess();
 
     if (!item)
         return nullptr;
 
+    if (item != m_backForwardList->currentItem())
+        m_backForwardList->goToItem(item);
+
     auto navigation = m_navigationState->createBackForwardNavigation();
 
     m_process->send(Messages::WebPage::GoToBackForwardItem(navigation->navigationID(), item->itemID()), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 void WebPageProxy::setSessionID(SessionID sessionID)
@@ -798,6 +792,23 @@ void WebPageProxy::initializeWebPage()
 #if PLATFORM(COCOA)
     send(Messages::WebPage::SetSmartInsertDeleteEnabled(m_isSmartInsertDeleteEnabled));
 #endif
+
+    m_needsToFinishInitializingWebPageAfterProcessLaunch = true;
+    finishInitializingWebPageAfterProcessLaunch();
+}
+
+void WebPageProxy::finishInitializingWebPageAfterProcessLaunch()
+{
+    if (!m_needsToFinishInitializingWebPageAfterProcessLaunch)
+        return;
+    if (m_process->state() != WebProcessProxy::State::Running)
+        return;
+
+    m_needsToFinishInitializingWebPageAfterProcessLaunch = false;
+
+    if (m_userContentController)
+        m_process->addWebUserContentControllerProxy(*m_userContentController);
+    m_process->addVisitedLinkStore(m_visitedLinkStore);
 }
 
 void WebPageProxy::close()
@@ -894,7 +905,7 @@ RefPtr<API::Navigation> WebPageProxy::loadRequest(const ResourceRequest& request
     m_process->send(Messages::WebPage::LoadRequest(navigation->navigationID(), request, sandboxExtensionHandle, (uint64_t)shouldOpenExternalURLsPolicy, UserData(process().transformObjectsToHandles(userData).get())), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, const String& resourceDirectoryURLString, API::Object* userData)
@@ -932,7 +943,7 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
     m_process->send(Messages::WebPage::LoadRequest(navigation->navigationID(), fileURL, sandboxExtensionHandle, (uint64_t)ShouldOpenExternalURLsPolicy::ShouldNotAllow, UserData(process().transformObjectsToHandles(userData).get())), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 RefPtr<API::Navigation> WebPageProxy::loadData(API::Data* data, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData)
@@ -953,7 +964,7 @@ RefPtr<API::Navigation> WebPageProxy::loadData(API::Data* data, const String& MI
     m_process->send(Messages::WebPage::LoadData(navigation->navigationID(), data->dataReference(), MIMEType, encoding, baseURL, UserData(process().transformObjectsToHandles(userData).get())), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 // FIXME: Get rid of loadHTMLString and just use loadData instead.
@@ -975,7 +986,7 @@ RefPtr<API::Navigation> WebPageProxy::loadHTMLString(const String& htmlString, c
     m_process->send(Messages::WebPage::LoadHTMLString(navigation->navigationID(), htmlString, baseURL, UserData(process().transformObjectsToHandles(userData).get())), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 void WebPageProxy::loadAlternateHTMLString(const String& htmlString, const String& baseURL, const String& unreachableURL, API::Object* userData)
@@ -1070,7 +1081,7 @@ RefPtr<API::Navigation> WebPageProxy::reload(bool reloadFromOrigin, bool content
     m_process->send(Messages::WebPage::Reload(navigation->navigationID(), reloadFromOrigin, contentBlockersEnabled, sandboxExtensionHandle), m_pageID);
     m_process->responsivenessTimer().start();
 
-    return WTF::move(navigation);
+    return WTFMove(navigation);
 }
 
 void WebPageProxy::recordNavigationSnapshot()
@@ -1168,7 +1179,7 @@ void WebPageProxy::didChangeBackForwardList(WebBackForwardListItem* added, Vecto
 {
     PageClientProtector protector(m_pageClient);
 
-    m_loaderClient->didChangeBackForwardList(*this, added, WTF::move(removed));
+    m_loaderClient->didChangeBackForwardList(*this, added, WTFMove(removed));
 
     auto transaction = m_pageLoadState.transaction();
 
@@ -1339,8 +1350,10 @@ void WebPageProxy::updateViewState(ViewState::Flags flagsToUpdate)
         m_viewState |= ViewState::IsVisible;
     if (flagsToUpdate & ViewState::IsVisibleOrOccluded && m_pageClient.isViewVisibleOrOccluded())
         m_viewState |= ViewState::IsVisibleOrOccluded;
-    if (flagsToUpdate & ViewState::IsInWindow && m_pageClient.isViewInWindow())
+    if (flagsToUpdate & ViewState::IsInWindow && m_pageClient.isViewInWindow()) {
         m_viewState |= ViewState::IsInWindow;
+        m_viewWasEverInWindow = true;
+    }
     if (flagsToUpdate & ViewState::IsVisuallyIdle && m_pageClient.isVisuallyIdle())
         m_viewState |= ViewState::IsVisuallyIdle;
 }
@@ -1408,9 +1421,8 @@ void WebPageProxy::dispatchViewStateChange()
     updateViewState(m_potentiallyChangedViewStateFlags);
     ViewState::Flags changed = m_viewState ^ previousViewState;
 
-    bool isNowInWindow = (changed & ViewState::IsInWindow) && isInWindow();
     // We always want to wait for the Web process to reply if we've been in-window before and are coming back in-window.
-    if (m_viewWasEverInWindow && isNowInWindow && m_drawingArea->hasVisibleContent())
+    if (m_viewWasEverInWindow && (changed & ViewState::IsInWindow) && isInWindow() && m_drawingArea->hasVisibleContent())
         m_viewStateChangeWantsSynchronousReply = true;
 
     // Don't wait synchronously if the view state is not visible. (This matters in particular on iOS, where a hidden page may be suspended.)
@@ -1445,7 +1457,6 @@ void WebPageProxy::dispatchViewStateChange()
 
     m_potentiallyChangedViewStateFlags = ViewState::NoFlags;
     m_viewStateChangeWantsSynchronousReply = false;
-    m_viewWasEverInWindow |= isNowInWindow;
 }
 
 void WebPageProxy::updateActivityToken()
@@ -1522,7 +1533,7 @@ void WebPageProxy::setInitialFocus(bool forward, bool isKeyboardEventValid, cons
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::SetInitialFocus(forward, isKeyboardEventValid, keyboardEvent, callbackID), m_pageID);
 }
 
@@ -1547,7 +1558,7 @@ void WebPageProxy::validateCommand(const String& commandName, std::function<void
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::ValidateCommand(commandName, callbackID), m_pageID);
 }
 
@@ -1667,6 +1678,9 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
     if (!isValid())
         return;
 
+    if (m_pageClient.windowIsFrontWindowUnderMouse(event))
+        setToolTip(String());
+
     // NOTE: This does not start the responsiveness timer because mouse move should not indicate interaction.
     if (event.type() != WebEvent::MouseMove)
         m_process->responsivenessTimer().start();
@@ -1777,7 +1791,7 @@ void WebPageProxy::handleWheelEvent(const NativeWebWheelEvent& event)
 
     auto coalescedWheelEvent = std::make_unique<Vector<NativeWebWheelEvent>>();
     coalescedWheelEvent->append(event);
-    m_currentlyProcessedWheelEvents.append(WTF::move(coalescedWheelEvent));
+    m_currentlyProcessedWheelEvents.append(WTFMove(coalescedWheelEvent));
     sendWheelEvent(event);
 }
 
@@ -1785,7 +1799,7 @@ void WebPageProxy::processNextQueuedWheelEvent()
 {
     auto nextCoalescedEvent = std::make_unique<Vector<NativeWebWheelEvent>>();
     WebWheelEvent nextWheelEvent = coalescedWheelEvent(m_wheelEventQueue, *nextCoalescedEvent.get());
-    m_currentlyProcessedWheelEvents.append(WTF::move(nextCoalescedEvent));
+    m_currentlyProcessedWheelEvents.append(WTFMove(nextCoalescedEvent));
     sendWheelEvent(nextWheelEvent);
 }
 
@@ -1801,7 +1815,9 @@ void WebPageProxy::sendWheelEvent(const WebWheelEvent& event)
             rubberBandsAtBottom()
         ), 0);
 
-    m_process->sendMainThreadPing();
+    // Manually ping the web process to check for responsiveness since our wheel
+    // event will dispatch to a non-main thread, which always responds.
+    m_process->isResponsive(nullptr);
 }
 
 void WebPageProxy::handleKeyboardEvent(const NativeWebKeyboardEvent& event)
@@ -2162,7 +2178,7 @@ RefPtr<API::Navigation> WebPageProxy::restoreFromSessionState(SessionState sessi
     bool hasBackForwardList = !!sessionState.backForwardListState.currentIndex;
 
     if (hasBackForwardList) {
-        m_backForwardList->restoreFromState(WTF::move(sessionState.backForwardListState));
+        m_backForwardList->restoreFromState(WTFMove(sessionState.backForwardListState));
 
         for (const auto& entry : m_backForwardList->entries())
             process().registerNewWebBackForwardListItem(entry.get());
@@ -2587,7 +2603,7 @@ void WebPageProxy::runJavaScriptInMainFrame(const String& script, std::function<
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::RunJavaScriptInMainFrame(script, callbackID), m_pageID);
 }
 
@@ -2598,7 +2614,7 @@ void WebPageProxy::getRenderTreeExternalRepresentation(std::function<void (const
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetRenderTreeExternalRepresentation(callbackID), m_pageID);
 }
 
@@ -2609,7 +2625,7 @@ void WebPageProxy::getSourceForFrame(WebFrameProxy* frame, std::function<void (c
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_loadDependentStringCallbackIDs.add(callbackID);
     m_process->send(Messages::WebPage::GetSourceForFrame(frame->frameID(), callbackID), m_pageID);
 }
@@ -2621,7 +2637,7 @@ void WebPageProxy::getContentsAsString(std::function<void (const String&, Callba
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_loadDependentStringCallbackIDs.add(callbackID);
     m_process->send(Messages::WebPage::GetContentsAsString(callbackID), m_pageID);
 }
@@ -2633,11 +2649,24 @@ void WebPageProxy::getBytecodeProfile(std::function<void (const String&, Callbac
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_loadDependentStringCallbackIDs.add(callbackID);
     m_process->send(Messages::WebPage::GetBytecodeProfile(callbackID), m_pageID);
 }
-    
+
+void WebPageProxy::isWebProcessResponsive(std::function<void (bool isWebProcessResponsive)> callbackFunction)
+{
+    if (!isValid()) {
+        RunLoop::main().dispatch([callbackFunction] {
+            bool isWebProcessResponsive = true;
+            callbackFunction(isWebProcessResponsive);
+        });
+        return;
+    }
+
+    m_process->isResponsive(callbackFunction);
+}
+
 #if ENABLE(MHTML)
 void WebPageProxy::getContentsAsMHTMLData(std::function<void (API::Data*, CallbackBase::Error)> callbackFunction)
 {
@@ -2646,7 +2675,7 @@ void WebPageProxy::getContentsAsMHTMLData(std::function<void (API::Data*, Callba
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetContentsAsMHTMLData(callbackID), m_pageID);
 }
 #endif
@@ -2658,7 +2687,7 @@ void WebPageProxy::getSelectionOrContentsAsString(std::function<void (const Stri
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetSelectionOrContentsAsString(callbackID), m_pageID);
 }
 
@@ -2669,7 +2698,7 @@ void WebPageProxy::getSelectionAsWebArchiveData(std::function<void (API::Data*, 
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetSelectionAsWebArchiveData(callbackID), m_pageID);
 }
 
@@ -2680,7 +2709,7 @@ void WebPageProxy::getMainResourceDataOfFrame(WebFrameProxy* frame, std::functio
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetMainResourceDataOfFrame(frame->frameID(), callbackID), m_pageID);
 }
 
@@ -2691,7 +2720,7 @@ void WebPageProxy::getResourceDataFromFrame(WebFrameProxy* frame, API::URL* reso
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetResourceDataFromFrame(frame->frameID(), resourceURL->string(), callbackID), m_pageID);
 }
 
@@ -2702,7 +2731,7 @@ void WebPageProxy::getWebArchiveOfFrame(WebFrameProxy* frame, std::function<void
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::GetWebArchiveOfFrame(frame->frameID(), callbackID), m_pageID);
 }
 
@@ -3270,7 +3299,7 @@ void WebPageProxy::decidePolicyForNavigationAction(uint64_t frameID, const Secur
     if (!navigationID && frame->isMainFrame()) {
         auto navigation = m_navigationState->createLoadRequestNavigation(request);
         newNavigationID = navigation->navigationID();
-        listener->setNavigation(WTF::move(navigation));
+        listener->setNavigation(WTFMove(navigation));
     }
 
 #if ENABLE(CONTENT_FILTERING)
@@ -3302,9 +3331,9 @@ void WebPageProxy::decidePolicyForNavigationAction(uint64_t frameID, const Secur
 
         auto navigationAction = API::NavigationAction::create(navigationActionData, sourceFrameInfo.get(), destinationFrameInfo.get(), request, originalRequest.url(), shouldOpenAppLinks);
 
-        m_navigationClient->decidePolicyForNavigationAction(*this, navigationAction.get(), WTF::move(listener), m_process->transformHandlesToObjects(userData.object()).get());
+        m_navigationClient->decidePolicyForNavigationAction(*this, navigationAction.get(), WTFMove(listener), m_process->transformHandlesToObjects(userData.object()).get());
     } else
-        m_policyClient->decidePolicyForNavigationAction(*this, frame, navigationActionData, originatingFrame, originalRequest, request, WTF::move(listener), m_process->transformHandlesToObjects(userData.object()).get());
+        m_policyClient->decidePolicyForNavigationAction(*this, frame, navigationActionData, originatingFrame, originalRequest, request, WTFMove(listener), m_process->transformHandlesToObjects(userData.object()).get());
 
     m_shouldSuppressAppLinksInNextNavigationPolicyDecision = false;
     m_inDecidePolicyForNavigationAction = false;
@@ -3335,10 +3364,10 @@ void WebPageProxy::decidePolicyForNewWindowAction(uint64_t frameID, const Securi
         bool shouldOpenAppLinks = !hostsAreEqual(URL(ParsedURLString, m_mainFrame->url()), request.url());
         auto navigationAction = API::NavigationAction::create(navigationActionData, sourceFrameInfo.get(), nullptr, request, request.url(), shouldOpenAppLinks);
 
-        m_navigationClient->decidePolicyForNavigationAction(*this, navigationAction.get(), WTF::move(listener), m_process->transformHandlesToObjects(userData.object()).get());
+        m_navigationClient->decidePolicyForNavigationAction(*this, navigationAction.get(), WTFMove(listener), m_process->transformHandlesToObjects(userData.object()).get());
 
     } else
-        m_policyClient->decidePolicyForNewWindowAction(*this, *frame, navigationActionData, request, frameName, WTF::move(listener), m_process->transformHandlesToObjects(userData.object()).get());
+        m_policyClient->decidePolicyForNewWindowAction(*this, *frame, navigationActionData, request, frameName, WTFMove(listener), m_process->transformHandlesToObjects(userData.object()).get());
 }
 
 void WebPageProxy::decidePolicyForResponse(uint64_t frameID, const SecurityOriginData& frameSecurityOrigin, const ResourceResponse& response, const ResourceRequest& request, bool canShowMIMEType, uint64_t listenerID, const UserData& userData)
@@ -3354,9 +3383,9 @@ void WebPageProxy::decidePolicyForResponse(uint64_t frameID, const SecurityOrigi
 
     if (m_navigationClient) {
         auto navigationResponse = API::NavigationResponse::create(API::FrameInfo::create(*frame, frameSecurityOrigin.securityOrigin()).get(), request, response, canShowMIMEType);
-        m_navigationClient->decidePolicyForNavigationResponse(*this, navigationResponse.get(), WTF::move(listener), m_process->transformHandlesToObjects(userData.object()).get());
+        m_navigationClient->decidePolicyForNavigationResponse(*this, navigationResponse.get(), WTFMove(listener), m_process->transformHandlesToObjects(userData.object()).get());
     } else
-        m_policyClient->decidePolicyForResponse(*this, *frame, response, request, canShowMIMEType, WTF::move(listener), m_process->transformHandlesToObjects(userData.object()).get());
+        m_policyClient->decidePolicyForResponse(*this, *frame, response, request, canShowMIMEType, WTFMove(listener), m_process->transformHandlesToObjects(userData.object()).get());
 }
 
 void WebPageProxy::decidePolicyForResponseSync(uint64_t frameID, const SecurityOriginData& frameSecurityOrigin, const ResourceResponse& response, const ResourceRequest& request, bool canShowMIMEType, uint64_t listenerID, const UserData& userData, bool& receivedPolicyAction, uint64_t& policyAction, DownloadID& downloadID)
@@ -3597,10 +3626,7 @@ void WebPageProxy::webProcessWillShutDown()
 void WebPageProxy::processDidFinishLaunching()
 {
     ASSERT(m_process->state() == WebProcessProxy::State::Running);
-
-    if (m_userContentController)
-        m_process->addWebUserContentControllerProxy(*m_userContentController);
-    m_process->addVisitedLinkStore(m_visitedLinkStore);
+    finishInitializingWebPageAfterProcessLaunch();
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -4088,7 +4114,7 @@ void WebPageProxy::didFailToFindString(const String& string)
 
 bool WebPageProxy::sendMessage(std::unique_ptr<IPC::MessageEncoder> encoder, unsigned messageSendFlags)
 {
-    return m_process->sendMessage(WTF::move(encoder), messageSendFlags);
+    return m_process->sendMessage(WTFMove(encoder), messageSendFlags);
 }
 
 IPC::Connection* WebPageProxy::messageSenderConnection()
@@ -4688,11 +4714,16 @@ void WebPageProxy::scriptValueCallback(const IPC::DataReference& dataReference, 
         return;
     }
 
+    if (dataReference.isEmpty()) {
+        callback->performCallbackWithReturnValue(nullptr, hadException, details);
+        return;
+    }
+
     Vector<uint8_t> data;
     data.reserveInitialCapacity(dataReference.size());
     data.append(dataReference.data(), dataReference.size());
 
-    callback->performCallbackWithReturnValue(data.size() ? API::SerializedScriptValue::adopt(data).ptr() : nullptr, hadException, details);
+    callback->performCallbackWithReturnValue(API::SerializedScriptValue::adopt(WTFMove(data)).ptr(), hadException, details);
 }
 
 void WebPageProxy::computedPagesCallback(const Vector<IntRect>& pageRects, double totalScaleFactorForPrinting, uint64_t callbackID)
@@ -5041,6 +5072,8 @@ void WebPageProxy::resetStateAfterProcessExited()
     m_isValid = false;
     m_isPageSuspended = false;
 
+    m_needsToFinishInitializingWebPageAfterProcessLaunch = false;
+
     m_editorState = EditorState();
 
     m_pageClient.processDidExit();
@@ -5204,7 +5237,7 @@ void WebPageProxy::exceededDatabaseQuota(uint64_t frameID, const String& originI
     std::unique_ptr<ExceededDatabaseQuotaRecords::Record> newRecord = records.createRecord(frameID,
         originIdentifier, databaseName, displayName, currentQuota, currentOriginUsage,
         currentDatabaseUsage, expectedUsage, reply);
-    records.add(WTF::move(newRecord));
+    records.add(WTFMove(newRecord));
 
     if (records.areBeingProcessed())
         return;
@@ -5762,7 +5795,7 @@ void WebPageProxy::getMarkedRangeAsync(std::function<void (EditingRange, Callbac
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     process().send(Messages::WebPage::GetMarkedRangeAsync(callbackID), m_pageID);
 }
 
@@ -5773,7 +5806,7 @@ void WebPageProxy::getSelectedRangeAsync(std::function<void (EditingRange, Callb
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     process().send(Messages::WebPage::GetSelectedRangeAsync(callbackID), m_pageID);
 }
 
@@ -5784,7 +5817,7 @@ void WebPageProxy::characterIndexForPointAsync(const WebCore::IntPoint& point, s
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     process().send(Messages::WebPage::CharacterIndexForPointAsync(point, callbackID), m_pageID);
 }
 
@@ -5795,7 +5828,7 @@ void WebPageProxy::firstRectForCharacterRangeAsync(const EditingRange& range, st
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     process().send(Messages::WebPage::FirstRectForCharacterRangeAsync(range, callbackID), m_pageID);
 }
 
@@ -5839,7 +5872,7 @@ void WebPageProxy::takeSnapshot(IntRect rect, IntSize bitmapSize, SnapshotOption
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTF::move(callbackFunction), m_process->throttler().backgroundActivityToken());
+    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     m_process->send(Messages::WebPage::TakeSnapshot(rect, bitmapSize, options, callbackID), m_pageID);
 }
 
@@ -5994,6 +6027,11 @@ void WebPageProxy::installViewStateChangeCompletionHandler(void (^completionHand
     }, m_process->throttler().backgroundActivityToken());
     uint64_t callbackID = m_callbacks.put(voidCallback.release());
     m_nextViewStateChangeCallbacks.append(callbackID);
+}
+
+void WebPageProxy::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandidate)
+{
+    m_process->send(Messages::WebPage::HandleAcceptedCandidate(acceptedCandidate), m_pageID);
 }
 #endif
 

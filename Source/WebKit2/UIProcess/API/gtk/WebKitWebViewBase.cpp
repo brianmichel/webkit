@@ -793,11 +793,11 @@ static gboolean webkitWebViewBaseMotionNotifyEvent(GtkWidget* widget, GdkEventMo
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
 
     if (priv->authenticationDialog)
-        return TRUE;
+        return GTK_WIDGET_CLASS(webkit_web_view_base_parent_class)->motion_notify_event(widget, event);
 
     priv->pageProxy->handleMouseEvent(NativeWebMouseEvent(reinterpret_cast<GdkEvent*>(event), 0 /* currentClickCount */));
 
-    return TRUE;
+    return FALSE;
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -868,7 +868,7 @@ static gboolean webkitWebViewBaseTouchEvent(GtkWidget* widget, GdkEventTouch* ev
     case GDK_TOUCH_BEGIN: {
         ASSERT(!priv->touchEvents.contains(sequence));
         GUniquePtr<GdkEvent> event(gdk_event_copy(touchEvent));
-        priv->touchEvents.add(sequence, WTF::move(event));
+        priv->touchEvents.add(sequence, WTFMove(event));
         break;
     }
     case GDK_TOUCH_UPDATE: {
@@ -887,7 +887,7 @@ static gboolean webkitWebViewBaseTouchEvent(GtkWidget* widget, GdkEventTouch* ev
 
     Vector<WebPlatformTouchPoint> touchPoints;
     webkitWebViewBaseGetTouchPointsForEvent(webViewBase, touchEvent, touchPoints);
-    priv->pageProxy->handleTouchEvent(NativeWebTouchEvent(reinterpret_cast<GdkEvent*>(event), WTF::move(touchPoints)));
+    priv->pageProxy->handleTouchEvent(NativeWebTouchEvent(reinterpret_cast<GdkEvent*>(event), WTFMove(touchPoints)));
 
     return TRUE;
 }
@@ -1102,7 +1102,7 @@ void webkitWebViewBaseCreateWebPage(WebKitWebViewBase* webkitWebViewBase, Ref<AP
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     WebProcessPool* context = configuration->processPool();
-    priv->pageProxy = context->createWebPage(*priv->pageClient, WTF::move(configuration));
+    priv->pageProxy = context->createWebPage(*priv->pageClient, WTFMove(configuration));
     priv->pageProxy->initializeWebPage();
 
     priv->inputMethodFilter.setPage(priv->pageProxy.get());

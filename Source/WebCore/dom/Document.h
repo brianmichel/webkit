@@ -45,7 +45,7 @@
 #include "RenderPtr.h"
 #include "ScriptExecutionContext.h"
 #include "StringWithDirection.h"
-#include "StyleResolveTree.h"
+#include "StyleChange.h"
 #include "TextResourceDecoder.h"
 #include "Timer.h"
 #include "TreeScope.h"
@@ -173,6 +173,10 @@ enum class ShouldOpenExternalURLsPolicy;
 
 #if ENABLE(XSLT)
 class TransformSource;
+#endif
+
+#if ENABLE(CUSTOM_ELEMENTS)
+class CustomElementDefinitions;
 #endif
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -381,7 +385,7 @@ public:
 
     bool hasManifest() const;
     
-    virtual RefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
+    WEBCORE_EXPORT RefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
     WEBCORE_EXPORT Ref<DocumentFragment> createDocumentFragment();
     WEBCORE_EXPORT Ref<Text> createTextNode(const String& data);
     Ref<Comment> createComment(const String& data);
@@ -421,7 +425,7 @@ public:
 
     AtomicString encoding() const { return textEncoding().domName(); }
 
-    void setCharset(const String&);
+    void setCharset(const String&); // Used by ObjC / GOBject bindings only.
 
     void setContent(const String&);
 
@@ -646,6 +650,7 @@ public:
 
     virtual const URL& url() const override final { return m_url; }
     void setURL(const URL&);
+    const URL& urlForBindings() const { return m_url.isEmpty() ? blankURL() : m_url; }
 
     // To understand how these concepts relate to one another, please see the
     // comments surrounding their declaration.
@@ -1214,6 +1219,11 @@ public:
 #endif
     }
 
+#if ENABLE(CUSTOM_ELEMENTS)
+    CustomElementDefinitions* customElementDefinitions() { return m_customElementDefinitions.get(); }
+    CustomElementDefinitions& ensureCustomElementDefinitions();
+#endif
+
     const EventTargetSet* wheelEventTargets() const { return m_wheelEventTargets.get(); }
 
     typedef std::pair<Region, bool> RegionFixedPair;
@@ -1328,6 +1338,7 @@ protected:
 private:
     friend class Node;
     friend class IgnoreDestructiveWriteCountIncrementer;
+    friend class IgnoreOpensDuringUnloadCountIncrementer;
 
     void updateTitleElement(Element* newTitleElement);
 
@@ -1518,8 +1529,11 @@ private:
     bool m_frameElementsShouldIgnoreScrolling;
     SelectionRestorationMode m_updateFocusAppearanceRestoresSelection;
 
-    // http://www.whatwg.org/specs/web-apps/current-work/#ignore-destructive-writes-counter
-    unsigned m_ignoreDestructiveWriteCount;
+    // https://html.spec.whatwg.org/multipage/webappapis.html#ignore-destructive-writes-counter
+    unsigned m_ignoreDestructiveWriteCount { 0 };
+
+    // https://html.spec.whatwg.org/multipage/webappapis.html#ignore-opens-during-unload-counter
+    unsigned m_ignoreOpensDuringUnloadCount { 0 };
 
     unsigned m_styleRecalcCount { 0 };
 
@@ -1745,6 +1759,10 @@ private:
 #if ENABLE(TEMPLATE_ELEMENT)
     RefPtr<Document> m_templateDocument;
     Document* m_templateDocumentHost; // Manually managed weakref (backpointer from m_templateDocument).
+#endif
+
+#if ENABLE(CUSTOM_ELEMENTS)
+    std::unique_ptr<CustomElementDefinitions> m_customElementDefinitions;
 #endif
 
     RefPtr<CSSFontSelector> m_fontSelector;

@@ -116,7 +116,7 @@ void MediaControls::reset()
     refreshClosedCaptionsButtonVisibility();
 
     if (m_fullScreenButton) {
-        if (m_mediaController->supportsFullscreen() && m_mediaController->hasVideo())
+        if (m_mediaController->supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenModeStandard) && m_mediaController->hasVideo())
             m_fullScreenButton->show();
         else
             m_fullScreenButton->hide();
@@ -387,7 +387,7 @@ void MediaControls::createTextTrackDisplay()
         m_textDisplayContainer->setMediaController(m_mediaController);
 
     // Insert it before the first controller element so it always displays behind the controls.
-    insertBefore(WTF::move(textDisplayContainer), m_panel, IGNORE_EXCEPTION);
+    insertBefore(WTFMove(textDisplayContainer), m_panel, IGNORE_EXCEPTION);
 }
 
 void MediaControls::showTextTrackDisplay()

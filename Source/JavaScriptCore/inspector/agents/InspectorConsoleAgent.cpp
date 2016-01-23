@@ -121,7 +121,7 @@ void InspectorConsoleAgent::addMessageToConsole(std::unique_ptr<ConsoleMessage> 
         clearMessages(unused);
     }
 
-    addConsoleMessage(WTF::move(message));
+    addConsoleMessage(WTFMove(message));
 }
 
 void InspectorConsoleAgent::startTiming(const String& title)
@@ -174,7 +174,12 @@ void InspectorConsoleAgent::count(JSC::ExecState* state, PassRefPtr<ScriptArgume
 
     m_counts.add(identifier, count);
 
-    String message = title + ": " + String::number(count);
+    String message;
+    if (title.isEmpty())
+        message = "<no label>: " + String::number(count);
+    else
+        message = title + ": " + String::number(count);
+
     addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Log, MessageLevel::Debug, message, callStack));
 }
 
@@ -196,7 +201,7 @@ void InspectorConsoleAgent::addConsoleMessage(std::unique_ptr<ConsoleMessage> co
             m_previousMessage->updateRepeatCountInConsole(*m_frontendDispatcher);
     } else {
         m_previousMessage = consoleMessage.get();
-        m_consoleMessages.append(WTF::move(consoleMessage));
+        m_consoleMessages.append(WTFMove(consoleMessage));
         if (m_enabled)
             m_previousMessage->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, true);
     }

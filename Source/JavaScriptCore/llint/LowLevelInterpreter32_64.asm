@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2015 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2016 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -693,8 +693,8 @@ _llint_op_create_this:
     loadp PayloadOffset[cfr, t0, 8], t0
     loadp JSFunction::m_rareData[t0], t5
     btpz t5, .opCreateThisSlow
-    loadp FunctionRareData::m_allocationProfile + ObjectAllocationProfile::m_allocator[t5], t1
-    loadp FunctionRareData::m_allocationProfile + ObjectAllocationProfile::m_structure[t5], t2
+    loadp FunctionRareData::m_objectAllocationProfile + ObjectAllocationProfile::m_allocator[t5], t1
+    loadp FunctionRareData::m_objectAllocationProfile + ObjectAllocationProfile::m_structure[t5], t2
     btpz t1, .opCreateThisSlow
     loadpFromInstruction(4, t5)
     bpeq t5, 1, .hasSeenMultipleCallee
@@ -2401,7 +2401,7 @@ _llint_op_profile_type:
     loadisFromInstruction(1, t2)
     loadConstantOrVariable(t2, t5, t0)
 
-    bieq t4, EmptyValueTag, .opProfileTypeDone
+    bieq t5, EmptyValueTag, .opProfileTypeDone
 
     # t2 is holding the pointer to the current log entry.
     loadp TypeProfilerLog::m_currentLogEntryPtr[t1], t2

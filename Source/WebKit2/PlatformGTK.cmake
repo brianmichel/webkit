@@ -263,6 +263,9 @@ list(APPEND WebKit2_SOURCES
     UIProcess/API/gtk/WebKitWebViewBaseAccessible.h
     UIProcess/API/gtk/WebKitWebViewBasePrivate.h
     UIProcess/API/gtk/WebKitWebViewPrivate.h
+    UIProcess/API/gtk/WebKitWebViewSessionState.cpp
+    UIProcess/API/gtk/WebKitWebViewSessionState.h
+    UIProcess/API/gtk/WebKitWebViewSessionStatePrivate.h
     UIProcess/API/gtk/WebKitWebsiteDataManager.cpp
     UIProcess/API/gtk/WebKitWebsiteDataManager.h
     UIProcess/API/gtk/WebKitWebsiteDataManagerPrivate.h
@@ -428,6 +431,7 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebResource.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebView.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebViewBase.h
+    ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebViewSessionState.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWebsiteDataManager.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/WebKitWindowProperties.h
     ${WEBKIT2_DIR}/UIProcess/API/gtk/webkit2.h
@@ -740,7 +744,6 @@ if (ENABLE_PLUGIN_PROCESS_GTK2)
         Shared/ActivityAssertion.cpp
         Shared/BlobDataFileReferenceWithSandboxExtension.cpp
         Shared/ChildProcess.cpp
-        Shared/ChildProcessProxy.cpp
         Shared/ShareableBitmap.cpp
         Shared/WebCoreArgumentCoders.cpp
         Shared/WebEvent.cpp
@@ -892,7 +895,7 @@ endif ()
 
 # Add required -L flags from ${CMAKE_SHARED_LINKER_FLAGS} for g-ir-scanner
 string(REGEX MATCHALL "-L[^ ]*"
-    INTROSPECTION_ADDITIONAL_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
+    INTROSPECTION_ADDITIONAL_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/WebKit2-${WEBKITGTK_API_VERSION}.gir
@@ -926,6 +929,7 @@ add_custom_command(
         -DWEBKIT2_COMPILATION
         -I${CMAKE_SOURCE_DIR}/Source
         -I${WEBKIT2_DIR}
+        -I${JAVASCRIPTCORE_DIR}
         -I${JAVASCRIPTCORE_DIR}/ForwardingHeaders
         -I${DERIVED_SOURCES_DIR}
         -I${DERIVED_SOURCES_WEBKIT2GTK_DIR}
@@ -933,12 +937,6 @@ add_custom_command(
         ${WebKit2GTK_INSTALLED_HEADERS}
         ${WEBKIT2_DIR}/UIProcess/API/gtk/*.cpp
 )
-
-# Manually add some libraries on OSX because we don't have the --whole-archive flag
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    set(INTROSPECTION_ADDITIONAL_LIBRARIES --library=c++)
-    set(INTROSPECTION_ADDITIONAL_LDFLAGS -lGObjectDOMBindings)
-endif ()
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/WebKit2WebExtension-${WEBKITGTK_API_VERSION}.gir
@@ -974,6 +972,7 @@ add_custom_command(
         -DWEBKIT2_COMPILATION
         -I${CMAKE_SOURCE_DIR}/Source
         -I${WEBKIT2_DIR}
+        -I${JAVASCRIPTCORE_DIR}
         -I${JAVASCRIPTCORE_DIR}/ForwardingHeaders
         -I${DERIVED_SOURCES_DIR}
         -I${DERIVED_SOURCES_WEBKIT2GTK_DIR}

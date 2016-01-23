@@ -42,6 +42,7 @@
 #include "JSGlobalObject.h"
 #include "JSLock.h"
 #include "JSVirtualMachineInternal.h"
+#include "SamplingProfiler.h"
 #include "Tracing.h"
 #include "TypeProfilerLog.h"
 #include "UnlinkedCodeBlock.h"
@@ -306,7 +307,7 @@ inline IterationStatus RecordType::operator()(JSCell* cell)
 
 inline std::unique_ptr<TypeCountSet> RecordType::returnValue()
 {
-    return WTF::move(m_typeCountSet);
+    return WTFMove(m_typeCountSet);
 }
 
 } // anonymous namespace
@@ -399,7 +400,7 @@ void Heap::releaseDelayedReleasedObjects()
         while (!m_delayedReleaseObjects.isEmpty()) {
             ASSERT(m_vm->currentThreadIsHoldingAPILock());
 
-            Vector<RetainPtr<CFTypeRef>> objectsToRelease = WTF::move(m_delayedReleaseObjects);
+            Vector<RetainPtr<CFTypeRef>> objectsToRelease = WTFMove(m_delayedReleaseObjects);
 
             {
                 // We need to drop locks before calling out to arbitrary code.
@@ -528,6 +529,18 @@ void Heap::markRoots(double gcStartTime, void* stackOrigin, void* stackTop, Mach
     DFG::rememberCodeBlocks(*m_vm);
 #endif
 
+#if ENABLE(SAMPLING_PROFILER)
+    if (SamplingProfiler* samplingProfiler = m_vm->samplingProfiler()) {
+        // Note that we need to own the lock from now until we're done
+        // marking the SamplingProfiler's data because once we verify the
+        // SamplingProfiler's stack traces, we don't want it to accumulate
+        // more stack traces before we get the chance to mark it.
+        // This lock is released inside visitSamplingProfiler().
+        samplingProfiler->getLock().lock();
+        samplingProfiler->processUnverifiedStackTraces();
+    }
+#endif // ENABLE(SAMPLING_PROFILER)
+
     if (m_operationInProgress == FullCollection) {
         m_opaqueRoots.clear();
         m_slotVisitor.clearMarkStack();
@@ -546,7 +559,7 @@ void Heap::markRoots(double gcStartTime, void* stackOrigin, void* stackTop, Mach
                     std::unique_ptr<SlotVisitor> newVisitor =
                         std::make_unique<SlotVisitor>(*this);
                     slotVisitor = newVisitor.get();
-                    m_parallelSlotVisitors.append(WTF::move(newVisitor));
+                    m_parallelSlotVisitors.append(WTFMove(newVisitor));
                 } else
                     slotVisitor = m_availableParallelSlotVisitors.takeLast();
             }
@@ -581,6 +594,7 @@ void Heap::markRoots(double gcStartTime, void* stackOrigin, void* stackTop, Mach
         visitException(heapRootVisitor);
         visitStrongHandles(heapRootVisitor);
         visitHandleStack(heapRootVisitor);
+        visitSamplingProfiler();
         traceCodeBlocksAndJITStubRoutines();
         converge();
     }
@@ -806,6 +820,22 @@ void Heap::visitHandleStack(HeapRootVisitor& visitor)
         dataLog("Handle Stack:\n", m_slotVisitor);
 
     m_slotVisitor.donateAndDrain();
+}
+
+void Heap::visitSamplingProfiler()
+{
+#if ENABLE(SAMPLING_PROFILER)
+    if (SamplingProfiler* samplingProfiler = m_vm->samplingProfiler()) {
+        ASSERT(samplingProfiler->getLock().isLocked());
+        GCPHASE(VisitSamplingProfiler);
+        samplingProfiler->visit(m_slotVisitor);
+        if (Options::logGC() == GCLogging::Verbose)
+            dataLog("Sampling Profiler data:\n", m_slotVisitor);
+
+        m_slotVisitor.donateAndDrain();
+        samplingProfiler->getLock().unlock();
+    }
+#endif // ENABLE(SAMPLING_PROFILER)
 }
 
 void Heap::traceCodeBlocksAndJITStubRoutines()
@@ -1419,7 +1449,7 @@ GCActivityCallback* Heap::edenActivityCallback()
 
 void Heap::setIncrementalSweeper(std::unique_ptr<IncrementalSweeper> sweeper)
 {
-    m_sweeper = WTF::move(sweeper);
+    m_sweeper = WTFMove(sweeper);
 }
 
 IncrementalSweeper* Heap::sweeper()

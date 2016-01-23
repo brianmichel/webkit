@@ -106,6 +106,7 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool)
     , m_customProtocolManagerProxy(this, processPool)
     , m_numberOfTimesSuddenTerminationWasDisabled(0)
     , m_throttler(*this)
+    , m_isResponsive(NoOrMaybe::Maybe)
 {
     WebPasteboardProxy::singleton().addWebProcessProxy(*this);
 
@@ -221,7 +222,7 @@ WebPageProxy* WebProcessProxy::webPage(uint64_t pageID)
 Ref<WebPageProxy> WebProcessProxy::createWebPage(PageClient& pageClient, Ref<API::PageConfiguration>&& pageConfiguration)
 {
     uint64_t pageID = generatePageID();
-    Ref<WebPageProxy> webPage = WebPageProxy::create(pageClient, *this, pageID, WTF::move(pageConfiguration));
+    Ref<WebPageProxy> webPage = WebPageProxy::create(pageClient, *this, pageID, WTFMove(pageConfiguration));
 
     m_pageMap.set(pageID, webPage.ptr());
     globalPageMap().set(pageID, webPage.ptr());
@@ -387,7 +388,7 @@ void WebProcessProxy::addBackForwardItem(uint64_t itemID, uint64_t pageID, const
         BackForwardListItemState backForwardListItemState;
         backForwardListItemState.identifier = itemID;
         backForwardListItemState.pageState = pageState;
-        backForwardListItem = WebBackForwardListItem::create(WTF::move(backForwardListItemState), pageID);
+        backForwardListItem = WebBackForwardListItem::create(WTFMove(backForwardListItemState), pageID);
         return;
     }
 
@@ -549,14 +550,25 @@ void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC:
 
 void WebProcessProxy::didBecomeUnresponsive()
 {
+    m_isResponsive = NoOrMaybe::No;
+
     Vector<RefPtr<WebPageProxy>> pages;
     copyValuesToVector(m_pageMap, pages);
+
+    auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
+
     for (auto& page : pages)
         page->processDidBecomeUnresponsive();
+
+    bool isWebProcessResponsive = false;
+    for (auto& callback : isResponsiveCallbacks)
+        callback(isWebProcessResponsive);
 }
 
 void WebProcessProxy::didBecomeResponsive()
 {
+    m_isResponsive = NoOrMaybe::Maybe;
+
     Vector<RefPtr<WebPageProxy>> pages;
     copyValuesToVector(m_pageMap, pages);
     for (auto& page : pages)
@@ -719,7 +731,7 @@ void WebProcessProxy::fetchWebsiteData(SessionID sessionID, WebsiteDataTypes dat
     auto token = throttler().backgroundActivityToken();
 
     m_pendingFetchWebsiteDataCallbacks.add(callbackID, [token, completionHandler](WebsiteData websiteData) {
-        completionHandler(WTF::move(websiteData));
+        completionHandler(WTFMove(websiteData));
     });
 
     send(Messages::WebProcess::FetchWebsiteData(sessionID, dataTypes, callbackID), 0);
@@ -984,8 +996,21 @@ void WebProcessProxy::setIsHoldingLockedFiles(bool isHoldingLockedFiles)
         m_tokenForHoldingLockedFiles = m_throttler.backgroundActivityToken();
 }
 
-void WebProcessProxy::sendMainThreadPing()
+void WebProcessProxy::isResponsive(std::function<void(bool isWebProcessResponsive)> callback)
 {
+    if (m_isResponsive == NoOrMaybe::No) {
+        if (callback) {
+            RunLoop::main().dispatch([callback] {
+                bool isWebProcessResponsive = false;
+                callback(isWebProcessResponsive);
+            });
+        }
+        return;
+    }
+
+    if (callback)
+        m_isResponsiveCallbacks.append(callback);
+
     responsivenessTimer().start();
     send(Messages::WebProcess::MainThreadPing(), 0);
 }
@@ -993,6 +1018,11 @@ void WebProcessProxy::sendMainThreadPing()
 void WebProcessProxy::didReceiveMainThreadPing()
 {
     responsivenessTimer().stop();
+
+    auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
+    bool isWebProcessResponsive = true;
+    for (auto& callback : isResponsiveCallbacks)
+        callback(isWebProcessResponsive);
 }
 
 } // namespace WebKit

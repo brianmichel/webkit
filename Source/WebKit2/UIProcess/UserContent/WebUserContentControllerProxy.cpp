@@ -118,7 +118,7 @@ void WebUserContentControllerProxy::removeAllUserScripts()
 
 void WebUserContentControllerProxy::addUserStyleSheet(WebCore::UserStyleSheet userStyleSheet)
 {
-    m_userStyleSheets.append(WTF::move(userStyleSheet));
+    m_userStyleSheets.append(WTFMove(userStyleSheet));
 
     for (WebProcessProxy* process : m_processes)
         process->connection()->send(Messages::WebUserContentController::AddUserStyleSheets({ m_userStyleSheets.last() }), m_identifier);
@@ -177,10 +177,8 @@ void WebUserContentControllerProxy::didPostMessage(IPC::Connection& connection, 
     if (!handler)
         return;
 
-    auto buffer = dataReference.vector();
-    RefPtr<WebCore::SerializedScriptValue> value = WebCore::SerializedScriptValue::adopt(buffer);
-
-    handler->client().didPostMessage(*page, *frame, securityOrigin, *value);
+    handler->client().didPostMessage(*page, *frame, securityOrigin,
+        WebCore::SerializedScriptValue::adopt(dataReference.vector()));
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)

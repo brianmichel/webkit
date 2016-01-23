@@ -343,6 +343,14 @@ String String::convertToASCIILowercase() const
     return m_impl->convertToASCIILowercase();
 }
 
+String String::convertToASCIIUppercase() const
+{
+    // FIXME: Should this function, and the many others like it, be inlined?
+    if (!m_impl)
+        return String();
+    return m_impl->convertToASCIIUppercase();
+}
+
 String String::lower() const
 {
     if (!m_impl)
@@ -663,7 +671,7 @@ String String::isolatedCopy() &&
     if (isSafeToSendToAnotherThread()) {
         // Since we know that our string is a temporary that will be destroyed
         // we can just steal the m_impl from it, thus avoiding a copy.
-        return String(WTF::move(*this));
+        return String(WTFMove(*this));
     }
 
     if (!m_impl)

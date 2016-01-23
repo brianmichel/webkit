@@ -53,7 +53,7 @@ public:
     virtual IDBError abortTransaction(const IDBResourceIdentifier& transactionIdentifier) override final;
     virtual IDBError commitTransaction(const IDBResourceIdentifier& transactionIdentifier) override final;
     virtual IDBError createObjectStore(const IDBResourceIdentifier& transactionIdentifier, const IDBObjectStoreInfo&) override final;
-    virtual IDBError deleteObjectStore(const IDBResourceIdentifier& transactionIdentifier, const String& objectStoreName) override final;
+    virtual IDBError deleteObjectStore(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier) override final;
     virtual IDBError clearObjectStore(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier) override final;
     virtual IDBError createIndex(const IDBResourceIdentifier& transactionIdentifier, const IDBIndexInfo&) override final;
     virtual IDBError deleteIndex(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, const String& indexName) override final;
@@ -64,26 +64,30 @@ public:
     virtual IDBError getIndexRecord(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, IndexedDB::IndexRecordType, const IDBKeyRangeData&, IDBGetResult& outValue) override final;
     virtual IDBError getCount(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const IDBKeyRangeData&, uint64_t& outCount) override final;
     virtual IDBError generateKeyNumber(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, uint64_t& keyNumber) override final;
+    virtual IDBError revertGeneratedKeyNumber(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, uint64_t keyNumber) override final;
     virtual IDBError maybeUpdateKeyGeneratorNumber(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, double newKeyNumber) override final;
     virtual IDBError openCursor(const IDBResourceIdentifier& transactionIdentifier, const IDBCursorInfo&, IDBGetResult& outResult) override final;
     virtual IDBError iterateCursor(const IDBResourceIdentifier& transactionIdentifier, const IDBResourceIdentifier& cursorIdentifier, const IDBKeyData&, uint32_t count, IDBGetResult& outResult) override final;
 
+    virtual void deleteBackingStore() override final;
+    virtual bool supportsSimultaneousTransactions() override final { return true; }
+
     void removeObjectStoreForVersionChangeAbort(MemoryObjectStore&);
-    void restoreObjectStoreForVersionChangeAbort(std::unique_ptr<MemoryObjectStore>&&);
+    void restoreObjectStoreForVersionChangeAbort(Ref<MemoryObjectStore>&&);
 
 private:
     MemoryIDBBackingStore(const IDBDatabaseIdentifier&);
 
-    std::unique_ptr<MemoryObjectStore> takeObjectStoreByName(const String& name);
+    RefPtr<MemoryObjectStore> takeObjectStoreByIdentifier(uint64_t identifier);
 
     IDBDatabaseIdentifier m_identifier;
     std::unique_ptr<IDBDatabaseInfo> m_databaseInfo;
 
     HashMap<IDBResourceIdentifier, std::unique_ptr<MemoryBackingStoreTransaction>> m_transactions;
 
-    void registerObjectStore(std::unique_ptr<MemoryObjectStore>&&);
+    void registerObjectStore(Ref<MemoryObjectStore>&&);
     void unregisterObjectStore(MemoryObjectStore&);
-    HashMap<uint64_t, std::unique_ptr<MemoryObjectStore>> m_objectStoresByIdentifier;
+    HashMap<uint64_t, RefPtr<MemoryObjectStore>> m_objectStoresByIdentifier;
     HashMap<String, MemoryObjectStore*> m_objectStoresByName;
 };
 

@@ -41,6 +41,7 @@ OBJC_CLASS WKNetworkSessionDelegate;
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 class AuthenticationChallenge;
@@ -61,14 +62,16 @@ enum class AuthenticationChallengeDisposition {
 };
 
 class NetworkSession;
+class PendingDownload;
+
+typedef std::function<void(const WebCore::ResourceRequest&)> RedirectCompletionHandler;
+typedef std::function<void(AuthenticationChallengeDisposition, const WebCore::Credential&)> ChallengeCompletionHandler;
+typedef std::function<void(WebCore::PolicyAction)> ResponseCompletionHandler;
 
 class NetworkSessionTaskClient {
 public:
-    typedef std::function<void(const WebCore::ResourceRequest&)> RedirectCompletionHandler;
     virtual void willPerformHTTPRedirection(const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, RedirectCompletionHandler) = 0;
-    typedef std::function<void(AuthenticationChallengeDisposition, const WebCore::Credential&)> ChallengeCompletionHandler;
     virtual void didReceiveChallenge(const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler) = 0;
-    typedef std::function<void(WebCore::PolicyAction)> ResponseCompletionHandler;
     virtual void didReceiveResponse(const WebCore::ResourceResponse&, ResponseCompletionHandler) = 0;
     virtual void didReceiveData(RefPtr<WebCore::SharedBuffer>&&) = 0;
     virtual void didCompleteWithError(const WebCore::ResourceError&) = 0;
@@ -77,9 +80,12 @@ public:
     virtual ~NetworkSessionTaskClient() { }
 };
 
-class NetworkDataTask : public RefCounted<NetworkDataTask> {
+class NetworkDataTask {
     friend class NetworkSession;
 public:
+    explicit NetworkDataTask(NetworkSession&, NetworkSessionTaskClient&, const WebCore::ResourceRequest&);
+
+    void suspend();
     void cancel();
     void resume();
 
@@ -88,17 +94,32 @@ public:
 
     ~NetworkDataTask();
 
-    NetworkSessionTaskClient* client() { return m_client; }
-    void clearClient() { m_client = nullptr; }
+    NetworkSessionTaskClient& client() { return m_client; }
 
+    DownloadID pendingDownloadID() { return m_pendingDownloadID; }
+    PendingDownload* pendingDownload() { return m_pendingDownload; }
+    void setPendingDownloadID(DownloadID downloadID)
+    {
+        ASSERT(!m_pendingDownloadID.downloadID());
+        ASSERT(downloadID.downloadID());
+        m_pendingDownloadID = downloadID;
+    }
+    void setPendingDownload(PendingDownload& pendingDownload)
+    {
+        ASSERT(!m_pendingDownload);
+        m_pendingDownload = &pendingDownload;
+    }
+    bool tryPasswordBasedAuthentication(const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler);
+    
 private:
     NetworkSession& m_session;
-    NetworkSessionTaskClient* m_client;
+    NetworkSessionTaskClient& m_client;
+    PendingDownload* m_pendingDownload { nullptr };
+    DownloadID m_pendingDownloadID;
+    String m_user;
+    String m_password;
 #if PLATFORM(COCOA)
-    explicit NetworkDataTask(NetworkSession&, NetworkSessionTaskClient&, RetainPtr<NSURLSessionDataTask>&&);
     RetainPtr<NSURLSessionDataTask> m_task;
-#else
-    explicit NetworkDataTask(NetworkSession&, NetworkSessionTaskClient&);
 #endif
 };
 
@@ -113,13 +134,14 @@ public:
     ~NetworkSession();
 
     static NetworkSession& defaultSession();
-    
-    Ref<NetworkDataTask> createDataTaskWithRequest(const WebCore::ResourceRequest&, NetworkSessionTaskClient&);
 
     NetworkDataTask* dataTaskForIdentifier(NetworkDataTask::TaskIdentifier);
 
+    void addDownloadID(NetworkDataTask::TaskIdentifier, DownloadID);
+    DownloadID downloadID(NetworkDataTask::TaskIdentifier);
+    DownloadID takeDownloadID(NetworkDataTask::TaskIdentifier);
+    
 private:
-    WebCore::SessionID m_sessionID;
     HashMap<NetworkDataTask::TaskIdentifier, NetworkDataTask*> m_dataTaskMap;
     HashMap<NetworkDataTask::TaskIdentifier, DownloadID> m_downloadMap;
 #if PLATFORM(COCOA)

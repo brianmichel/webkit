@@ -40,6 +40,7 @@
 #include "SuddenTermination.h"
 #include <wtf/AutodrainedPool.h>
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 
 // For methods that are meant to support API from the main thread - should not be called internally
@@ -879,8 +880,8 @@ String IconDatabase::databasePath() const
 
 String IconDatabase::defaultDatabaseFilename()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, defaultDatabaseFilename, (ASCIILiteral("WebpageIcons.db")));
-    return defaultDatabaseFilename.isolatedCopy();
+    static NeverDestroyed<String> defaultDatabaseFilename(ASCIILiteral("WebpageIcons.db"));
+    return defaultDatabaseFilename.get().isolatedCopy();
 }
 
 // Unlike getOrCreatePageURLRecord(), getOrCreateIconRecord() does not mark the icon as "interested in import"
@@ -1338,7 +1339,7 @@ void IconDatabase::syncThreadMainLoop()
 
     m_syncLock.lock();
 
-    std::unique_ptr<SuddenTerminationDisabler> disableSuddenTermination = WTF::move(m_disableSuddenTerminationWhileSyncThreadHasWorkToDo);
+    std::unique_ptr<SuddenTerminationDisabler> disableSuddenTermination = WTFMove(m_disableSuddenTerminationWhileSyncThreadHasWorkToDo);
 
     // We'll either do any pending work on our first pass through the loop, or we'll terminate
     // without doing any work. Either way we're dealing with any currently-pending work.
@@ -1428,7 +1429,7 @@ void IconDatabase::syncThreadMainLoop()
         m_syncThreadHasWorkToDo = false;
 
         ASSERT(m_disableSuddenTerminationWhileSyncThreadHasWorkToDo);
-        disableSuddenTermination = WTF::move(m_disableSuddenTerminationWhileSyncThreadHasWorkToDo);
+        disableSuddenTermination = WTFMove(m_disableSuddenTerminationWhileSyncThreadHasWorkToDo);
     }
 
     m_syncLock.unlock();

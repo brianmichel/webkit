@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -89,9 +89,33 @@ void Value::replaceWithNop()
     this->owner = owner;
 }
 
+void Value::replaceWithPhi()
+{
+    if (m_type == Void) {
+        replaceWithNop();
+        return;
+    }
+    
+    unsigned index = m_index;
+    Origin origin = m_origin;
+    BasicBlock* owner = this->owner;
+    Type type = m_type;
+
+    this->Value::~Value();
+
+    new (this) Value(index, Phi, type, origin);
+
+    this->owner = owner;
+}
+
 void Value::dump(PrintStream& out) const
 {
     out.print(dumpPrefix, m_index);
+}
+
+Value* Value::cloneImpl() const
+{
+    return new Value(*this);
 }
 
 void Value::dumpChildren(CommaPrinter& comma, PrintStream& out) const
@@ -100,7 +124,7 @@ void Value::dumpChildren(CommaPrinter& comma, PrintStream& out) const
         out.print(comma, pointerDump(child));
 }
 
-void Value::deepDump(const Procedure& proc, PrintStream& out) const
+void Value::deepDump(const Procedure* proc, PrintStream& out) const
 {
     out.print(m_type, " ", *this, " = ", m_opcode);
 
@@ -365,6 +389,7 @@ Effects Value::effects() const
     case Add:
     case Sub:
     case Mul:
+    case Neg:
     case ChillDiv:
     case ChillMod:
     case BitAnd:
@@ -468,6 +493,7 @@ ValueKey Value::key() const
     case DoubleToFloat:
     case Check:
     case BitwiseCast:
+    case Neg:
         return ValueKey(opcode(), type(), child(0));
     case Add:
     case Sub:
@@ -553,6 +579,7 @@ Type Value::typeFor(Opcode opcode, Value* firstChild, Value* secondChild)
     case Mul:
     case Div:
     case Mod:
+    case Neg:
     case ChillDiv:
     case ChillMod:
     case BitAnd:

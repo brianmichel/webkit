@@ -512,8 +512,8 @@ void TiledCoreAnimationDrawingArea::updateScrolledExposedRect()
 
 #if !PLATFORM(IOS)
     if (!m_exposedRect.isInfinite()) {
-        IntPoint scrollPositionWithOrigin = frameView->scrollPosition() + toIntSize(frameView->scrollOrigin());
-        m_scrolledExposedRect.moveBy(scrollPositionWithOrigin);
+        ScrollOffset scrollOffset = frameView->scrollOffsetFromPosition(frameView->scrollPosition());
+        m_scrolledExposedRect.moveBy(scrollOffset);
     }
 #endif
 
@@ -693,7 +693,8 @@ PlatformCALayer* TiledCoreAnimationDrawingArea::shadowLayerForTransientZoom() co
     
 static FloatPoint shadowLayerPositionForFrame(FrameView& frameView, FloatPoint origin)
 {
-    FloatPoint position = frameView.renderView()->documentRect().location() + FloatPoint(0, frameView.yPositionForRootContentLayer());
+    // FIXME: correct for b-t documents?
+    FloatPoint position = frameView.positionForRootContentLayer();
     return position + origin.expandedTo(FloatPoint());
 }
 

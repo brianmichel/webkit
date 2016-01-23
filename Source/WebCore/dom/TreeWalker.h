@@ -28,7 +28,6 @@
 #include "NodeFilter.h"
 #include "ScriptWrappable.h"
 #include "Traversal.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -39,7 +38,7 @@ namespace WebCore {
     public:
         static Ref<TreeWalker> create(Node& rootNode, unsigned long whatToShow, RefPtr<NodeFilter>&& filter)
         {
-            return adoptRef(*new TreeWalker(rootNode, whatToShow, WTF::move(filter)));
+            return adoptRef(*new TreeWalker(rootNode, whatToShow, WTFMove(filter)));
         }                            
 
         Node* currentNode() const { return m_current.get(); }
@@ -58,7 +57,7 @@ namespace WebCore {
         enum class SiblingTraversalType { Previous, Next };
         template<SiblingTraversalType> Node* traverseSiblings();
         
-        Node* setCurrent(PassRefPtr<Node>);
+        Node* setCurrent(RefPtr<Node>&&);
 
         RefPtr<Node> m_current;
     };

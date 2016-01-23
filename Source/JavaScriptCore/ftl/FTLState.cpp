@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "FTLForOSREntryJITCode.h"
 #include "FTLJITCode.h"
 #include "FTLJITFinalizer.h"
+#include "FTLPatchpointExceptionHandle.h"
 #include <llvm/InitializeLLVM.h>
 #include <stdio.h>
 
@@ -77,6 +78,8 @@ State::State(Graph& graph)
         [this] (PrintStream& out, B3::Origin origin) {
             out.print("DFG:", bitwise_cast<Node*>(origin.data()));
         });
+
+    proc->setFrontendData(&graph);
 #endif // FTL_USES_B3
 }
 

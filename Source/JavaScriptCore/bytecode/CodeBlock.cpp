@@ -639,16 +639,7 @@ void CodeBlock::dumpBytecode(PrintStream& out)
         } while (i < count);
     }
 
-    if (m_rareData && !m_rareData->m_exceptionHandlers.isEmpty()) {
-        out.printf("\nException Handlers:\n");
-        unsigned i = 0;
-        do {
-            HandlerInfo& handler = m_rareData->m_exceptionHandlers[i];
-            out.printf("\t %d: { start: [%4d] end: [%4d] target: [%4d] } %s\n",
-                i + 1, handler.start, handler.end, handler.target, handler.typeName());
-            ++i;
-        } while (i < m_rareData->m_exceptionHandlers.size());
-    }
+    dumpExceptionHandlers(out);
     
     if (m_rareData && !m_rareData->m_switchJumpTables.isEmpty()) {
         out.printf("Switch Jump Tables:\n");
@@ -693,6 +684,20 @@ void CodeBlock::dumpBytecode(PrintStream& out)
     }
 
     out.printf("\n");
+}
+
+void CodeBlock::dumpExceptionHandlers(PrintStream& out)
+{
+    if (m_rareData && !m_rareData->m_exceptionHandlers.isEmpty()) {
+        out.printf("\nException Handlers:\n");
+        unsigned i = 0;
+        do {
+            HandlerInfo& handler = m_rareData->m_exceptionHandlers[i];
+            out.printf("\t %d: { start: [%4d] end: [%4d] target: [%4d] } %s\n",
+                i + 1, handler.start, handler.end, handler.target, handler.typeName());
+            ++i;
+        } while (i < m_rareData->m_exceptionHandlers.size());
+    }
 }
 
 void CodeBlock::beginDumpProfiling(PrintStream& out, bool& hasPrintedProfiling)
@@ -2283,7 +2288,7 @@ void CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
     if (vm.controlFlowProfiler())
         insertBasicBlockBoundariesForControlFlowProfiler(instructions);
 
-    m_instructions = WTF::move(instructions);
+    m_instructions = WTFMove(instructions);
 
     // Perform bytecode liveness analysis to determine which locals are live and should be resumed when executing op_resume.
     if (unlinkedCodeBlock->parseMode() == SourceParseMode::GeneratorBodyMode) {
@@ -3498,7 +3503,7 @@ void CodeBlock::setCalleeSaveRegisters(RegisterSet calleeSaveRegisters)
 
 void CodeBlock::setCalleeSaveRegisters(std::unique_ptr<RegisterAtOffsetList> registerAtOffsetList)
 {
-    m_calleeSaveRegisters = WTF::move(registerAtOffsetList);
+    m_calleeSaveRegisters = WTFMove(registerAtOffsetList);
 }
     
 static size_t roundCalleeSaveSpaceAsVirtualRegisters(size_t calleeSaveRegisters)
@@ -4188,32 +4193,10 @@ unsigned CodeBlock::rareCaseProfileCountForBytecodeOffset(int bytecodeOffset)
 
 ResultProfile* CodeBlock::resultProfileForBytecodeOffset(int bytecodeOffset)
 {
-    return tryBinarySearch<ResultProfile, int>(
-        m_resultProfiles, m_resultProfiles.size(), bytecodeOffset,
-        getResultProfileBytecodeOffset);
-}
-
-void CodeBlock::updateResultProfileForBytecodeOffset(int bytecodeOffset, JSValue result)
-{
-#if ENABLE(DFG_JIT)
-    ResultProfile* profile = resultProfileForBytecodeOffset(bytecodeOffset);
-    if (!profile)
-        profile = addResultProfile(bytecodeOffset);
-
-    if (result.isNumber()) {
-        if (!result.isInt32()) {
-            double doubleVal = result.asNumber();
-            if (!doubleVal && std::signbit(doubleVal))
-                profile->setObservedNegZeroDouble();
-            else
-                profile->setObservedNonNegZeroDouble();
-        }
-    } else
-        profile->setObservedNonNumber();
-#else
-    UNUSED_PARAM(bytecodeOffset);
-    UNUSED_PARAM(result);
-#endif
+    auto iterator = m_bytecodeOffsetToResultProfileIndexMap.find(bytecodeOffset);
+    if (iterator == m_bytecodeOffsetToResultProfileIndexMap.end())
+        return nullptr;
+    return &m_resultProfiles[iterator->value];
 }
 
 #if ENABLE(JIT)

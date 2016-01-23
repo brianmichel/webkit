@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2008, 2016 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -370,6 +370,11 @@ bool DocumentLoader::isLoading() const
 
 void DocumentLoader::notifyFinished(CachedResource* resource)
 {
+#if ENABLE(CONTENT_FILTERING)
+    if (m_contentFilter && !m_contentFilter->continueAfterNotifyFinished(resource))
+        return;
+#endif
+
     ASSERT_UNUSED(resource, m_mainResource == resource);
     ASSERT(m_mainResource);
     if (!m_mainResource->errorOccurred() && !m_mainResource->wasCanceled()) {
@@ -511,6 +516,11 @@ void DocumentLoader::willSendRequest(ResourceRequest& newRequest, const Resource
             cancelMainResourceLoad(frameLoader()->cancelledError(newRequest));
             return;
         }
+        if (!portAllowed(newRequest.url())) {
+            FrameLoader::reportBlockedPortFailed(m_frame, newRequest.url().string());
+            cancelMainResourceLoad(frameLoader()->blockedError(newRequest));
+            return;
+        }
         timing().addRedirect(redirectResponse.url(), newRequest.url());
     }
 
@@ -535,11 +545,8 @@ void DocumentLoader::willSendRequest(ResourceRequest& newRequest, const Resource
     }
 
 #if ENABLE(CONTENT_FILTERING)
-    if (m_contentFilter && redirectResponse.isNull()) {
-        m_contentFilter->willSendRequest(newRequest, redirectResponse);
-        if (newRequest.isNull())
-            return;
-    }
+    if (m_contentFilter && !m_contentFilter->continueAfterWillSendRequest(newRequest, redirectResponse))
+        return;
 #endif
 
     setRequest(newRequest);
@@ -601,6 +608,11 @@ void DocumentLoader::continueAfterNavigationPolicy(const ResourceRequest&, bool 
 
 void DocumentLoader::responseReceived(CachedResource* resource, const ResourceResponse& response)
 {
+#if ENABLE(CONTENT_FILTERING)
+    if (m_contentFilter && !m_contentFilter->continueAfterResponseReceived(resource, response))
+        return;
+#endif
+
     ASSERT_UNUSED(resource, m_mainResource == resource);
     Ref<DocumentLoader> protect(*this);
     bool willLoadFallback = m_applicationCacheHost->maybeLoadFallbackForMainResponse(request(), response);
@@ -650,6 +662,10 @@ void DocumentLoader::responseReceived(CachedResource* resource, const ResourceRe
     m_response = response;
 
     if (m_identifierForLoadWithoutResourceLoader) {
+        if (m_mainResource && m_mainResource->wasRedirected()) {
+            ASSERT(m_mainResource->status() == CachedResource::Status::Cached);
+            frameLoader()->client().dispatchDidReceiveServerRedirectForProvisionalLoad();
+        }
         addResponse(m_response);
         frameLoader()->notifier().dispatchDidReceiveResponse(this, m_identifierForLoadWithoutResourceLoader, m_response, 0);
     }
@@ -672,6 +688,14 @@ void DocumentLoader::responseReceived(CachedResource* resource, const ResourceRe
     }
 #endif
 
+    if (m_response.isHttpVersion0_9()) {
+        ASSERT(m_identifierForLoadWithoutResourceLoader || m_mainResource);
+        unsigned long identifier = m_identifierForLoadWithoutResourceLoader ? m_identifierForLoadWithoutResourceLoader : m_mainResource->identifier();
+        String message = "Sandboxing '" + response.url().string() + "' because it is using HTTP/0.9.";
+        m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, identifier);
+        frameLoader()->forceSandboxFlags(SandboxScripts | SandboxPlugins);
+    }
+
     frameLoader()->policyChecker().checkContentPolicy(m_response, [this](PolicyAction policy) {
         continueAfterContentPolicy(policy);
     });
@@ -690,12 +714,12 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
     switch (policy) {
     case PolicyUse: {
         // Prevent remote web archives from loading because they can claim to be from any domain and thus avoid cross-domain security checks (4120255).
-        bool isRemoteWebArchive = (equalIgnoringCase("application/x-webarchive", mimeType)
-            || equalIgnoringCase("application/x-mimearchive", mimeType)
+        bool isRemoteWebArchive = (equalLettersIgnoringASCIICase(mimeType, "application/x-webarchive")
+            || equalLettersIgnoringASCIICase(mimeType, "application/x-mimearchive")
 #if PLATFORM(GTK)
-            || equalIgnoringCase("message/rfc822", mimeType)
+            || equalLettersIgnoringASCIICase(mimeType, "message/rfc822")
 #endif
-            || equalIgnoringCase("multipart/related", mimeType))
+            || equalLettersIgnoringASCIICase(mimeType, "multipart/related"))
             && !m_substituteData.isValid() && !SchemeRegistry::shouldTreatURLSchemeAsLocal(url.protocol());
         if (!frameLoader()->client().canShowMIMEType(mimeType) || isRemoteWebArchive) {
             frameLoader()->policyChecker().cannotShowMIMEType(m_response);
@@ -868,6 +892,11 @@ void DocumentLoader::commitData(const char* bytes, size_t length)
 
 void DocumentLoader::dataReceived(CachedResource* resource, const char* data, int length)
 {
+#if ENABLE(CONTENT_FILTERING)
+    if (m_contentFilter && !m_contentFilter->continueAfterDataReceived(resource, data, length))
+        return;
+#endif
+
     ASSERT(data);
     ASSERT(length);
     ASSERT_UNUSED(resource, resource == m_mainResource);
@@ -1124,7 +1153,7 @@ Vector<RefPtr<ArchiveResource>> DocumentLoader::subresources() const
 
     for (auto& cachedResourceHandle : m_cachedResourceLoader->allCachedResources().values()) {
         if (RefPtr<ArchiveResource> subresource = this->subresource(URL(ParsedURLString, cachedResourceHandle->url())))
-            subresources.append(WTF::move(subresource));
+            subresources.append(WTFMove(subresource));
     }
 
     return subresources;
@@ -1413,7 +1442,7 @@ void DocumentLoader::startLoadingMainResource()
         return;
 
 #if ENABLE(CONTENT_FILTERING)
-    m_contentFilter = !m_originalSubstituteDataWasValid ? ContentFilter::createIfEnabled(*this) : nullptr;
+    m_contentFilter = !m_substituteData.isValid() ? ContentFilter::create(*this) : nullptr;
 #endif
 
     // FIXME: Is there any way the extra fields could have not been added by now?
@@ -1446,7 +1475,7 @@ void DocumentLoader::startLoadingMainResource()
     // If this is a reload the cache layer might have made the previous request conditional. DocumentLoader can't handle 304 responses itself.
     request.makeUnconditional();
 
-    static NeverDestroyed<ResourceLoaderOptions> mainResourceLoadOptions(SendCallbacks, SniffContent, BufferData, AllowStoredCredentials, AskClientForAllCredentials, SkipSecurityCheck, UseDefaultOriginRestrictionsForType, IncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck, DefersLoadingPolicy::AllowDefersLoading);
+    static NeverDestroyed<ResourceLoaderOptions> mainResourceLoadOptions(SendCallbacks, SniffContent, BufferData, AllowStoredCredentials, AskClientForAllCredentials, ClientRequestedCredentials, SkipSecurityCheck, UseDefaultOriginRestrictionsForType, IncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck, DefersLoadingPolicy::AllowDefersLoading);
     CachedResourceRequest cachedResourceRequest(request, mainResourceLoadOptions);
     cachedResourceRequest.setInitiator(*this);
     m_mainResource = m_cachedResourceLoader->requestMainResource(cachedResourceRequest);
@@ -1619,11 +1648,8 @@ ShouldOpenExternalURLsPolicy DocumentLoader::shouldOpenExternalURLsPolicyToPropa
 void DocumentLoader::becomeMainResourceClient()
 {
 #if ENABLE(CONTENT_FILTERING)
-    if (m_contentFilter && m_contentFilter->state() == ContentFilter::State::Initialized) {
-        // ContentFilter will synthesize CachedRawResourceClient callbacks.
+    if (m_contentFilter)
         m_contentFilter->startFilteringMainResource(*m_mainResource);
-        return;
-    }
 #endif
     m_mainResource->addClient(this);
 }
@@ -1658,16 +1684,12 @@ void DocumentLoader::installContentFilterUnblockHandler(ContentFilter& contentFi
                 frame->script().executeScript(capturedScript.string());
         });
     }
-    frameLoader()->client().contentFilterDidBlockLoad(WTF::move(unblockHandler));
+    frameLoader()->client().contentFilterDidBlockLoad(WTFMove(unblockHandler));
 }
 
-void DocumentLoader::contentFilterDidDecide()
+void DocumentLoader::contentFilterDidBlock()
 {
-    using State = ContentFilter::State;
     ASSERT(m_contentFilter);
-    ASSERT(m_contentFilter->state() == State::Blocked || m_contentFilter->state() == State::Allowed);
-    if (m_contentFilter->state() == State::Allowed)
-        return;
 
     installContentFilterUnblockHandler(*m_contentFilter);
 

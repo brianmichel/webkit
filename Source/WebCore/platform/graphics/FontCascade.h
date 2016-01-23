@@ -134,7 +134,7 @@ public:
 
     enum CustomFontNotReadyAction { DoNotPaintIfFontNotReady, UseFallbackIfFontNotReady };
     WEBCORE_EXPORT float drawText(GraphicsContext&, const TextRun&, const FloatPoint&, int from = 0, int to = -1, CustomFontNotReadyAction = DoNotPaintIfFontNotReady) const;
-    void drawGlyphs(GraphicsContext&, const Font&, const GlyphBuffer&, int from, int numGlyphs, const FloatPoint&) const;
+    static void drawGlyphs(GraphicsContext&, const Font&, const GlyphBuffer&, int from, int numGlyphs, const FloatPoint&, FontSmoothingMode);
     void drawEmphasisMarks(GraphicsContext&, const TextRun&, const AtomicString& mark, const FloatPoint&, int from = 0, int to = -1) const;
 
     DashArray dashesForIntersectionsWithRect(const TextRun&, const FloatPoint& textOrigin, const FloatRect& lineExtents) const;
@@ -265,12 +265,6 @@ public:
     static CodePath codePath();
     static CodePath s_codePath;
 
-    static const uint8_t s_roundingHackCharacterTable[256];
-    static bool isRoundingHackCharacter(UChar32 c)
-    {
-        return !(c & ~0xFF) && s_roundingHackCharacterTable[c];
-    }
-
     FontSelector* fontSelector() const;
     static bool treatAsSpace(UChar c) { return c == ' ' || c == '\t' || c == '\n' || c == noBreakSpace; }
     static bool treatAsZeroWidthSpace(UChar c) { return treatAsZeroWidthSpaceInComplexScript(c) || c == 0x200c || c == 0x200d; }
@@ -367,7 +361,7 @@ inline bool FontCascade::isFixedPitch() const
 
 inline FontSelector* FontCascade::fontSelector() const
 {
-    return m_fonts ? m_fonts->fontSelector() : 0;
+    return m_fonts ? m_fonts->fontSelector() : nullptr;
 }
 
 inline float FontCascade::tabWidth(const Font& font, unsigned tabSize, float position) const

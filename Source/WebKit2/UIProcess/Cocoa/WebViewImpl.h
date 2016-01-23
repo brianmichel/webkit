@@ -50,6 +50,10 @@ OBJC_CLASS WKWebView;
 OBJC_CLASS WKWindowVisibilityObserver;
 OBJC_CLASS _WKThumbnailView;
 
+#if USE(APPLE_INTERNAL_SDK) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#import <WebKitAdditions/WebViewImplAdditionsDeclarations.h>
+#endif
+
 @protocol WebViewImplDelegate
 
 - (NSTextInputContext *)_web_superInputContext;
@@ -294,6 +298,10 @@ public:
     void lowercaseWord();
     void capitalizeWord();
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+    void requestCandidatesForSelectionIfNeeded();
+#endif
+
     void preferencesDidChange();
 
     void setTextIndicator(WebCore::TextIndicator&, WebCore::TextIndicatorWindowLifetime = WebCore::TextIndicatorWindowLifetime::Permanent);
@@ -466,6 +474,16 @@ public:
     void rightMouseDragged(NSEvent *);
     void rightMouseUp(NSEvent *);
 
+    void updateWebViewImplAdditions();
+    void showCandidates(NSArray *candidates, NSString *, NSRect rectOfTypedString, NSView *, void (^completionHandler)(NSTextCheckingResult *acceptedCandidate));
+    void webViewImplAdditionsWillDestroyView();
+
+    bool windowIsFrontWindowUnderMouse(NSEvent *);
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200 && USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebViewImplAdditions.h>
+#endif
+
 private:
     WeakPtr<WebViewImpl> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
 
@@ -497,6 +515,11 @@ private:
     bool mightBeginScrollWhileInactive();
 
     Vector<NSTouch *> touchesOrderedByAge();
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+    void handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates);
+    void handleAcceptedCandidate(NSTextCheckingResult *acceptedCandidate);
+#endif
 
     NSView <WebViewImplDelegate> *m_view;
     std::unique_ptr<PageClient> m_pageClient;
@@ -610,6 +633,10 @@ private:
 
     Vector<RetainPtr<id <NSObject, NSCopying>>> m_activeTouchIdentities;
     RetainPtr<NSArray> m_lastTouches;
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+    String m_lastStringForCandidateRequest;
+#endif
 };
     
 } // namespace WebKit

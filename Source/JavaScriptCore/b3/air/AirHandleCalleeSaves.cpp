@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #if ENABLE(B3_JIT)
 
 #include "AirCode.h"
-#include "AirInsertionSet.h"
 #include "AirInstInlines.h"
 #include "AirPhaseScope.h"
 
@@ -49,7 +48,7 @@ void handleCalleeSaves(Code& code)
                     usedCalleeSaves.set(tmp.reg());
                 });
 
-            if (inst.hasSpecial())
+            if (inst.opcode == Patch)
                 usedCalleeSaves.merge(inst.extraClobberedRegs());
         }
     }
@@ -71,34 +70,6 @@ void handleCalleeSaves(Code& code)
     // This is a bit weird since we could have already pinned a different stack slot to this
     // area. Also, our runtime does not require us to pin the saves area. Maybe we shouldn't pin it?
     savesArea->setOffsetFromFP(-byteSize);
-
-    auto argFor = [&] (const RegisterAtOffset& entry) -> Arg {
-        return Arg::stack(savesArea, entry.offset() + byteSize);
-    };
-
-    InsertionSet insertionSet(code);
-    
-    // First insert saving code in the prologue.
-    for (const RegisterAtOffset& entry : code.calleeSaveRegisters()) {
-        insertionSet.insert(
-            0, entry.reg().isGPR() ? Move : MoveDouble, code[0]->at(0).origin,
-            Tmp(entry.reg()), argFor(entry));
-    }
-    insertionSet.execute(code[0]);
-
-    // Now insert restore code at epilogues.
-    for (BasicBlock* block : code) {
-        Inst& last = block->last();
-        if (last.opcode != Ret)
-            continue;
-
-        for (const RegisterAtOffset& entry : code.calleeSaveRegisters()) {
-            insertionSet.insert(
-                block->size() - 1, entry.reg().isGPR() ? Move : MoveDouble, last.origin,
-                argFor(entry), Tmp(entry.reg()));
-        }
-        insertionSet.execute(block);
-    }
 }
 
 } } } // namespace JSC::B3::Air

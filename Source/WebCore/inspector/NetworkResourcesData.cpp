@@ -144,7 +144,7 @@ static RefPtr<TextResourceDecoder> createOtherResourceTextDecoder(const String& 
     else if (DOMImplementation::isXMLMIMEType(mimeType.lower())) {
         decoder = TextResourceDecoder::create("application/xml");
         decoder->useLenientXMLDecoding();
-    } else if (equalIgnoringCase(mimeType, "text/html"))
+    } else if (equalLettersIgnoringASCIICase(mimeType, "text/html"))
         decoder = TextResourceDecoder::create("text/html", "UTF-8");
     else if (mimeType == "text/plain")
         decoder = TextResourceDecoder::create("text/plain", "ISO-8859-1");
@@ -242,7 +242,7 @@ void NetworkResourcesData::addResourceSharedBuffer(const String& requestId, RefP
     ResourceData* resourceData = resourceDataForRequestId(requestId);
     if (!resourceData)
         return;
-    resourceData->setBuffer(WTF::move(buffer));
+    resourceData->setBuffer(WTFMove(buffer));
     resourceData->setTextEncodingName(textEncodingName);
 }
 

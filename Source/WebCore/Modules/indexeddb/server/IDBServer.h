@@ -51,6 +51,7 @@ namespace IDBServer {
 class IDBServer : public RefCounted<IDBServer> {
 public:
     static Ref<IDBServer> create();
+    static Ref<IDBServer> create(const String& databaseDirectoryPath);
 
     void registerConnection(IDBConnectionToClient&);
     void unregisterConnection(IDBConnectionToClient&);
@@ -75,6 +76,8 @@ public:
 
     void establishTransaction(uint64_t databaseConnectionIdentifier, const IDBTransactionInfo&);
     void databaseConnectionClosed(uint64_t databaseConnectionIdentifier);
+    void abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& transactionIdentifier);
+    void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier);
 
     void postDatabaseTask(std::unique_ptr<CrossThreadTask>&&);
     void postDatabaseTaskReply(std::unique_ptr<CrossThreadTask>&&);
@@ -90,6 +93,7 @@ public:
 
 private:
     IDBServer();
+    IDBServer(const String& databaseDirectoryPath);
 
     UniqueIDBDatabase& getOrCreateUniqueIDBDatabase(const IDBDatabaseIdentifier&);
 
@@ -110,6 +114,8 @@ private:
 
     HashMap<uint64_t, UniqueIDBDatabaseConnection*> m_databaseConnections;
     HashMap<IDBResourceIdentifier, UniqueIDBDatabaseTransaction*> m_transactions;
+
+    String m_databaseDirectoryPath;
 };
 
 } // namespace IDBServer

@@ -324,6 +324,10 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
     layout()
     {
         this._currentTimelineOverview.updateLayoutForResize();
+
+        let currentContentView = this._contentViewContainer.currentContentView;
+        if (currentContentView && currentContentView.updateLayoutForResize)
+            currentContentView.updateLayoutForResize();
     }
 
     // Private
@@ -586,8 +590,8 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
         if (timeline.type === WebInspector.TimelineRecord.Type.RenderingFrame)
             this._renderingFrameTimeline = timeline;
 
-        let displayName = WebInspector.TimelineSidebarPanel.displayNameForTimeline(timeline);
-        let iconClassName = WebInspector.TimelineSidebarPanel.iconClassNameForTimeline(timeline);
+        let displayName = WebInspector.TimelineTabContentView.displayNameForTimeline(timeline);
+        let iconClassName = WebInspector.TimelineTabContentView.iconClassNameForTimeline(timeline);
         let pathComponent = new WebInspector.HierarchicalPathComponent(displayName, iconClassName, timeline);
         pathComponent.addEventListener(WebInspector.HierarchicalPathComponent.Event.SiblingWasSelected, this._pathComponentSelected, this);
         this._pathComponentMap.set(timeline, pathComponent);

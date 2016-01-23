@@ -32,6 +32,7 @@
 #include "IDBResultData.h"
 #include "Logging.h"
 #include "MemoryIDBBackingStore.h"
+#include "SQLiteIDBBackingStore.h"
 #include <wtf/Locker.h>
 #include <wtf/MainThread.h>
 
@@ -43,8 +44,22 @@ Ref<IDBServer> IDBServer::create()
     return adoptRef(*new IDBServer());
 }
 
+Ref<IDBServer> IDBServer::create(const String& databaseDirectoryPath)
+{
+    return adoptRef(*new IDBServer(databaseDirectoryPath));
+}
+
 IDBServer::IDBServer()
 {
+    Locker<Lock> locker(m_databaseThreadCreationLock);
+    m_threadID = createThread(IDBServer::databaseThreadEntry, this, "IndexedDatabase Server");
+}
+
+IDBServer::IDBServer(const String& databaseDirectoryPath)
+    : m_databaseDirectoryPath(databaseDirectoryPath)
+{
+    LOG(IndexedDB, "IDBServer created at path %s", databaseDirectoryPath.utf8().data());
+
     Locker<Lock> locker(m_databaseThreadCreationLock);
     m_threadID = createThread(IDBServer::databaseThreadEntry, this, "IndexedDatabase Server");
 }
@@ -102,11 +117,10 @@ std::unique_ptr<IDBBackingStore> IDBServer::createBackingStore(const IDBDatabase
 {
     ASSERT(!isMainThread());
 
-    // FIXME: For now we only have the in-memory backing store, which we'll continue to use for private browsing.
-    // Once it's time for persistent backing stores this is where we'll calculate the correct path on disk
-    // and create it.
+    if (m_databaseDirectoryPath.isEmpty())
+        return MemoryIDBBackingStore::create(identifier);
 
-    return MemoryIDBBackingStore::create(identifier);
+    return std::make_unique<SQLiteIDBBackingStore>(identifier, m_databaseDirectoryPath);
 }
 
 void IDBServer::openDatabase(const IDBRequestData& requestData)
@@ -339,16 +353,39 @@ void IDBServer::databaseConnectionClosed(uint64_t databaseConnectionIdentifier)
     databaseConnection->connectionClosedFromClient();
 }
 
+void IDBServer::abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& transactionIdentifier)
+{
+    LOG(IndexedDB, "IDBServer::abortOpenAndUpgradeNeeded");
+
+    auto transaction = m_transactions.get(transactionIdentifier);
+    if (transaction)
+        transaction->abortWithoutCallback();
+
+    auto databaseConnection = m_databaseConnections.get(databaseConnectionIdentifier);
+    if (!databaseConnection)
+        return;
+
+    databaseConnection->connectionClosedFromClient();
+}
+
+void IDBServer::didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier)
+{
+    LOG(IndexedDB, "IDBServer::didFireVersionChangeEvent");
+
+    if (auto databaseConnection = m_databaseConnections.get(databaseConnectionIdentifier))
+        databaseConnection->didFireVersionChangeEvent(requestIdentifier);
+}
+
 void IDBServer::postDatabaseTask(std::unique_ptr<CrossThreadTask>&& task)
 {
     ASSERT(isMainThread());
-    m_databaseQueue.append(WTF::move(task));
+    m_databaseQueue.append(WTFMove(task));
 }
 
 void IDBServer::postDatabaseTaskReply(std::unique_ptr<CrossThreadTask>&& task)
 {
     ASSERT(!isMainThread());
-    m_databaseReplyQueue.append(WTF::move(task));
+    m_databaseReplyQueue.append(WTFMove(task));
 
 
     Locker<Lock> locker(m_mainThreadReplyLock);

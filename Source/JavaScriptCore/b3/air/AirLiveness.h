@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #if ENABLE(B3_JIT)
 
 #include "AirBasicBlock.h"
+#include "AirCode.h"
 #include "AirInstInlines.h"
 #include "AirTmpInlines.h"
 #include "B3IndexMap.h"
@@ -76,10 +77,28 @@ private:
     Code& m_code;
 };
 
+struct RegLivenessAdapter {
+    typedef Reg Thing;
+    typedef BitVector IndexSet;
+
+    RegLivenessAdapter(Code&) { }
+
+    static unsigned maxIndex(Code&)
+    {
+        return Reg::maxIndex();
+    }
+
+    static bool acceptsType(Arg::Type) { return true; }
+    static unsigned valueToIndex(Reg reg) { return reg.index(); }
+    Reg indexToValue(unsigned index) { return Reg::fromIndex(index); }
+};
+
 template<typename Adapter>
-class AbstractLiveness : private Adapter {
+class AbstractLiveness : public Adapter {
     struct Workset;
 public:
+    typedef typename Adapter::Thing Thing;
+    
     AbstractLiveness(Code& code)
         : Adapter(code)
         , m_workset(Adapter::maxIndex(code))
@@ -117,6 +136,13 @@ public:
                 LocalCalc localCalc(*this, block);
                 for (size_t instIndex = block->size(); instIndex--;)
                     localCalc.execute(instIndex);
+
+                // Handle the early def's of the first instruction.
+                block->at(0).forEach<typename Adapter::Thing>(
+                    [&] (typename Adapter::Thing& thing, Arg::Role role, Arg::Type type, Arg::Width) {
+                        if (Arg::isEarlyDef(role) && Adapter::acceptsType(type))
+                            m_workset.remove(Adapter::valueToIndex(thing));
+                    });
 
                 Vector<unsigned>& liveAtHead = m_liveAtHead[block];
 
@@ -199,6 +225,11 @@ public:
 
             Iterator begin() const { return Iterator(m_liveness, m_liveness.m_workset.begin()); }
             Iterator end() const { return Iterator(m_liveness, m_liveness.m_workset.end()); }
+            
+            bool contains(const typename Adapter::Thing& thing) const
+            {
+                return m_liveness.m_workset.contains(Adapter::valueToIndex(thing));
+            }
 
         private:
             AbstractLiveness& m_liveness;
@@ -209,14 +240,30 @@ public:
             return Iterable(m_liveness);
         }
 
+        bool isLive(const typename Adapter::Thing& thing) const
+        {
+            return live().contains(thing);
+        }
+
         void execute(unsigned instIndex)
         {
             Inst& inst = m_block->at(instIndex);
             auto& workset = m_liveness.m_workset;
-            // First handle def's.
+
+            // First handle the early def's of the next instruction.
+            if (instIndex + 1 < m_block->size()) {
+                Inst& nextInst = m_block->at(instIndex + 1);
+                nextInst.forEach<typename Adapter::Thing>(
+                    [&] (typename Adapter::Thing& thing, Arg::Role role, Arg::Type type, Arg::Width) {
+                        if (Arg::isEarlyDef(role) && Adapter::acceptsType(type))
+                            workset.remove(Adapter::valueToIndex(thing));
+                    });
+            }
+            
+            // Then handle def's.
             inst.forEach<typename Adapter::Thing>(
                 [&] (typename Adapter::Thing& thing, Arg::Role role, Arg::Type type, Arg::Width) {
-                    if (Arg::isDef(role) && Adapter::acceptsType(type))
+                    if (Arg::isLateDef(role) && Adapter::acceptsType(type))
                         workset.remove(Adapter::valueToIndex(thing));
                 });
 
@@ -242,6 +289,11 @@ public:
         AbstractLiveness& m_liveness;
         BasicBlock* m_block;
     };
+
+    const Vector<unsigned>& rawLiveAtHead(BasicBlock* block)
+    {
+        return m_liveAtHead[block];
+    }
 
     template<typename UnderlyingIterable>
     class Iterable {
@@ -296,6 +348,11 @@ public:
         iterator begin() const { return iterator(m_liveness, m_iterable.begin()); }
         iterator end() const { return iterator(m_liveness, m_iterable.end()); }
 
+        bool contains(const typename Adapter::Thing& thing) const
+        {
+            return m_liveness.m_workset.contains(Adapter::valueToIndex(thing));
+        }
+
     private:
         AbstractLiveness& m_liveness;
         const UnderlyingIterable& m_iterable;
@@ -310,6 +367,8 @@ public:
     {
         return Iterable<typename Adapter::IndexSet>(*this, m_liveAtTail[block]);
     }
+
+    IndexSparseSet<UnsafeVectorOverflow>& workset() { return m_workset; }
 
 private:
     friend class LocalCalc;
@@ -326,6 +385,7 @@ using TmpLiveness = AbstractLiveness<TmpLivenessAdapter<type>>;
 typedef AbstractLiveness<TmpLivenessAdapter<Arg::GP>> GPLiveness;
 typedef AbstractLiveness<TmpLivenessAdapter<Arg::FP>> FPLiveness;
 typedef AbstractLiveness<StackSlotLivenessAdapter> StackSlotLiveness;
+typedef AbstractLiveness<RegLivenessAdapter> RegLiveness;
 
 } } } // namespace JSC::B3::Air
 

@@ -44,7 +44,6 @@
 #include "ExceptionHelpers.h"
 #include "GetterSetter.h"
 #include "JSArray.h"
-#include "JSArrowFunction.h"
 #include "JSBoundFunction.h"
 #include "JSCInlines.h"
 #include "JSLexicalEnvironment.h"
@@ -163,8 +162,6 @@ JSValue eval(CallFrame* callFrame)
     ThisTDZMode thisTDZMode = ThisTDZMode::CheckIfNeeded;
     if (callerUnlinkedCodeBlock->constructorKind() == ConstructorKind::Derived)
         thisTDZMode = ThisTDZMode::AlwaysCheck;
-    if (callerUnlinkedCodeBlock->parseMode() == SourceParseMode::GeneratorBodyMode && callerUnlinkedCodeBlock->generatorThisMode() == GeneratorThisMode::Empty)
-        thisTDZMode = ThisTDZMode::AlwaysCheck;
 
     SourceCode sourceCode(makeSource(programSource));
     EvalExecutable* eval = callerCodeBlock->evalCodeCache().tryGet(callerCodeBlock->isStrictMode(), sourceCode, thisTDZMode, callerScopeChain);
@@ -185,7 +182,7 @@ JSValue eval(CallFrame* callFrame)
         // If the literal parser bailed, it should not have thrown exceptions.
         ASSERT(!callFrame->vm().exception());
 
-        eval = callerCodeBlock->evalCodeCache().getSlow(callFrame, callerCodeBlock, callerCodeBlock->isStrictMode(), thisTDZMode, callerCodeBlock->unlinkedCodeBlock()->isDerivedConstructorContext(), callerCodeBlock->unlinkedCodeBlock()->isArrowFunction(), sourceCode, callerScopeChain);
+        eval = callerCodeBlock->evalCodeCache().getSlow(callFrame, callerCodeBlock, callerCodeBlock->isStrictMode(), thisTDZMode, callerCodeBlock->unlinkedCodeBlock()->derivedContextType(), callerCodeBlock->unlinkedCodeBlock()->isArrowFunction(), sourceCode, callerScopeChain);
 
         if (!eval)
             return jsUndefined();

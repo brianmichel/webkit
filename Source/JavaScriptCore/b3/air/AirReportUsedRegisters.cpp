@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,32 +39,52 @@ void reportUsedRegisters(Code& code)
 {
     PhaseScope phaseScope(code, "reportUsedRegisters");
 
-    // FIXME: We should tell liveness to only track Regs.
-    // https://bugs.webkit.org/show_bug.cgi?id=150751
-    GPLiveness gpLiveness(code);
-    FPLiveness fpLiveness(code);
+    RegLiveness liveness(code);
 
     for (BasicBlock* block : code) {
-        GPLiveness::LocalCalc gpLocalCalc(gpLiveness, block);
-        FPLiveness::LocalCalc fpLocalCalc(fpLiveness, block);
+        RegLiveness::LocalCalc localCalc(liveness, block);
 
         for (unsigned instIndex = block->size(); instIndex--;) {
             Inst& inst = block->at(instIndex);
-            if (inst.hasSpecial()) {
+
+            // Kill dead assignments to registers. For simplicity we say that a store is killable if
+            // it has only late defs and those late defs are to registers that are dead right now.
+            if (!inst.hasNonArgEffects()) {
+                bool canDelete = true;
+                inst.forEachArg(
+                    [&] (Arg& arg, Arg::Role role, Arg::Type, Arg::Width) {
+                        if (Arg::isEarlyDef(role)) {
+                            canDelete = false;
+                            return;
+                        }
+                        if (!Arg::isLateDef(role))
+                            return;
+                        if (!arg.isReg()) {
+                            canDelete = false;
+                            return;
+                        }
+                        if (localCalc.isLive(arg.reg())) {
+                            canDelete = false;
+                            return;
+                        }
+                    });
+                if (canDelete)
+                    inst = Inst();
+            }
+            
+            if (inst.opcode == Patch) {
                 RegisterSet registerSet;
-                for (Tmp tmp : gpLocalCalc.live()) {
-                    ASSERT(tmp.isGP());
-                    registerSet.set(tmp.reg());
-                }
-                for (Tmp tmp : fpLocalCalc.live()) {
-                    ASSERT(tmp.isFP());
-                    registerSet.set(tmp.reg());
-                }
+                for (Reg reg : localCalc.live())
+                    registerSet.set(reg);
                 inst.reportUsedRegisters(registerSet);
             }
-            gpLocalCalc.execute(instIndex);
-            fpLocalCalc.execute(instIndex);
+            localCalc.execute(instIndex);
         }
+        
+        block->insts().removeAllMatching(
+            [&] (const Inst& inst) -> bool {
+                return !inst;
+            });
     }
 }
 

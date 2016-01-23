@@ -84,7 +84,10 @@ void IDBOpenDBRequest::fireSuccessAfterVersionChangeCommit()
     ASSERT(m_result->type() == IDBAny::Type::IDBDatabase);
     m_transaction->addRequest(*this);
 
-    enqueueEvent(Event::create(eventNames().successEvent, false, false));
+    auto event = Event::create(eventNames().successEvent, false, false);
+    m_openDatabaseSuccessEvent = &event.get();
+
+    enqueueEvent(WTFMove(event));
 }
 
 void IDBOpenDBRequest::fireErrorAfterVersionChangeCompletion()
@@ -119,7 +122,7 @@ void IDBOpenDBRequest::onSuccess(const IDBResultData& resultData)
         return;
 
     Ref<IDBDatabase> database = IDBDatabase::create(*scriptExecutionContext(), connection(), resultData);
-    m_result = IDBAny::create(WTF::move(database));
+    m_result = IDBAny::create(WTFMove(database));
     m_readyState = IDBRequestReadyState::Done;
 
     enqueueEvent(Event::create(eventNames().successEvent, false, false));
@@ -138,7 +141,7 @@ void IDBOpenDBRequest::onUpgradeNeeded(const IDBResultData& resultData)
 
     LOG(IndexedDB, "IDBOpenDBRequest::onUpgradeNeeded() - current version is %" PRIu64 ", new is %" PRIu64, oldVersion, newVersion);
 
-    m_result = IDBAny::create(WTF::move(database));
+    m_result = IDBAny::create(WTFMove(database));
     m_readyState = IDBRequestReadyState::Done;
     m_transaction = adoptRef(&transaction.leakRef());
     m_transaction->addRequest(*this);
@@ -161,6 +164,24 @@ void IDBOpenDBRequest::onDeleteDatabaseSuccess(const IDBResultData& resultData)
 void IDBOpenDBRequest::requestCompleted(const IDBResultData& data)
 {
     LOG(IndexedDB, "IDBOpenDBRequest::requestCompleted");
+
+    // If an Open request was completed after the page has navigated, leaving this request
+    // with a stopped script execution context, we need to message back to the server so it
+    // doesn't hang waiting on a database connection or transaction that will never exist.
+    if (m_contextStopped) {
+        switch (data.type()) {
+        case IDBResultType::OpenDatabaseSuccess:
+            connection().abortOpenAndUpgradeNeeded(data.databaseConnectionIdentifier(), IDBResourceIdentifier::emptyValue());
+            break;
+        case IDBResultType::OpenDatabaseUpgradeNeeded:
+            connection().abortOpenAndUpgradeNeeded(data.databaseConnectionIdentifier(), data.transactionInfo().identifier());
+            break;
+        default:
+            break;
+        }
+
+        return;
+    }
 
     switch (data.type()) {
     case IDBResultType::Error:

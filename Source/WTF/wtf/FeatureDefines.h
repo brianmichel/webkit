@@ -138,6 +138,10 @@
 #define ENABLE_SHADOW_DOM 1
 #endif
 
+#if !defined(ENABLE_CUSTOM_ELEMENTS)
+#define ENABLE_CUSTOM_ELEMENTS 1
+#endif
+
 #if !defined(ENABLE_TEXT_CARET)
 #define ENABLE_TEXT_CARET 0
 #endif
@@ -258,13 +262,23 @@ the public iOS SDK. We will also need to update the FeatureDefines.xcconfig file
 #define ENABLE_SHADOW_DOM 1
 #endif
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+#if !defined(ENABLE_CUSTOM_ELEMENTS)
+#define ENABLE_CUSTOM_ELEMENTS 1
+#endif
+
 #if !defined(ENABLE_MAC_GESTURE_EVENTS) && USE(APPLE_INTERNAL_SDK)
 #define ENABLE_MAC_GESTURE_EVENTS 1
 #endif
-#endif
 
 #endif /* PLATFORM(MAC) */
+
+#if PLATFORM(COCOA)
+
+#if !defined(ENABLE_DATA_DETECTION)
+#define ENABLE_DATA_DETECTION 1
+#endif
+
+#endif /* PLATFORM(COCOA) */
 
 /* --------- Apple Windows port --------- */
 #if PLATFORM(WIN) && !PLATFORM(WIN_CAIRO)
@@ -687,6 +701,10 @@ the public iOS SDK. We will also need to update the FeatureDefines.xcconfig file
 
 #if !defined(ENABLE_SHADOW_DOM)
 #define ENABLE_SHADOW_DOM 0
+#endif
+
+#if !defined(ENABLE_CUSTOM_ELEMENTS)
+#define ENABLE_CUSTOM_ELEMENTS 0
 #endif
 
 #if !defined(ENABLE_SMOOTH_SCROLLING)

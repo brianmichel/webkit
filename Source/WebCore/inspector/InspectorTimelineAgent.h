@@ -156,9 +156,9 @@ private:
         TimelineRecordEntry()
             : type(TimelineRecordType::EventDispatch) { }
         TimelineRecordEntry(RefPtr<Inspector::InspectorObject>&& record, RefPtr<Inspector::InspectorObject>&& data, RefPtr<Inspector::InspectorArray>&& children, TimelineRecordType type)
-            : record(WTF::move(record))
-            , data(WTF::move(data))
-            , children(WTF::move(children))
+            : record(WTFMove(record))
+            , data(WTFMove(data))
+            , children(WTFMove(children))
             , type(type)
         {
         }
@@ -196,7 +196,6 @@ private:
 
     Vector<TimelineRecordEntry> m_recordStack;
     int m_id { 1 };
-    int m_callStackDepth { 0 };
     int m_maxCallStackDepth { 5 };
 
     Vector<TimelineRecordEntry> m_pendingConsoleProfileRecords;

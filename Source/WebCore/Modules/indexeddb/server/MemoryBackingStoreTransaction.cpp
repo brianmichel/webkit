@@ -86,14 +86,13 @@ void MemoryBackingStoreTransaction::addExistingIndex(MemoryIndex& index)
     m_indexes.add(&index);
 }
 
-void MemoryBackingStoreTransaction::indexDeleted(std::unique_ptr<MemoryIndex> index)
+void MemoryBackingStoreTransaction::indexDeleted(Ref<MemoryIndex>&& index)
 {
-    ASSERT(index);
-    m_indexes.remove(index.get());
+    m_indexes.remove(&index.get());
 
     auto addResult = m_deletedIndexes.add(index->info().name(), nullptr);
     if (addResult.isNewEntry)
-        addResult.iterator->value = WTF::move(index);
+        addResult.iterator->value = WTFMove(index);
 }
 
 void MemoryBackingStoreTransaction::addExistingObjectStore(MemoryObjectStore& objectStore)
@@ -110,15 +109,16 @@ void MemoryBackingStoreTransaction::addExistingObjectStore(MemoryObjectStore& ob
     m_originalKeyGenerators.add(&objectStore, objectStore.currentKeyGeneratorValue());
 }
 
-void MemoryBackingStoreTransaction::objectStoreDeleted(std::unique_ptr<MemoryObjectStore> objectStore)
+void MemoryBackingStoreTransaction::objectStoreDeleted(Ref<MemoryObjectStore>&& objectStore)
 {
-    ASSERT(objectStore);
-    ASSERT(m_objectStores.contains(objectStore.get()));
-    m_objectStores.remove(objectStore.get());
+    ASSERT(m_objectStores.contains(&objectStore.get()));
+    m_objectStores.remove(&objectStore.get());
+
+    objectStore->deleteAllIndexes(*this);
 
     auto addResult = m_deletedObjectStores.add(objectStore->info().name(), nullptr);
     if (addResult.isNewEntry)
-        addResult.iterator->value = WTF::move(objectStore);
+        addResult.iterator->value = WTFMove(objectStore);
 }
 
 void MemoryBackingStoreTransaction::objectStoreCleared(MemoryObjectStore& objectStore, std::unique_ptr<KeyValueMap>&& keyValueMap, std::unique_ptr<std::set<IDBKeyData>>&& orderedKeys)
@@ -131,10 +131,10 @@ void MemoryBackingStoreTransaction::objectStoreCleared(MemoryObjectStore& object
     if (!addResult.isNewEntry)
         return;
 
-    addResult.iterator->value = WTF::move(keyValueMap);
+    addResult.iterator->value = WTFMove(keyValueMap);
 
     ASSERT(!m_clearedOrderedKeys.contains(&objectStore));
-    m_clearedOrderedKeys.add(&objectStore, WTF::move(orderedKeys));
+    m_clearedOrderedKeys.add(&objectStore, WTFMove(orderedKeys));
 }
 
 void MemoryBackingStoreTransaction::indexCleared(MemoryIndex& index, std::unique_ptr<IndexValueStore>&& valueStore)
@@ -145,7 +145,7 @@ void MemoryBackingStoreTransaction::indexCleared(MemoryIndex& index, std::unique
     if (!addResult.isNewEntry)
         return;
 
-    addResult.iterator->value = WTF::move(valueStore);
+    addResult.iterator->value = WTFMove(valueStore);
 }
 
 void MemoryBackingStoreTransaction::recordValueChanged(MemoryObjectStore& objectStore, const IDBKeyData& key, ThreadSafeDataBuffer* value)
@@ -180,17 +180,15 @@ void MemoryBackingStoreTransaction::abort()
 
     TemporaryChange<bool> change(m_isAborting, true);
 
-    // This loop moves the underlying unique_ptrs from out of the m_deletedObjectStores map,
-    // but the entries in the map still remain.
+    for (auto objectStore : m_versionChangeAddedObjectStores)
+        m_backingStore.removeObjectStoreForVersionChangeAbort(*objectStore);
+    m_versionChangeAddedObjectStores.clear();
+
     for (auto& objectStore : m_deletedObjectStores.values()) {
-        MemoryObjectStore* rawObjectStore = objectStore.get();
-        m_backingStore.restoreObjectStoreForVersionChangeAbort(WTF::move(objectStore));
-
-        ASSERT(!m_objectStores.contains(rawObjectStore));
-        m_objectStores.add(rawObjectStore);
+        m_backingStore.restoreObjectStoreForVersionChangeAbort(*objectStore);
+        ASSERT(!m_objectStores.contains(objectStore.get()));
+        m_objectStores.add(objectStore);
     }
-
-    // This clears the entries from the map.
     m_deletedObjectStores.clear();
 
     if (m_originalDatabaseInfo) {
@@ -201,20 +199,20 @@ void MemoryBackingStoreTransaction::abort()
     // Restore cleared index value stores before we re-insert values into object stores
     // because inserting those values will regenerate the appropriate index values.
     for (auto& iterator : m_clearedIndexValueStores)
-        iterator.key->replaceIndexValueStore(WTF::move(iterator.value));
+        iterator.key->replaceIndexValueStore(WTFMove(iterator.value));
     m_clearedIndexValueStores.clear();
     
-    for (auto objectStore : m_objectStores) {
-        ASSERT(m_originalKeyGenerators.contains(objectStore));
-        objectStore->setKeyGeneratorValue(m_originalKeyGenerators.get(objectStore));
+    for (auto& objectStore : m_objectStores) {
+        ASSERT(m_originalKeyGenerators.contains(objectStore.get()));
+        objectStore->setKeyGeneratorValue(m_originalKeyGenerators.get(objectStore.get()));
 
-        auto clearedKeyValueMap = m_clearedKeyValueMaps.take(objectStore);
+        auto clearedKeyValueMap = m_clearedKeyValueMaps.take(objectStore.get());
         if (clearedKeyValueMap) {
-            ASSERT(m_clearedOrderedKeys.contains(objectStore));
-            objectStore->replaceKeyValueStore(WTF::move(clearedKeyValueMap), m_clearedOrderedKeys.take(objectStore));
+            ASSERT(m_clearedOrderedKeys.contains(objectStore.get()));
+            objectStore->replaceKeyValueStore(WTFMove(clearedKeyValueMap), m_clearedOrderedKeys.take(objectStore.get()));
         }
 
-        auto keyValueMap = m_originalValues.take(objectStore);
+        auto keyValueMap = m_originalValues.take(objectStore.get());
         if (!keyValueMap)
             continue;
 
@@ -224,20 +222,11 @@ void MemoryBackingStoreTransaction::abort()
         }
     }
 
-    // This loop moves the underlying unique_ptrs from out of the m_deletedIndexes map,
-    // but the entries in the map still remain.
-    for (auto& index : m_deletedIndexes.values()) {
-        MemoryObjectStore& objectStore = index->objectStore();
-        objectStore.maybeRestoreDeletedIndex(WTF::move(index));
-    }
-
-    // This clears the entries from the map.
+    for (auto& index : m_deletedIndexes.values())
+        index->objectStore().maybeRestoreDeletedIndex(*index);
     m_deletedIndexes.clear();
 
     finish();
-
-    for (auto objectStore : m_versionChangeAddedObjectStores)
-        m_backingStore.removeObjectStoreForVersionChangeAbort(*objectStore);
 }
 
 void MemoryBackingStoreTransaction::commit()

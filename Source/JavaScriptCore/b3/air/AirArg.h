@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,16 @@
 #include "B3Type.h"
 #include <wtf/Optional.h>
 
-namespace JSC { namespace B3 { namespace Air {
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
+
+namespace JSC { namespace B3 {
+
+class Value;
+
+namespace Air {
 
 class Special;
 class StackSlot;
@@ -69,7 +78,8 @@ public:
         RelCond,
         ResCond,
         DoubleCond,
-        Special
+        Special,
+        WidthArg
     };
 
     enum Role : int8_t {
@@ -92,9 +102,13 @@ public:
         ColdUse,
 
         // LateUse means that the Inst will read from this value after doing its Def's. Note that LateUse
-        // on an Addr or Index still means Use on the internal temporaries. LateUse also currently also
-        // implies ColdUse.
+        // on an Addr or Index still means Use on the internal temporaries. Note that specifying the
+        // same Tmp once as Def and once as LateUse has undefined behavior: the use may happen before
+        // the def, or it may happen after it.
         LateUse,
+
+        // Combination of LateUse and ColdUse.
+        LateColdUse,
 
         // Def means that the Inst will write to this value after doing everything else.
         //
@@ -112,6 +126,7 @@ public:
         // depending on the kind of the argument:
         //
         // For register: the upper bits are zero-filled.
+        // For anonymous stack slot: the upper bits are zero-filled.
         // For address: the upper bits are not touched (i.e. we do a 32-bit store in our example).
         // For tmp: either the upper bits are not touched or they are zero-filled, and we won't know
         // which until we lower the tmp to either a StackSlot or a Reg.
@@ -127,6 +142,16 @@ public:
         // This is a combined Use and ZDef. It means that both things happen.
         UseZDef,
 
+        // This is like Def, but implies that the assignment occurs before the start of the Inst's
+        // execution rather than after. Note that specifying the same Tmp once as EarlyDef and once
+        // as Use has undefined behavior: the use may happen before the def, or it may happen after
+        // it.
+        EarlyDef,
+
+        // Some instructions need a scratch register. We model this by saying that the temporary is
+        // defined early and used late. This role implies that.
+        Scratch,
+
         // This is a special kind of use that is only valid for addresses. It means that the
         // instruction will evaluate the address expression and consume the effective address, but it
         // will neither load nor store. This is an escaping use, because now the address may be
@@ -141,6 +166,13 @@ public:
     };
 
     static const unsigned numTypes = 2;
+
+    template<typename Functor>
+    static void forEachType(const Functor& functor)
+    {
+        functor(GP);
+        functor(FP);
+    }
 
     enum Width : int8_t {
         Width8,
@@ -171,33 +203,61 @@ public:
         case UseDef:
         case UseZDef:
         case LateUse:
+        case LateColdUse:
+        case Scratch:
             return true;
         case Def:
         case ZDef:
         case UseAddr:
+        case EarlyDef:
             return false;
         }
+        ASSERT_NOT_REACHED();
     }
 
     static bool isColdUse(Role role)
     {
         switch (role) {
         case ColdUse:
-        case LateUse:
+        case LateColdUse:
             return true;
         case Use:
         case UseDef:
         case UseZDef:
+        case LateUse:
         case Def:
         case ZDef:
         case UseAddr:
+        case Scratch:
+        case EarlyDef:
             return false;
         }
+        ASSERT_NOT_REACHED();
     }
 
     static bool isWarmUse(Role role)
     {
         return isAnyUse(role) && !isColdUse(role);
+    }
+
+    static Role cooled(Role role)
+    {
+        switch (role) {
+        case ColdUse:
+        case LateColdUse:
+        case UseDef:
+        case UseZDef:
+        case Def:
+        case ZDef:
+        case UseAddr:
+        case Scratch:
+        case EarlyDef:
+            return role;
+        case Use:
+            return ColdUse;
+        case LateUse:
+            return LateColdUse;
+        }
     }
 
     // Returns true if the Role implies that the Inst will Use the Arg before doing anything else.
@@ -213,24 +273,88 @@ public:
         case ZDef:
         case UseAddr:
         case LateUse:
+        case LateColdUse:
+        case Scratch:
+        case EarlyDef:
             return false;
         }
+        ASSERT_NOT_REACHED();
     }
 
     // Returns true if the Role implies that the Inst will Use the Arg after doing everything else.
     static bool isLateUse(Role role)
     {
-        return role == LateUse;
+        switch (role) {
+        case LateUse:
+        case LateColdUse:
+        case Scratch:
+            return true;
+        case ColdUse:
+        case Use:
+        case UseDef:
+        case UseZDef:
+        case Def:
+        case ZDef:
+        case UseAddr:
+        case EarlyDef:
+            return false;
+        }
+        ASSERT_NOT_REACHED();
     }
 
     // Returns true if the Role implies that the Inst will Def the Arg.
-    static bool isDef(Role role)
+    static bool isAnyDef(Role role)
     {
         switch (role) {
         case Use:
         case ColdUse:
         case UseAddr:
         case LateUse:
+        case LateColdUse:
+            return false;
+        case Def:
+        case UseDef:
+        case ZDef:
+        case UseZDef:
+        case EarlyDef:
+        case Scratch:
+            return true;
+        }
+        ASSERT_NOT_REACHED();
+    }
+
+    // Returns true if the Role implies that the Inst will Def the Arg before start of execution.
+    static bool isEarlyDef(Role role)
+    {
+        switch (role) {
+        case Use:
+        case ColdUse:
+        case UseAddr:
+        case LateUse:
+        case Def:
+        case UseDef:
+        case ZDef:
+        case UseZDef:
+        case LateColdUse:
+            return false;
+        case EarlyDef:
+        case Scratch:
+            return true;
+        }
+        ASSERT_NOT_REACHED();
+    }
+
+    // Returns true if the Role implies that the Inst will Def the Arg after the end of execution.
+    static bool isLateDef(Role role)
+    {
+        switch (role) {
+        case Use:
+        case ColdUse:
+        case UseAddr:
+        case LateUse:
+        case EarlyDef:
+        case Scratch:
+        case LateColdUse:
             return false;
         case Def:
         case UseDef:
@@ -238,6 +362,7 @@ public:
         case UseZDef:
             return true;
         }
+        ASSERT_NOT_REACHED();
     }
 
     // Returns true if the Role implies that the Inst will ZDef the Arg.
@@ -250,11 +375,15 @@ public:
         case LateUse:
         case Def:
         case UseDef:
+        case EarlyDef:
+        case Scratch:
+        case LateColdUse:
             return false;
         case ZDef:
         case UseZDef:
             return true;
         }
+        ASSERT_NOT_REACHED();
     }
 
     static Type typeForB3Type(B3::Type type)
@@ -287,6 +416,7 @@ public:
         case Double:
             return Width64;
         }
+        ASSERT_NOT_REACHED();
     }
 
     static Width conservativeWidth(Type type)
@@ -331,6 +461,11 @@ public:
     {
     }
 
+    Arg(Reg reg)
+        : Arg(Air::Tmp(reg))
+    {
+    }
+
     static Arg imm(int64_t value)
     {
         Arg result;
@@ -345,6 +480,11 @@ public:
         result.m_kind = Imm64;
         result.m_offset = value;
         return result;
+    }
+
+    static Arg immPtr(const void* address)
+    {
+        return imm64(bitwise_cast<intptr_t>(address));
     }
 
     static Arg addr(Air::Tmp base, int32_t offset = 0)
@@ -371,6 +511,17 @@ public:
         Arg result;
         result.m_kind = CallArg;
         result.m_offset = offset;
+        return result;
+    }
+
+    static Arg stackAddr(int32_t offsetFromFP, unsigned frameSize, Width width)
+    {
+        Arg result = Arg::addr(Air::Tmp(GPRInfo::callFrameRegister), offsetFromFP);
+        if (!result.isValidForm(width)) {
+            result = Arg::addr(
+                Air::Tmp(MacroAssembler::stackPointerRegister),
+                offsetFromFP + frameSize);
+        }
         return result;
     }
 
@@ -461,6 +612,14 @@ public:
         return result;
     }
 
+    static Arg widthArg(Width width)
+    {
+        Arg result;
+        result.m_kind = WidthArg;
+        result.m_offset = width;
+        return result;
+    }
+
     bool operator==(const Arg& other) const
     {
         return m_offset == other.m_offset
@@ -497,6 +656,11 @@ public:
         return kind() == Imm64;
     }
 
+    bool isSomeImm() const
+    {
+        return isImm() || isImm64();
+    }
+
     bool isAddr() const
     {
         return kind() == Addr;
@@ -516,6 +680,21 @@ public:
     {
         return kind() == Index;
     }
+
+    bool isMemory() const
+    {
+        switch (kind()) {
+        case Addr:
+        case Stack:
+        case CallArg:
+        case Index:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    bool isStackMemory() const;
 
     bool isRelCond() const
     {
@@ -547,6 +726,11 @@ public:
     bool isSpecial() const
     {
         return kind() == Special;
+    }
+
+    bool isWidthArg() const
+    {
+        return kind() == WidthArg;
     }
 
     bool isAlive() const
@@ -592,18 +776,7 @@ public:
         return m_base;
     }
 
-    bool hasOffset() const
-    {
-        switch (kind()) {
-        case Addr:
-        case Stack:
-        case CallArg:
-        case Index:
-            return true;
-        default:
-            return false;
-        }
-    }
+    bool hasOffset() const { return isMemory(); }
     
     int32_t offset() const
     {
@@ -642,6 +815,12 @@ public:
         return bitwise_cast<Air::Special*>(m_offset);
     }
 
+    Width width() const
+    {
+        ASSERT(kind() == WidthArg);
+        return static_cast<Width>(m_offset);
+    }
+
     bool isGPTmp() const
     {
         return isTmp() && tmp().isGP();
@@ -666,12 +845,14 @@ public:
         case ResCond:
         case DoubleCond:
         case Special:
+        case WidthArg:
             return true;
         case Tmp:
             return isGPTmp();
         case Invalid:
             return false;
         }
+        ASSERT_NOT_REACHED();
     }
 
     // Tells us if this Arg can be used in a position that requires a FP value.
@@ -683,6 +864,7 @@ public:
         case ResCond:
         case DoubleCond:
         case Special:
+        case WidthArg:
         case Invalid:
             return false;
         case Addr:
@@ -694,6 +876,7 @@ public:
         case Tmp:
             return isFPTmp();
         }
+        ASSERT_NOT_REACHED();
     }
 
     bool hasType() const
@@ -722,7 +905,12 @@ public:
         case FP:
             return isFP();
         }
+        ASSERT_NOT_REACHED();
     }
+
+    bool canRepresent(Value* value) const;
+
+    bool isCompatibleType(const Arg& other) const;
 
     bool isGPR() const
     {
@@ -800,18 +988,33 @@ public:
     {
         if (isX86())
             return B3::isRepresentableAs<int32_t>(value);
-        // FIXME: ARM has some specific rules about what kinds of immediates are valid.
-        // https://bugs.webkit.org/show_bug.cgi?id=152530
+        if (isARM64())
+            return isUInt12(value);
         return false;
     }
 
-    static bool isValidAddrForm(int32_t offset)
+    static bool isValidAddrForm(int32_t offset, Optional<Width> width = Nullopt)
     {
         if (isX86())
             return true;
-        // FIXME: ARM has some specific rules about what kinds of offsets are valid.
-        // https://bugs.webkit.org/show_bug.cgi?id=152530
-        UNUSED_PARAM(offset);
+        if (isARM64()) {
+            if (!width)
+                return true;
+
+            if (isValidSignedImm9(offset))
+                return true;
+
+            switch (*width) {
+            case Width8:
+                return isValidScaledUImm12<8>(offset);
+            case Width16:
+                return isValidScaledUImm12<16>(offset);
+            case Width32:
+                return isValidScaledUImm12<32>(offset);
+            case Width64:
+                return isValidScaledUImm12<64>(offset);
+            }
+        }
         return false;
     }
 
@@ -843,15 +1046,17 @@ public:
         case Addr:
         case Stack:
         case CallArg:
-            return isValidAddrForm(offset());
+            return isValidAddrForm(offset(), width);
         case Index:
-            return isValidIndexForm(offset(), scale(), width);
+            return isValidIndexForm(scale(), offset(), width);
         case RelCond:
         case ResCond:
         case DoubleCond:
         case Special:
+        case WidthArg:
             return true;
         }
+        ASSERT_NOT_REACHED();
     }
 
     template<typename Functor>
@@ -871,6 +1076,20 @@ public:
         }
     }
 
+    bool usesTmp(Air::Tmp tmp) const;
+
+    template<typename Thing>
+    bool is() const;
+
+    template<typename Thing>
+    Thing as() const;
+
+    template<typename Thing, typename Functor>
+    void forEachFast(const Functor&);
+
+    template<typename Thing, typename Functor>
+    void forEach(Role, Type, Width, const Functor&);
+
     // This is smart enough to know that an address arg in a Def or UseDef rule will use its
     // tmps and never def them. For example, this:
     //
@@ -882,7 +1101,7 @@ public:
     {
         switch (m_kind) {
         case Tmp:
-            ASSERT(isAnyUse(argRole) || isDef(argRole));
+            ASSERT(isAnyUse(argRole) || isAnyDef(argRole));
             functor(m_base, argRole, argType, argWidth);
             break;
         case Addr:
@@ -1057,6 +1276,10 @@ template<> struct HashTraits<JSC::B3::Air::Arg> : SimpleClassHashTraits<JSC::B3:
 };
 
 } // namespace WTF
+
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(B3_JIT)
 

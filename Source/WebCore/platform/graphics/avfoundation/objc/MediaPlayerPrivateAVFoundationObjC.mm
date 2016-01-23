@@ -388,15 +388,6 @@ static const char *boolString(bool val)
 }
 #endif
 
-#if ENABLE(ENCRYPTED_MEDIA_V2)
-typedef HashMap<MediaPlayer*, MediaPlayerPrivateAVFoundationObjC*> PlayerToPrivateMapType;
-static PlayerToPrivateMapType& playerToPrivateMap()
-{
-    DEPRECATED_DEFINE_STATIC_LOCAL(PlayerToPrivateMapType, map, ());
-    return map;
-};
-#endif
-
 #if HAVE(AVFOUNDATION_LOADER_DELEGATE)
 static dispatch_queue_t globalLoaderDelegateQueue()
 {
@@ -512,16 +503,10 @@ MediaPlayerPrivateAVFoundationObjC::MediaPlayerPrivateAVFoundationObjC(MediaPlay
     , m_allowsWirelessVideoPlayback(true)
 #endif
 {
-#if ENABLE(ENCRYPTED_MEDIA_V2)
-    playerToPrivateMap().set(player, this);
-#endif
 }
 
 MediaPlayerPrivateAVFoundationObjC::~MediaPlayerPrivateAVFoundationObjC()
 {
-#if ENABLE(ENCRYPTED_MEDIA_V2)
-    playerToPrivateMap().remove(player());
-#endif
 #if HAVE(AVFOUNDATION_LOADER_DELEGATE)
     [m_loaderDelegate.get() setCallback:0];
     [[m_avAsset.get() resourceLoader] setDelegate:nil queue:0];
@@ -3097,7 +3082,7 @@ void MediaPlayerPrivateAVFoundationObjC::setWirelessVideoPlaybackDisabled(bool d
 #if !PLATFORM(IOS)
 void MediaPlayerPrivateAVFoundationObjC::setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&& target)
 {
-    m_playbackTarget = WTF::move(target);
+    m_playbackTarget = WTFMove(target);
 
     m_outputContext = m_playbackTarget->targetType() == MediaPlaybackTarget::AVFoundation ? toMediaPlaybackTargetMac(m_playbackTarget.get())->outputContext() : nullptr;
 

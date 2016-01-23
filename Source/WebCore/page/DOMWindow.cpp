@@ -110,6 +110,7 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/WTFString.h>
@@ -150,7 +151,7 @@ public:
         , m_message(message)
         , m_origin(sourceOrigin)
         , m_source(source)
-        , m_channels(WTF::move(channels))
+        , m_channels(WTFMove(channels))
         , m_targetOrigin(targetOrigin)
         , m_stackTrace(stackTrace)
     {
@@ -158,8 +159,8 @@ public:
 
     Ref<MessageEvent> event(ScriptExecutionContext* context)
     {
-        std::unique_ptr<MessagePortArray> messagePorts = MessagePort::entanglePorts(*context, WTF::move(m_channels));
-        return MessageEvent::create(WTF::move(messagePorts), m_message, m_origin, String(), m_source);
+        std::unique_ptr<MessagePortArray> messagePorts = MessagePort::entanglePorts(*context, WTFMove(m_channels));
+        return MessageEvent::create(WTFMove(messagePorts), m_message, m_origin, String(), m_source);
     }
     SecurityOrigin* targetOrigin() const { return m_targetOrigin.get(); }
     ScriptCallStack* stackTrace() const { return m_stackTrace.get(); }
@@ -185,13 +186,13 @@ typedef HashCountedSet<DOMWindow*> DOMWindowSet;
 
 static DOMWindowSet& windowsWithUnloadEventListeners()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(DOMWindowSet, windowsWithUnloadEventListeners, ());
+    static NeverDestroyed<DOMWindowSet> windowsWithUnloadEventListeners;
     return windowsWithUnloadEventListeners;
 }
 
 static DOMWindowSet& windowsWithBeforeUnloadEventListeners()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(DOMWindowSet, windowsWithBeforeUnloadEventListeners, ());
+    static NeverDestroyed<DOMWindowSet> windowsWithBeforeUnloadEventListeners;
     return windowsWithBeforeUnloadEventListeners;
 }
 
@@ -916,7 +917,7 @@ void DOMWindow::postMessage(PassRefPtr<SerializedScriptValue> message, const Mes
         stackTrace = createScriptCallStack(JSMainThreadExecState::currentState(), ScriptCallStack::maxCallStackSizeToCapture);
 
     // Schedule the message.
-    PostMessageTimer* timer = new PostMessageTimer(this, message, sourceOrigin, &source, WTF::move(channels), target.get(), stackTrace.release());
+    PostMessageTimer* timer = new PostMessageTimer(this, message, sourceOrigin, &source, WTFMove(channels), target.get(), stackTrace.release());
     timer->startOneShot(0);
 }
 
@@ -1601,7 +1602,7 @@ int DOMWindow::setTimeout(std::unique_ptr<ScheduledAction> action, int timeout, 
         ec = INVALID_ACCESS_ERR;
         return -1;
     }
-    return DOMTimer::install(*context, WTF::move(action), timeout, true);
+    return DOMTimer::install(*context, WTFMove(action), timeout, true);
 }
 
 void DOMWindow::clearTimeout(int timeoutId)
@@ -1635,7 +1636,7 @@ int DOMWindow::setInterval(std::unique_ptr<ScheduledAction> action, int timeout,
         ec = INVALID_ACCESS_ERR;
         return -1;
     }
-    return DOMTimer::install(*context, WTF::move(action), timeout, false);
+    return DOMTimer::install(*context, WTFMove(action), timeout, false);
 }
 
 void DOMWindow::clearInterval(int timeoutId)
@@ -1705,7 +1706,7 @@ bool DOMWindow::isSameSecurityOriginAsMainFrame() const
 
 bool DOMWindow::addEventListener(const AtomicString& eventType, RefPtr<EventListener>&& listener, bool useCapture)
 {
-    if (!EventTarget::addEventListener(eventType, WTF::move(listener), useCapture))
+    if (!EventTarget::addEventListener(eventType, WTFMove(listener), useCapture))
         return false;
 
     if (Document* document = this->document()) {
@@ -2128,7 +2129,7 @@ RefPtr<Frame> DOMWindow::createWindow(const String& urlString, const AtomicStrin
     newFrame->page()->setOpenedByDOM();
 
     if (newFrame->document()->domWindow()->isInsecureScriptAccess(activeWindow, completedURL))
-        return WTF::move(newFrame);
+        return newFrame;
 
     if (prepareDialogFunction)
         prepareDialogFunction(*newFrame->document()->domWindow());
@@ -2146,7 +2147,7 @@ RefPtr<Frame> DOMWindow::createWindow(const String& urlString, const AtomicStrin
     if (!newFrame->page())
         return nullptr;
 
-    return WTF::move(newFrame);
+    return newFrame;
 }
 
 PassRefPtr<DOMWindow> DOMWindow::open(const String& urlString, const AtomicString& frameName, const String& windowFeaturesString,
@@ -2245,7 +2246,7 @@ void DOMWindow::showModalDialog(const String& urlString, const String& dialogFea
         return;
 
     WindowFeatures windowFeatures(dialogFeaturesString, screenAvailableRect(m_frame->view()));
-    RefPtr<Frame> dialogFrame = createWindow(urlString, emptyAtom, windowFeatures, activeWindow, *firstFrame, *m_frame, WTF::move(prepareDialogFunction));
+    RefPtr<Frame> dialogFrame = createWindow(urlString, emptyAtom, windowFeatures, activeWindow, *firstFrame, *m_frame, WTFMove(prepareDialogFunction));
     if (!dialogFrame)
         return;
     dialogFrame->page()->chrome().runModal();

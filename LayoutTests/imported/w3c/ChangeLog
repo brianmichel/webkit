@@ -1,3 +1,1181 @@
+2016-01-20  Ryosuke Niwa  <rniwa@webkit.org>
+
+        HTMLElement::nodeName should not upper case non-ASCII characters
+        https://bugs.webkit.org/show_bug.cgi?id=153231
+
+        Reviewed by Darin Adler.
+
+        Rebaselined the test now that all test cases pass.
+
+        * web-platform-tests/dom/nodes/Document-createElement-expected.txt:
+
+2016-01-22  Chris Dumez  <cdumez@apple.com>
+
+        document.charset should be an alias for document.characterSet
+        https://bugs.webkit.org/show_bug.cgi?id=153367
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline existing W3C tests now that more checks are passing.
+
+        * web-platform-tests/dom/interfaces-expected.txt:
+        * web-platform-tests/dom/nodes/DOMImplementation-createDocument-expected.txt:
+        * web-platform-tests/dom/nodes/DOMImplementation-createHTMLDocument-expected.txt:
+        * web-platform-tests/dom/nodes/Document-constructor-expected.txt:
+        * web-platform-tests/dom/nodes/Node-properties-expected.txt:
+        * web-platform-tests/html/dom/interfaces-expected.txt:
+
+2016-01-22  Chris Dumez  <cdumez@apple.com>
+
+        DOMImplementation.createHTMLDocument("") should append an empty Text Node to the title Element
+        https://bugs.webkit.org/show_bug.cgi?id=153374
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline existing W3C DOM tests now that more checks are passing.
+
+        * web-platform-tests/dom/nodes/DOMImplementation-createHTMLDocument-expected.txt:
+        * web-platform-tests/dom/ranges/Range-selectNode-expected.txt:
+
+2016-01-22  Chris Dumez  <cdumez@apple.com>
+
+        Document.URL / Document.documentURI should return "about:blank" instead of empty string / null
+        https://bugs.webkit.org/show_bug.cgi?id=153363
+        <rdar://problem/22549736>
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline several W3C tests now that more checks are passing.
+
+        * web-platform-tests/dom/interfaces-expected.txt:
+        * web-platform-tests/dom/nodes/DOMImplementation-createDocument-expected.txt:
+        * web-platform-tests/dom/nodes/DOMImplementation-createHTMLDocument-expected.txt:
+        * web-platform-tests/dom/nodes/Document-constructor-expected.txt:
+        * web-platform-tests/dom/nodes/Node-properties-expected.txt:
+        * web-platform-tests/html/dom/interfaces-expected.txt:
+
+2016-01-21  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: Make -private copies of each w3c IDB test.
+        https://bugs.webkit.org/show_bug.cgi?id=153319
+
+        Reviewed by Alex Christensen.
+
+        * indexeddb/support.js: If the test filename ends with -private.htm(l), enable private browsing.
+
+        * indexeddb/abort-in-initial-upgradeneeded-private-expected.txt: Added.
+        * indexeddb/abort-in-initial-upgradeneeded-private.html: Added.
+        * indexeddb/close-in-upgradeneeded-private-expected.txt: Added.
+        * indexeddb/close-in-upgradeneeded-private.html: Added.
+        * indexeddb/cursor-overloads-private-expected.txt: Added.
+        * indexeddb/cursor-overloads-private.html: Added.
+        * indexeddb/idb_webworkers-private-expected.txt: Added.
+        * indexeddb/idb_webworkers-private.html: Added.
+        * indexeddb/idbcursor-advance-continue-async-private-expected.txt: Added.
+        * indexeddb/idbcursor-advance-continue-async-private.html: Added.
+        * indexeddb/idbcursor-advance-invalid-private-expected.txt: Added.
+        * indexeddb/idbcursor-advance-invalid-private.html: Added.
+        * indexeddb/idbcursor-advance-private-expected.txt: Added.
+        * indexeddb/idbcursor-advance-private.html: Added.
+        * indexeddb/idbcursor-continue-private-expected.txt: Added.
+        * indexeddb/idbcursor-continue-private.html: Added.
+        * indexeddb/idbcursor-direction-index-keyrange-private-expected.txt: Added.
+        * indexeddb/idbcursor-direction-index-keyrange-private.html: Added.
+        * indexeddb/idbcursor-direction-index-private-expected.txt: Added.
+        * indexeddb/idbcursor-direction-index-private.html: Added.
+        * indexeddb/idbcursor-direction-objectstore-keyrange-private-expected.txt: Added.
+        * indexeddb/idbcursor-direction-objectstore-keyrange-private.html: Added.
+        * indexeddb/idbcursor-direction-objectstore-private-expected.txt: Added.
+        * indexeddb/idbcursor-direction-objectstore-private.html: Added.
+        * indexeddb/idbcursor-direction-private-expected.txt: Added.
+        * indexeddb/idbcursor-direction-private.html: Added.
+        * indexeddb/idbcursor-key-private-expected.txt: Added.
+        * indexeddb/idbcursor-key-private.html: Added.
+        * indexeddb/idbcursor-primarykey-private-expected.txt: Added.
+        * indexeddb/idbcursor-primarykey-private.html: Added.
+        * indexeddb/idbcursor-reused-private-expected.txt: Added.
+        * indexeddb/idbcursor-reused-private.html: Added.
+        * indexeddb/idbcursor-source-private-expected.txt: Added.
+        * indexeddb/idbcursor-source-private.html: Added.
+        * indexeddb/idbcursor_advance_index-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index-private.html: Added.
+        * indexeddb/idbcursor_advance_index2-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index2-private.html: Added.
+        * indexeddb/idbcursor_advance_index3-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index3-private.html: Added.
+        * indexeddb/idbcursor_advance_index5-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index5-private.html: Added.
+        * indexeddb/idbcursor_advance_index6-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index6-private.html: Added.
+        * indexeddb/idbcursor_advance_index7-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index7-private.html: Added.
+        * indexeddb/idbcursor_advance_index8-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index8-private.html: Added.
+        * indexeddb/idbcursor_advance_index9-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_index9-private.html: Added.
+        * indexeddb/idbcursor_advance_objectstore-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_objectstore-private.html: Added.
+        * indexeddb/idbcursor_advance_objectstore2-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_objectstore2-private.html: Added.
+        * indexeddb/idbcursor_advance_objectstore3-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_objectstore3-private.html: Added.
+        * indexeddb/idbcursor_advance_objectstore4-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_objectstore4-private.html: Added.
+        * indexeddb/idbcursor_advance_objectstore5-private-expected.txt: Added.
+        * indexeddb/idbcursor_advance_objectstore5-private.html: Added.
+        * indexeddb/idbcursor_continue_index-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index-private.html: Added.
+        * indexeddb/idbcursor_continue_index2-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index2-private.html: Added.
+        * indexeddb/idbcursor_continue_index3-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index3-private.html: Added.
+        * indexeddb/idbcursor_continue_index4-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index4-private.html: Added.
+        * indexeddb/idbcursor_continue_index5-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index5-private.html: Added.
+        * indexeddb/idbcursor_continue_index6-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index6-private.html: Added.
+        * indexeddb/idbcursor_continue_index7-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index7-private.html: Added.
+        * indexeddb/idbcursor_continue_index8-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_index8-private.html: Added.
+        * indexeddb/idbcursor_continue_invalid-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_invalid-private.html: Added.
+        * indexeddb/idbcursor_continue_objectstore-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_objectstore-private.html: Added.
+        * indexeddb/idbcursor_continue_objectstore2-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_objectstore2-private.html: Added.
+        * indexeddb/idbcursor_continue_objectstore3-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_objectstore3-private.html: Added.
+        * indexeddb/idbcursor_continue_objectstore4-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_objectstore4-private.html: Added.
+        * indexeddb/idbcursor_continue_objectstore5-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_objectstore5-private.html: Added.
+        * indexeddb/idbcursor_continue_objectstore6-private-expected.txt: Added.
+        * indexeddb/idbcursor_continue_objectstore6-private.html: Added.
+        * indexeddb/idbcursor_delete_index-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_index-private.html: Added.
+        * indexeddb/idbcursor_delete_index2-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_index2-private.html: Added.
+        * indexeddb/idbcursor_delete_index3-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_index3-private.html: Added.
+        * indexeddb/idbcursor_delete_index4-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_index4-private.html: Added.
+        * indexeddb/idbcursor_delete_index5-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_index5-private.html: Added.
+        * indexeddb/idbcursor_delete_objectstore-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_objectstore-private.html: Added.
+        * indexeddb/idbcursor_delete_objectstore2-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_objectstore2-private.html: Added.
+        * indexeddb/idbcursor_delete_objectstore3-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_objectstore3-private.html: Added.
+        * indexeddb/idbcursor_delete_objectstore4-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_objectstore4-private.html: Added.
+        * indexeddb/idbcursor_delete_objectstore5-private-expected.txt: Added.
+        * indexeddb/idbcursor_delete_objectstore5-private.html: Added.
+        * indexeddb/idbcursor_iterating-private-expected.txt: Added.
+        * indexeddb/idbcursor_iterating-private.html: Added.
+        * indexeddb/idbcursor_iterating_index-private-expected.txt: Added.
+        * indexeddb/idbcursor_iterating_index-private.html: Added.
+        * indexeddb/idbcursor_iterating_index2-private-expected.txt: Added.
+        * indexeddb/idbcursor_iterating_index2-private.html: Added.
+        * indexeddb/idbcursor_iterating_objectstore-private-expected.txt: Added.
+        * indexeddb/idbcursor_iterating_objectstore-private.html: Added.
+        * indexeddb/idbcursor_iterating_objectstore2-private-expected.txt: Added.
+        * indexeddb/idbcursor_iterating_objectstore2-private.html: Added.
+        * indexeddb/idbcursor_update_index-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index-private.html: Added.
+        * indexeddb/idbcursor_update_index2-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index2-private.html: Added.
+        * indexeddb/idbcursor_update_index3-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index3-private.html: Added.
+        * indexeddb/idbcursor_update_index4-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index4-private.html: Added.
+        * indexeddb/idbcursor_update_index5-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index5-private.html: Added.
+        * indexeddb/idbcursor_update_index6-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index6-private.html: Added.
+        * indexeddb/idbcursor_update_index7-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_index7-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore2-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore2-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore3-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore3-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore4-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore4-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore5-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore5-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore6-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore6-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore7-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore7-private.html: Added.
+        * indexeddb/idbcursor_update_objectstore8-private-expected.txt: Added.
+        * indexeddb/idbcursor_update_objectstore8-private.html: Added.
+        * indexeddb/idbdatabase_close-private-expected.txt: Added.
+        * indexeddb/idbdatabase_close-private.html: Added.
+        * indexeddb/idbdatabase_close2-private-expected.txt: Added.
+        * indexeddb/idbdatabase_close2-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore-createIndex-emptyname-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore-createIndex-emptyname-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore10-1000ends-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore10-1000ends-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore10-emptyname-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore10-emptyname-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore11-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore11-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore2-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore2-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore3-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore3-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore4-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore4-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore5-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore5-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore6-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore6-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore7-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore7-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore8-parameters-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore8-parameters-private.html: Added.
+        * indexeddb/idbdatabase_createObjectStore9-invalidparameters-private-expected.txt: Added.
+        * indexeddb/idbdatabase_createObjectStore9-invalidparameters-private.html: Added.
+        * indexeddb/idbdatabase_deleteObjectStore-private-expected.txt: Added.
+        * indexeddb/idbdatabase_deleteObjectStore-private.html: Added.
+        * indexeddb/idbdatabase_deleteObjectStore2-private-expected.txt: Added.
+        * indexeddb/idbdatabase_deleteObjectStore2-private.html: Added.
+        * indexeddb/idbdatabase_deleteObjectStore3-private-expected.txt: Added.
+        * indexeddb/idbdatabase_deleteObjectStore3-private.html: Added.
+        * indexeddb/idbdatabase_deleteObjectStore4-not_reused-private-expected.txt: Added.
+        * indexeddb/idbdatabase_deleteObjectStore4-not_reused-private.html: Added.
+        * indexeddb/idbdatabase_transaction-private-expected.txt: Added.
+        * indexeddb/idbdatabase_transaction-private.html: Added.
+        * indexeddb/idbdatabase_transaction2-private-expected.txt: Added.
+        * indexeddb/idbdatabase_transaction2-private.html: Added.
+        * indexeddb/idbdatabase_transaction3-private-expected.txt: Added.
+        * indexeddb/idbdatabase_transaction3-private.html: Added.
+        * indexeddb/idbdatabase_transaction4-private-expected.txt: Added.
+        * indexeddb/idbdatabase_transaction4-private.html: Added.
+        * indexeddb/idbdatabase_transaction5-private-expected.txt: Added.
+        * indexeddb/idbdatabase_transaction5-private.html: Added.
+        * indexeddb/idbfactory_cmp-private-expected.txt: Added.
+        * indexeddb/idbfactory_cmp-private.html: Added.
+        * indexeddb/idbfactory_cmp2-private-expected.txt: Added.
+        * indexeddb/idbfactory_cmp2-private.html: Added.
+        * indexeddb/idbfactory_deleteDatabase-private-expected.txt: Added.
+        * indexeddb/idbfactory_deleteDatabase-private.html: Added.
+        * indexeddb/idbfactory_deleteDatabase2-private-expected.txt: Added.
+        * indexeddb/idbfactory_deleteDatabase2-private.html: Added.
+        * indexeddb/idbfactory_deleteDatabase3-private-expected.txt: Added.
+        * indexeddb/idbfactory_deleteDatabase3-private.html: Added.
+        * indexeddb/idbfactory_deleteDatabase4-private-expected.txt: Added.
+        * indexeddb/idbfactory_deleteDatabase4-private.html: Added.
+        * indexeddb/idbfactory_open-private-expected.txt: Added.
+        * indexeddb/idbfactory_open-private.html: Added.
+        * indexeddb/idbfactory_open10-private-expected.txt: Added.
+        * indexeddb/idbfactory_open10-private.html: Added.
+        * indexeddb/idbfactory_open11-private-expected.txt: Added.
+        * indexeddb/idbfactory_open11-private.html: Added.
+        * indexeddb/idbfactory_open12-private-expected.txt: Added.
+        * indexeddb/idbfactory_open12-private.html: Added.
+        * indexeddb/idbfactory_open2-private-expected.txt: Added.
+        * indexeddb/idbfactory_open2-private.html: Added.
+        * indexeddb/idbfactory_open3-private-expected.txt: Added.
+        * indexeddb/idbfactory_open3-private.html: Added.
+        * indexeddb/idbfactory_open4-private-expected.txt: Added.
+        * indexeddb/idbfactory_open4-private.html: Added.
+        * indexeddb/idbfactory_open5-private-expected.txt: Added.
+        * indexeddb/idbfactory_open5-private.html: Added.
+        * indexeddb/idbfactory_open6-private-expected.txt: Added.
+        * indexeddb/idbfactory_open6-private.html: Added.
+        * indexeddb/idbfactory_open7-private-expected.txt: Added.
+        * indexeddb/idbfactory_open7-private.html: Added.
+        * indexeddb/idbfactory_open8-private-expected.txt: Added.
+        * indexeddb/idbfactory_open8-private.html: Added.
+        * indexeddb/idbfactory_open9-private-expected.txt: Added.
+        * indexeddb/idbfactory_open9-private.html: Copied from LayoutTests/imported/w3c/indexeddb/idbfactory_open9.htm.
+        * indexeddb/idbfactory_open9.htm:
+        * indexeddb/idbindex-multientry-arraykeypath-private-expected.txt: Added.
+        * indexeddb/idbindex-multientry-arraykeypath-private.html: Added.
+        * indexeddb/idbindex-multientry-big-private-expected.txt: Added.
+        * indexeddb/idbindex-multientry-big-private.html: Added.
+        * indexeddb/idbindex-multientry-private-expected.txt: Added.
+        * indexeddb/idbindex-multientry-private.html: Added.
+        * indexeddb/idbindex_count-private-expected.txt: Added.
+        * indexeddb/idbindex_count-private.html: Added.
+        * indexeddb/idbindex_count2-private-expected.txt: Added.
+        * indexeddb/idbindex_count2-private.html: Added.
+        * indexeddb/idbindex_count3-private-expected.txt: Added.
+        * indexeddb/idbindex_count3-private.html: Added.
+        * indexeddb/idbindex_count4-private-expected.txt: Added.
+        * indexeddb/idbindex_count4-private.html: Added.
+        * indexeddb/idbindex_get-private-expected.txt: Added.
+        * indexeddb/idbindex_get-private.html: Added.
+        * indexeddb/idbindex_get2-private-expected.txt: Added.
+        * indexeddb/idbindex_get2-private.html: Added.
+        * indexeddb/idbindex_get3-private-expected.txt: Added.
+        * indexeddb/idbindex_get3-private.html: Added.
+        * indexeddb/idbindex_get4-private-expected.txt: Added.
+        * indexeddb/idbindex_get4-private.html: Added.
+        * indexeddb/idbindex_get5-private-expected.txt: Added.
+        * indexeddb/idbindex_get5-private.html: Added.
+        * indexeddb/idbindex_get6-private-expected.txt: Added.
+        * indexeddb/idbindex_get6-private.html: Added.
+        * indexeddb/idbindex_get7-private-expected.txt: Added.
+        * indexeddb/idbindex_get7-private.html: Added.
+        * indexeddb/idbindex_getKey-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey-private.html: Added.
+        * indexeddb/idbindex_getKey2-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey2-private.html: Added.
+        * indexeddb/idbindex_getKey3-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey3-private.html: Added.
+        * indexeddb/idbindex_getKey4-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey4-private.html: Added.
+        * indexeddb/idbindex_getKey5-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey5-private.html: Added.
+        * indexeddb/idbindex_getKey6-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey6-private.html: Added.
+        * indexeddb/idbindex_getKey7-private-expected.txt: Added.
+        * indexeddb/idbindex_getKey7-private.html: Added.
+        * indexeddb/idbindex_indexNames-private-expected.txt: Added.
+        * indexeddb/idbindex_indexNames-private.html: Added.
+        * indexeddb/idbindex_openCursor-private-expected.txt: Added.
+        * indexeddb/idbindex_openCursor-private.html: Added.
+        * indexeddb/idbindex_openCursor2-private-expected.txt: Added.
+        * indexeddb/idbindex_openCursor2-private.html: Added.
+        * indexeddb/idbindex_openKeyCursor-private-expected.txt: Added.
+        * indexeddb/idbindex_openKeyCursor-private.html: Added.
+        * indexeddb/idbindex_openKeyCursor2-private-expected.txt: Added.
+        * indexeddb/idbindex_openKeyCursor2-private.html: Added.
+        * indexeddb/idbindex_openKeyCursor3-private-expected.txt: Added.
+        * indexeddb/idbindex_openKeyCursor3-private.html: Added.
+        * indexeddb/idbkeyrange-private-expected.txt: Added.
+        * indexeddb/idbkeyrange-private.html: Added.
+        * indexeddb/idbkeyrange_incorrect-private-expected.txt: Added.
+        * indexeddb/idbkeyrange_incorrect-private.html: Added.
+        * indexeddb/idbobjectstore_add-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add-private.html: Added.
+        * indexeddb/idbobjectstore_add10-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add10-private.html: Added.
+        * indexeddb/idbobjectstore_add11-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add11-private.html: Added.
+        * indexeddb/idbobjectstore_add12-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add12-private.html: Added.
+        * indexeddb/idbobjectstore_add13-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add13-private.html: Added.
+        * indexeddb/idbobjectstore_add14-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add14-private.html: Added.
+        * indexeddb/idbobjectstore_add15-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add15-private.html: Added.
+        * indexeddb/idbobjectstore_add16-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add16-private.html: Added.
+        * indexeddb/idbobjectstore_add2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add2-private.html: Added.
+        * indexeddb/idbobjectstore_add3-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add3-private.html: Added.
+        * indexeddb/idbobjectstore_add4-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add4-private.html: Added.
+        * indexeddb/idbobjectstore_add5-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add5-private.html: Added.
+        * indexeddb/idbobjectstore_add6-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add6-private.html: Added.
+        * indexeddb/idbobjectstore_add7-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add7-private.html: Added.
+        * indexeddb/idbobjectstore_add8-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add8-private.html: Added.
+        * indexeddb/idbobjectstore_add9-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_add9-private.html: Added.
+        * indexeddb/idbobjectstore_clear-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_clear-private.html: Added.
+        * indexeddb/idbobjectstore_clear2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_clear2-private.html: Added.
+        * indexeddb/idbobjectstore_clear3-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_clear3-private.html: Added.
+        * indexeddb/idbobjectstore_clear4-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_clear4-private.html: Added.
+        * indexeddb/idbobjectstore_count-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_count-private.html: Added.
+        * indexeddb/idbobjectstore_count2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_count2-private.html: Added.
+        * indexeddb/idbobjectstore_count3-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_count3-private.html: Added.
+        * indexeddb/idbobjectstore_count4-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_count4-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex10-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex10-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex11-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex11-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex12-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex12-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex13-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex13-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex2-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex3-usable-right-away-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex3-usable-right-away-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex4-deleteIndex-event_order-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex4-deleteIndex-event_order-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex5-emptykeypath-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex5-emptykeypath-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex6-event_order-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex6-event_order-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex7-event_order-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex7-event_order-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex8-valid_keys-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex8-valid_keys-private.html: Added.
+        * indexeddb/idbobjectstore_createIndex9-emptyname-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_createIndex9-emptyname-private.html: Added.
+        * indexeddb/idbobjectstore_delete-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete-private.html: Added.
+        * indexeddb/idbobjectstore_delete2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete2-private.html: Added.
+        * indexeddb/idbobjectstore_delete3-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete3-private.html: Added.
+        * indexeddb/idbobjectstore_delete4-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete4-private.html: Added.
+        * indexeddb/idbobjectstore_delete5-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete5-private.html: Added.
+        * indexeddb/idbobjectstore_delete6-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete6-private.html: Added.
+        * indexeddb/idbobjectstore_delete7-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_delete7-private.html: Added.
+        * indexeddb/idbobjectstore_deleteIndex-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_deleteIndex-private.html: Added.
+        * indexeddb/idbobjectstore_deleted-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_deleted-private.html: Added.
+        * indexeddb/idbobjectstore_get-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get-private.html: Added.
+        * indexeddb/idbobjectstore_get2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get2-private.html: Added.
+        * indexeddb/idbobjectstore_get3-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get3-private.html: Added.
+        * indexeddb/idbobjectstore_get4-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get4-private.html: Added.
+        * indexeddb/idbobjectstore_get5-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get5-private.html: Added.
+        * indexeddb/idbobjectstore_get6-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get6-private.html: Added.
+        * indexeddb/idbobjectstore_get7-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_get7-private.html: Added.
+        * indexeddb/idbobjectstore_index-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_index-private.html: Added.
+        * indexeddb/idbobjectstore_openCursor-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_openCursor-private.html: Added.
+        * indexeddb/idbobjectstore_openCursor_invalid-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_openCursor_invalid-private.html: Added.
+        * indexeddb/idbobjectstore_put-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put-private.html: Added.
+        * indexeddb/idbobjectstore_put10-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put10-private.html: Added.
+        * indexeddb/idbobjectstore_put11-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put11-private.html: Added.
+        * indexeddb/idbobjectstore_put12-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put12-private.html: Added.
+        * indexeddb/idbobjectstore_put13-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put13-private.html: Added.
+        * indexeddb/idbobjectstore_put14-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put14-private.html: Added.
+        * indexeddb/idbobjectstore_put15-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put15-private.html: Added.
+        * indexeddb/idbobjectstore_put16-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put16-private.html: Added.
+        * indexeddb/idbobjectstore_put2-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put2-private.html: Added.
+        * indexeddb/idbobjectstore_put3-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put3-private.html: Added.
+        * indexeddb/idbobjectstore_put4-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put4-private.html: Added.
+        * indexeddb/idbobjectstore_put5-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put5-private.html: Added.
+        * indexeddb/idbobjectstore_put6-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put6-private.html: Added.
+        * indexeddb/idbobjectstore_put7-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put7-private.html: Added.
+        * indexeddb/idbobjectstore_put8-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put8-private.html: Added.
+        * indexeddb/idbobjectstore_put9-private-expected.txt: Added.
+        * indexeddb/idbobjectstore_put9-private.html: Added.
+        * indexeddb/idbtransaction-oncomplete-private-expected.txt: Added.
+        * indexeddb/idbtransaction-oncomplete-private.html: Added.
+        * indexeddb/idbtransaction-private-expected.txt: Added.
+        * indexeddb/idbtransaction-private.html: Added.
+        * indexeddb/idbtransaction_abort-private-expected.txt: Added.
+        * indexeddb/idbtransaction_abort-private.html: Added.
+        * indexeddb/idbversionchangeevent-private-expected.txt: Added.
+        * indexeddb/idbversionchangeevent-private.html: Added.
+        * indexeddb/index_sort_order-private-expected.txt: Added.
+        * indexeddb/index_sort_order-private.html: Added.
+        * indexeddb/key_invalid-private-expected.txt: Added.
+        * indexeddb/key_invalid-private.html: Added.
+        * indexeddb/key_valid-private-expected.txt: Added.
+        * indexeddb/key_valid-private.html: Added.
+        * indexeddb/keygenerator-constrainterror-private-expected.txt: Added.
+        * indexeddb/keygenerator-constrainterror-private.html: Added.
+        * indexeddb/keygenerator-overflow-private-expected.txt: Added.
+        * indexeddb/keygenerator-overflow-private.html: Added.
+        * indexeddb/keygenerator-private-expected.txt: Added.
+        * indexeddb/keygenerator-private.html: Added.
+        * indexeddb/keyorder-private-expected.txt: Added.
+        * indexeddb/keyorder-private.html: Added.
+        * indexeddb/keypath-private-expected.txt: Added.
+        * indexeddb/keypath-private.html: Added.
+        * indexeddb/keypath_invalid-private-expected.txt: Added.
+        * indexeddb/keypath_invalid-private.html: Added.
+        * indexeddb/keypath_maxsize-private-expected.txt: Added.
+        * indexeddb/keypath_maxsize-private.html: Added.
+        * indexeddb/list_ordering-private-expected.txt: Added.
+        * indexeddb/list_ordering-private.html: Added.
+        * indexeddb/objectstore_keyorder-private-expected.txt: Added.
+        * indexeddb/objectstore_keyorder-private.html: Added.
+        * indexeddb/request_bubble-and-capture-private-expected.txt: Added.
+        * indexeddb/request_bubble-and-capture-private.html: Added.
+        * indexeddb/string-list-ordering-private-expected.txt: Added.
+        * indexeddb/string-list-ordering-private.html: Added.
+        * indexeddb/transaction-create_in_versionchange-private-expected.txt: Added.
+        * indexeddb/transaction-create_in_versionchange-private.html: Added.
+        * indexeddb/transaction-lifetime-blocked-private-expected.txt: Added.
+        * indexeddb/transaction-lifetime-blocked-private.html: Added.
+        * indexeddb/transaction-lifetime-private-expected.txt: Added.
+        * indexeddb/transaction-lifetime-private.html: Added.
+        * indexeddb/transaction-requestqueue-private-expected.txt: Added.
+        * indexeddb/transaction-requestqueue-private.html: Added.
+        * indexeddb/transaction_bubble-and-capture-private-expected.txt: Added.
+        * indexeddb/transaction_bubble-and-capture-private.html: Added.
+        * indexeddb/value-private-expected.txt: Added.
+        * indexeddb/value-private.html: Added.
+        * indexeddb/value_recursive-private-expected.txt: Added.
+        * indexeddb/value_recursive-private.html: Added.
+        * indexeddb/writer-starvation-private-expected.txt: Added.
+        * indexeddb/writer-starvation-private.html: Added.
+
+2016-01-20  Chris Dumez  <cdumez@apple.com>
+
+        Drop support for obsolete Node.isSupported()
+        https://bugs.webkit.org/show_bug.cgi?id=153164
+
+        Reviewed by Darin Adler.
+
+        Rebaseline W3C test now that one more check is passing.
+
+        * web-platform-tests/dom/historical-expected.txt:
+
+2016-01-19  Chris Dumez  <cdumez@apple.com>
+
+        DocumentType.publicId / systemId should never return null
+        https://bugs.webkit.org/show_bug.cgi?id=153264
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline several W3C DOM tests now that more checks are passing.
+
+        * web-platform-tests/dom/interfaces-expected.txt:
+        * web-platform-tests/dom/nodes/DOMImplementation-createHTMLDocument-expected.txt:
+        * web-platform-tests/dom/nodes/Node-properties-expected.txt:
+
+2016-01-19  Chris Dumez  <cdumez@apple.com>
+
+        Document.createDocument() should treat undefined namespace as null
+        https://bugs.webkit.org/show_bug.cgi?id=153252
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline W3C DOM test now that more checks are passing.
+
+        * web-platform-tests/dom/nodes/DOMImplementation-createDocument-expected.txt:
+
+2016-01-19  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Text::splitText doesn't update Range end points anchored on parent nodes
+        https://bugs.webkit.org/show_bug.cgi?id=153227
+
+        Reviewed by Antti Koivisto.
+
+        Rebaseline the test now that we're passing more test cases.
+
+        * web-platform-tests/dom/ranges/Range-mutations-expected.txt:
+
+2016-01-19  Ryosuke Niwa  <rniwa@webkit.org>
+
+        innerHTML should always add a mutation record for removing all children
+        https://bugs.webkit.org/show_bug.cgi?id=148782
+        <rdar://problem/22571962>
+
+        Reviewed by Antti Koivisto.
+
+        Rebaseline a test now that all test test cases are passing.
+
+        * web-platform-tests/dom/nodes/MutationObserver-inner-outer-expected.txt:
+
+2016-01-18  Ryosuke Niwa  <rniwa@webkit.org>
+
+        createAttribute should lowercase the attribute name in a HTML document
+        https://bugs.webkit.org/show_bug.cgi?id=153112
+
+        Reviewed by Darin Adler.
+
+        Rebaseline a test now that it's passing all test cases.
+
+        * web-platform-tests/dom/nodes/Document-createAttribute-expected.txt:
+
+2016-01-18  Xabier Rodriguez Calvar  <calvaris@igalia.com>
+
+        [Streams API] Import tests updated to Jan 13 2016
+        https://bugs.webkit.org/show_bug.cgi?id=153059
+
+        Reviewed by Youenn Fablet.
+
+        Update tests after merge of https://github.com/whatwg/streams/pull/420.
+
+        * web-platform-tests/streams-api/README.txt: Updated last version.
+        * web-platform-tests/streams-api/readable-streams/bad-strategies.js: Updated.
+
+2016-01-15  Chris Dumez  <cdumez@apple.com>
+
+        Drop obsolete HTMLDocument.width / height attributes
+        https://bugs.webkit.org/show_bug.cgi?id=153144
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline W3C test now that more checks are passing.
+
+        * web-platform-tests/dom/historical-expected.txt:
+
+2016-01-15  Chris Dumez  <cdumez@apple.com>
+
+        Drop obsolete DocumentType.entities / notations
+        https://bugs.webkit.org/show_bug.cgi?id=153147
+
+        Reviewed by Ryosuke Niwa.
+
+        Rebaseline W3C test now that more checks are passing.
+
+        * web-platform-tests/dom/historical-expected.txt:
+
+2016-01-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+        createElementNS and createAttributeNS should treat undefined namespaceURI as null string
+        https://bugs.webkit.org/show_bug.cgi?id=153119
+
+        Reviewed by Chris Dumez.
+
+        Rebaseline a test now that more test cases are passing.
+
+        * web-platform-tests/dom/nodes/Document-createElementNS-expected.txt:
+
+2016-01-15  Youenn Fablet  <youenn.fablet@crf.canon.fr>
+
+        [Streams API] Expose ReadableStream and relatives to Worker
+        https://bugs.webkit.org/show_bug.cgi?id=152066
+
+        Reviewed by Darin Adler.
+
+        Rebasing tests as Worker tests are now running.
+
+        * web-platform-tests/streams-api/byte-length-queuing-strategy-expected.txt:
+        * web-platform-tests/streams-api/count-queuing-strategy-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/bad-underlying-sources-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/bad-strategies-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/brand-checks-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/cancel-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/count-queuing-strategy-integration-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/garbage-collection-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/general-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/pipe-through-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/readable-stream-reader-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/tee-expected.txt:
+        * web-platform-tests/streams-api/readable-streams/templated-expected.txt:
+
+2016-01-14  Ryosuke Niwa  <rniwa@webkit.org>
+
+        createElement should not lowercase non-ASCII characters
+        https://bugs.webkit.org/show_bug.cgi?id=153114
+
+        Reviewed by Alex Christensen.
+
+        Rebaselined the tests for document.createElement now that more test cases are passing.
+
+        * web-platform-tests/dom/nodes/Document-createElement-expected.txt:
+        * web-platform-tests/dom/nodes/Document-getElementsByTagName-expected.txt:
+        * web-platform-tests/dom/nodes/Element-getElementsByTagName-expected.txt:
+        * web-platform-tests/dom/nodes/case-expected.txt:
+
+2016-01-14  Youenn Fablet  <youenn.fablet@crf.canon.fr>
+
+        Fix problems with cross-origin redirects
+        https://bugs.webkit.org/show_bug.cgi?id=116075
+
+        Reviewed by Daniel Bates.
+
+        Rebasing test expectations.
+        These tests cannot work as expected as WTR/DRT block access to www2.localhost and example.not.
+
+        * web-platform-tests/XMLHttpRequest/send-redirect-bogus-expected.txt:
+        * web-platform-tests/XMLHttpRequest/send-redirect-to-cors-expected.txt:
+        * web-platform-tests/XMLHttpRequest/send-redirect-to-non-cors-expected.txt:
+
+2016-01-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        formaction must return document's address when formaction is missing
+        https://bugs.webkit.org/show_bug.cgi?id=148874
+
+        Reviewed by Chris Dumez.
+
+        Rebaselined the tests now that more test cases are passing.
+
+        * web-platform-tests/html/semantics/forms/attributes-common-to-form-controls/formAction_document_address-expected.txt:
+        * web-platform-tests/html/semantics/forms/attributes-common-to-form-controls/formaction-expected.txt:
+
+2016-01-11  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: IDBBindingUtilities chokes on unicode strings for get/set.
+        https://bugs.webkit.org/show_bug.cgi?id=152921
+
+        Reviewed by Alex Christensen.
+
+        * indexeddb/keygenerator-overflow-expected.txt:
+
+2016-01-08  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: IDBBindingUtilities chokes on unicode strings for get/set.
+        https://bugs.webkit.org/show_bug.cgi?id=152921
+
+        Reviewed by Alex Christensen.
+
+        * indexeddb/keypath-expected.txt:
+
+2016-01-08  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: Blocked event can fire on a delete request even after the last open connection has closed.
+        https://bugs.webkit.org/show_bug.cgi?id=152896
+
+        Reviewed by Alex Christensen.
+
+        * indexeddb/idbfactory_open12-expected.txt:
+        * indexeddb/idbversionchangeevent-expected.txt:
+        * indexeddb/transaction-lifetime-expected.txt:
+
+2016-01-08  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: imported/w3c/indexeddb/idbobjectstore_createIndex6-event_order.htm fails.
+        https://bugs.webkit.org/show_bug.cgi?id=152891
+
+        Reviewed by Alex Christensen.
+
+        * indexeddb/idbobjectstore_createIndex6-event_order-expected.txt:
+        * indexeddb/idbobjectstore_createIndex7-event_order-expected.txt:
+
+2016-01-07  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: Add expectations for W3C tests that were missing them.
+        https://bugs.webkit.org/show_bug.cgi?id=152835
+
+        Reviewed by Daniel Bates.
+
+        * indexeddb/idbfactory_open10-expected.txt: Added.
+        * indexeddb/key_valid-expected.txt: Added.
+
+2016-01-07  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: Update results for W3C tests marked as failures that actually pass.
+        https://bugs.webkit.org/show_bug.cgi?id=152827
+
+        Reviewed by Daniel Bates.
+
+        Modern IDB passes the following tests with PASS results where we previous expected FAIL.
+        
+        Let's update those, shall we?
+        
+        * indexeddb/abort-in-initial-upgradeneeded-expected.txt:
+        * indexeddb/idbcursor-advance-expected.txt:
+        * indexeddb/idbcursor_advance_index5-expected.txt:
+        * indexeddb/idbcursor_advance_index9-expected.txt:
+        * indexeddb/idbcursor_advance_objectstore5-expected.txt:
+        * indexeddb/idbcursor_continue_index5-expected.txt:
+        * indexeddb/idbcursor_continue_index6-expected.txt:
+        * indexeddb/idbcursor_continue_index8-expected.txt:
+        * indexeddb/idbcursor_continue_invalid-expected.txt:
+        * indexeddb/idbcursor_continue_objectstore6-expected.txt:
+        * indexeddb/idbcursor_delete_index4-expected.txt:
+        * indexeddb/idbcursor_delete_objectstore4-expected.txt:
+        * indexeddb/idbdatabase_close2-expected.txt:
+        * indexeddb/idbdatabase_deleteObjectStore4-not_reused-expected.txt:
+        * indexeddb/idbfactory_deleteDatabase3-expected.txt:
+        * indexeddb/idbindex-multientry-big-expected.txt:
+        * indexeddb/idbindex_get3-expected.txt:
+        * indexeddb/idbobjectstore_add4-expected.txt:
+        * indexeddb/idbobjectstore_createIndex2-expected.txt:
+        * indexeddb/idbobjectstore_createIndex4-deleteIndex-event_order-expected.txt:
+        * indexeddb/idbobjectstore_put4-expected.txt:
+        * indexeddb/idbtransaction_abort-expected.txt:
+        * indexeddb/keygenerator-constrainterror-expected.txt:
+        * indexeddb/keygenerator-expected.txt:
+        * indexeddb/transaction-requestqueue-expected.txt:
+
+2016-01-05  Youenn Fablet  <youenn.fablet@crf.canon.fr>
+
+        Activate service-workers import
+        https://bugs.webkit.org/show_bug.cgi?id=152686
+
+        Reviewed by Daniel Bates.
+
+        Importing service-workers tests, as some resource files are used by other test files.
+        These tests are skipped as WebKit does not support service worker.
+        Revision used is 5932fd48d519a83b4cca6ed69778547a4fdfc5ae as for all other WPT tests.
+
+        * resources/ImportExpectations: Activating import of service worker tests.
+        * web-platform-tests/service-workers/cache-storage/common.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/resources/blank.html: Added.
+        * web-platform-tests/service-workers/cache-storage/resources/common-worker.js: Added.
+        (self.onmessage):
+        * web-platform-tests/service-workers/cache-storage/resources/fetch-status.py: Added.
+        (main):
+        * web-platform-tests/service-workers/cache-storage/resources/iframe.html: Added.
+        * web-platform-tests/service-workers/cache-storage/resources/simple.txt: Added.
+        * web-platform-tests/service-workers/cache-storage/resources/test-helpers.js: Added.
+        (create_temporary_cache):
+        (cache_test):
+        * web-platform-tests/service-workers/cache-storage/resources/testharness-helpers.js: Added.
+        (assert_promise_rejects):
+        (assert_response_equals):
+        (assert_response_array_equivalent):
+        (assert_response_array_equals):
+        (assert_response_in_array):
+        * web-platform-tests/service-workers/cache-storage/resources/w3c-import.log: Added.
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-add.js: Added.
+        (cache_test):
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-delete.js: Added.
+        (new_test_request):
+        (new_test_response):
+        (cache_test):
+        (prepopulated_cache_test):
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-match.js: Added.
+        (response.new.Response):
+        (return.cache.matchAll.string_appeared_here.then):
+        (return.cache.match.string_appeared_here.then):
+        (return.cache.matchAll.entries.a.request.url.then):
+        (return.cache.match.entries.a.request.url.then):
+        (return.cache.matchAll.entries.a.request.then):
+        (return.cache.match.entries.a.request.then):
+        (return.cache.matchAll.new.Request.entries.a.request.url.then):
+        (return.cache.match.new.Request.entries.a.request.url.then):
+        (then):
+        (return.cache.matchAll.entries.cat.request.url.string_appeared_here.then):
+        (return.cache.match.entries.cat.request.url.string_appeared_here.then):
+        (cache_test):
+        (return.cache.match.request.then):
+        (prepopulated_cache_test):
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-put.js: Added.
+        (cache_test):
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-storage-keys.js: Added.
+        (promise_test):
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-storage-match.js: Added.
+        (create_unique_transaction):
+        (cache_test):
+        (promise_test):
+        * web-platform-tests/service-workers/cache-storage/script-tests/cache-storage.js: Added.
+        (promise_test):
+        (promise_test.):
+        * web-platform-tests/service-workers/cache-storage/script-tests/w3c-import.log: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-add.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-delete.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-match.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-put.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-storage-keys.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-storage-match.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/cache-storage.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/serviceworker/w3c-import.log: Added.
+        * web-platform-tests/service-workers/cache-storage/w3c-import.log: Copied from LayoutTests/imported/w3c/web-platform-tests/w3c-import.log.
+        * web-platform-tests/service-workers/cache-storage/window/cache-add.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/cache-delete.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/cache-match.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/cache-put.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/cache-storage-keys.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/cache-storage-match.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/cache-storage.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/sandboxed-iframes.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/window/w3c-import.log: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-add.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-delete.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-match.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-put.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-storage-keys.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-storage-match.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/cache-storage.https.html: Added.
+        * web-platform-tests/service-workers/cache-storage/worker/w3c-import.log: Added.
+        * web-platform-tests/service-workers/service-workers/resources/w3c-import.log: Copied from LayoutTests/imported/w3c/web-platform-tests/w3c-import.log.
+        * web-platform-tests/service-workers/specgen.json: Added.
+        * web-platform-tests/service-workers/stub-3.1-service-worker-obj.html: Added.
+        * web-platform-tests/service-workers/stub-3.1.1-service-worker-scope.html: Added.
+        * web-platform-tests/service-workers/stub-3.1.2-service-worker-url.html: Added.
+        * web-platform-tests/service-workers/stub-3.1.3-service-worker-state.html: Added.
+        * web-platform-tests/service-workers/stub-3.1.4-service-worker-on-state-change.html: Added.
+        * web-platform-tests/service-workers/stub-3.2-navigator-service-worker.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.1-navigator-service-worker-installing.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.10-navigator-service-worker-oncontrollerchange.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.11-navigator-service-worker-onreloadpage.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.12-navigator-service-worker-onerror.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.2-navigator-service-worker-waiting.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.3-navigator-service-worker-active.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.4-navigator-service-worker-controller.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.5-navigator-service-worker-ready.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.6-navigator-service-worker-getAll.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.7-navigator-service-worker-register.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.8-navigator-service-worker-unregister.html: Added.
+        * web-platform-tests/service-workers/stub-3.2.9-navigator-service-worker-onupdatefound.html: Added.
+        * web-platform-tests/service-workers/stub-4.1-service-worker-global-scope.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.1-service-worker-global-scope-caches.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.2-service-worker-global-scope-clients.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.3-service-worker-global-scope-scope.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.4-service-worker-global-scope-fetch.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.5-service-worker-global-scope-update.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.6-service-worker-global-scope-unregister.html: Added.
+        * web-platform-tests/service-workers/stub-4.1.7-service-worker-global-scope-onmessage.html: Added.
+        * web-platform-tests/service-workers/stub-4.2-client.html: Added.
+        * web-platform-tests/service-workers/stub-4.3-service-worker-clients.html: Added.
+        * web-platform-tests/service-workers/stub-4.3.1-get-serviced-method.html: Added.
+        * web-platform-tests/service-workers/stub-4.3.2-reloadall-method.html: Added.
+        * web-platform-tests/service-workers/stub-4.4-request-objects.html: Added.
+        * web-platform-tests/service-workers/stub-4.5-response-objects.html: Added.
+        * web-platform-tests/service-workers/stub-4.5.2-response.html: Added.
+        * web-platform-tests/service-workers/stub-4.5.4-opaque-response.html: Added.
+        * web-platform-tests/service-workers/stub-4.6-cache-objects.html: Added.
+        * web-platform-tests/service-workers/stub-4.6.1-cache-lifetimes.html: Added.
+        * web-platform-tests/service-workers/stub-4.6.2-cache.html: Added.
+        * web-platform-tests/service-workers/stub-4.6.3-cache-storage.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.1-install-phase-event.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.1.1-wait-until-method.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.2-install-event.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.2.1-install-event-section.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.2.2-replace-method.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.3-activate-event.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.4.1-fetch-event-section.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.4.2-respond-with-method.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.4.3-default-method.html: Added.
+        * web-platform-tests/service-workers/stub-4.7.4.4-is-reload-attribute.html: Added.
+        * web-platform-tests/service-workers/stub-5.1-origin-relativity.html: Added.
+        * web-platform-tests/service-workers/stub-5.2-cross-origin-resources.html: Added.
+        * web-platform-tests/service-workers/tools/blink-import.py: Added.
+        (get_extra_files):
+        (resources_path):
+        (python_to_php):
+        (testharness_helpers):
+        (service_worker_path):
+        (server_names):
+        (source_paths):
+        (do_subs):
+        (get_head):
+        (get_changes):
+        (copy):
+        (copy_local_files):
+        (copy_extra_files):
+        (sub_changed_filenames):
+        (is_top_level_test):
+        (add_suffix):
+        (main):
+        * web-platform-tests/service-workers/tools/w3c-import.log: Copied from LayoutTests/imported/w3c/web-platform-tests/w3c-import.log.
+        * web-platform-tests/service-workers/w3c-import.log: Added.
+
+2016-01-05  Youenn Fablet  <youenn.fablet@crf.canon.fr>
+
+        Update web-platform-tests test suite
+        https://bugs.webkit.org/show_bug.cgi?id=151984
+
+        Reviewed by Daniel Bates.
+
+        Bumping WPT test revision from dd553279c3 to 5932fd48d519a83b4cca6ed69778547a4fdfc5ae.
+        New revision includes test improvements, test renaming to ensure WebKit test expectations do not clash and XHR test clean-up.
+
+        * resources/ImportExpectations: Updated to not include new tests. Improved ordering.
+        * resources/TestRepositories: Updated revision.
+        * resources/web-platform-tests-modules.json: Updated revision.
+        * web-platform-tests/README.md:
+        * web-platform-tests/XMLHttpRequest/XMLHttpRequest-withCredentials-expected.txt:
+        * web-platform-tests/XMLHttpRequest/XMLHttpRequest-withCredentials.js:
+        * web-platform-tests/XMLHttpRequest/interfaces-expected.txt:
+        * web-platform-tests/XMLHttpRequest/open-url-worker-simple.htm:
+        * web-platform-tests/XMLHttpRequest/resources/empty-div-utf8-html.py: Added.
+        (main):
+        * web-platform-tests/XMLHttpRequest/resources/img-utf8-html.py: Added.
+        (main):
+        * web-platform-tests/XMLHttpRequest/resources/w3c-import.log:
+        * web-platform-tests/XMLHttpRequest/send-content-type-charset-expected.txt:
+        * web-platform-tests/XMLHttpRequest/send-content-type-charset.htm:
+        * web-platform-tests/XMLHttpRequest/send-content-type-string-expected.txt:
+        * web-platform-tests/XMLHttpRequest/send-content-type-string.htm:
+        * web-platform-tests/XMLHttpRequest/send-entity-body-document-expected.txt:
+        * web-platform-tests/XMLHttpRequest/send-entity-body-document.htm:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-aborted.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-abortedonmain.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-overrides.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-overridesexpires.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-simple.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-synconmain.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-twice.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-worker-aborted.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-worker-overrides.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-worker-overridesexpires.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-worker-simple.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-worker-synconworker.html:
+        * web-platform-tests/XMLHttpRequest/xmlhttprequest-timeout-worker-twice.html:
+        * web-platform-tests/dom/common.js:
+        (myExtractContents):
+        (myInsertNode):
+        * web-platform-tests/dom/interfaces-expected.txt:
+        * web-platform-tests/dom/lists/DOMTokenList-stringifier-expected.txt:
+        * web-platform-tests/dom/lists/DOMTokenList-stringifier.html:
+        * web-platform-tests/dom/nodes/Document-Element-getElementsByTagName.js:
+        (test_getElementsByTagName):
+        * web-platform-tests/dom/nodes/Document-createElement-namespace-expected.txt:
+        * web-platform-tests/dom/nodes/Document-createElement-namespace-tests/empty.html: Added.
+        * web-platform-tests/dom/nodes/Document-createElement-namespace-tests/empty.svg: Added.
+        * web-platform-tests/dom/nodes/Document-createElement-namespace-tests/empty.xhtml: Added.
+        * web-platform-tests/dom/nodes/Document-createElement-namespace-tests/empty.xml: Added.
+        * web-platform-tests/dom/nodes/Document-createElement-namespace.html:
+        * web-platform-tests/dom/nodes/Document-getElementsByTagName-expected.txt:
+        * web-platform-tests/dom/nodes/DocumentType-literal-xhtml-expected.txt: Added.
+        * web-platform-tests/dom/nodes/DocumentType-literal-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/DocumentType-literal.xhtml.
+        * web-platform-tests/dom/nodes/Element-childElementCount-dynamic-add-xhtml-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-childElementCount-dynamic-add-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/Element-childElementCount-dynamic-add.xhtml.
+        * web-platform-tests/dom/nodes/Element-childElementCount-nochild-xhtml-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-childElementCount-nochild-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/Element-childElementCount-nochild.xhtml.
+        * web-platform-tests/dom/nodes/Element-children-expected.txt:
+        * web-platform-tests/dom/nodes/Element-children.html:
+        * web-platform-tests/dom/nodes/Element-classlist-expected.txt:
+        * web-platform-tests/dom/nodes/Element-classlist.html:
+        * web-platform-tests/dom/nodes/Element-firstElementChild-xhtml-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-firstElementChild-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/Element-firstElementChild.xhtml.
+        * web-platform-tests/dom/nodes/Element-getElementsByTagName-change-document-HTMLNess-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-getElementsByTagName-change-document-HTMLNess-iframe-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-getElementsByTagName-change-document-HTMLNess-iframe.xml: Added.
+        * web-platform-tests/dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html: Added.
+        * web-platform-tests/dom/nodes/Element-getElementsByTagName-expected.txt:
+        * web-platform-tests/dom/nodes/Element-matches-expected.txt:
+        * web-platform-tests/dom/nodes/Element-nextElementSibling-xhtml-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-nextElementSibling-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/Element-nextElementSibling.xhtml.
+        * web-platform-tests/dom/nodes/Element-previousElementSibling-xhtml-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Element-previousElementSibling-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/Element-previousElementSibling.xhtml.
+        * web-platform-tests/dom/nodes/MutationObserver-childList-expected.txt:
+        * web-platform-tests/dom/nodes/MutationObserver-childList.html:
+        * web-platform-tests/dom/nodes/MutationObserver-document-expected.txt:
+        * web-platform-tests/dom/nodes/MutationObserver-document.html:
+        * web-platform-tests/dom/nodes/Node-contains-xhtml-expected.txt: Removed.
+        * web-platform-tests/dom/nodes/Node-contains-xhtml.xhtml: Removed.
+        * web-platform-tests/dom/nodes/Node-isEqualNode-expected.txt:
+        * web-platform-tests/dom/nodes/Node-isEqualNode-iframe1-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Node-isEqualNode-iframe1.xml: Added.
+        * web-platform-tests/dom/nodes/Node-isEqualNode-iframe2-expected.txt: Added.
+        * web-platform-tests/dom/nodes/Node-isEqualNode-iframe2.xml: Added.
+        * web-platform-tests/dom/nodes/Node-isEqualNode.xhtml:
+        * web-platform-tests/dom/nodes/Node-lookupNamespaceURI-expected.txt:
+        * web-platform-tests/dom/nodes/Node-lookupNamespaceURI.html:
+        * web-platform-tests/dom/nodes/ParentNode-querySelector-All-expected.txt:
+        * web-platform-tests/dom/nodes/ParentNode-querySelector-All-xht-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/ParentNode-querySelector-All-xhtml-expected.txt.
+        * web-platform-tests/dom/nodes/ParentNode-querySelector-All-xht.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/nodes/ParentNode-querySelector-All-xhtml.xht.
+        * web-platform-tests/dom/nodes/attributes-expected.txt:
+        * web-platform-tests/dom/nodes/attributes.html:
+        * web-platform-tests/dom/nodes/getElementsByClassName-10.xml:
+        * web-platform-tests/dom/nodes/getElementsByClassName-11.xml:
+        * web-platform-tests/dom/nodes/resources/ParentNode-querySelector-All-content.xht: Removed.
+        * web-platform-tests/dom/nodes/selectors.js:
+        * web-platform-tests/dom/nodes/w3c-import.log:
+        * web-platform-tests/dom/ranges/Range-deleteContents-expected.txt:
+        * web-platform-tests/dom/ranges/Range-deleteContents.html:
+        * web-platform-tests/dom/ranges/Range-extractContents-expected.txt:
+        * web-platform-tests/dom/ranges/Range-insertNode-expected.txt:
+        * web-platform-tests/dom/ranges/Range-intersectsNode-expected.txt:
+        * web-platform-tests/dom/ranges/Range-intersectsNode.html:
+        * web-platform-tests/dom/ranges/Range-mutations.html:
+        * web-platform-tests/dom/ranges/Range-surroundContents-expected.txt:
+        * web-platform-tests/dom/ranges/Range-surroundContents.html:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-case-xhtml-expected.txt: Added.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-case-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-case.xhtml.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-id-xhtml-expected.txt: Added.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-id-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-id.xhtml.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-namespace-xhtml-expected.txt: Added.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-namespace-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-namespace.xhtml.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-newelements-expected.txt:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-newelements-xhtml-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-newelements-expected.txt.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-newelements-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-newelements.xhtml.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-newelements.html:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-null-undef-xhtml-expected.txt: Added.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-null-undef-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-null-undef.xhtml.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-param-xhtml-expected.txt: Added.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-param-xhtml.xhtml: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/document.getElementsByName-param.xhtml.
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.getElementsByName/w3c-import.log:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.title-03-expected.txt:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.title-03.html:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.title-09-expected.txt:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/document.title-09.html:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/nameditem-06-expected.txt:
+        * web-platform-tests/html/dom/documents/dom-tree-accessors/nameditem-06.html:
+        * web-platform-tests/html/dom/documents/resource-metadata-management/document-lastModified-01.html:
+        * web-platform-tests/html/dom/dynamic-markup-insertion/opening-the-input-stream/010-expected.txt:
+        * web-platform-tests/html/dom/elements-embedded.js:
+        * web-platform-tests/html/dom/elements-text.js:
+        * web-platform-tests/html/dom/elements/global-attributes/dir_auto-N-EN-ref-expected.html: Added.
+        * web-platform-tests/html/dom/elements/global-attributes/dir_auto-N-EN-ref.html: Added.
+        * web-platform-tests/html/dom/elements/global-attributes/dir_auto-textarea-script-N-between-Rs-ref-expected.html: Added.
+        * web-platform-tests/html/dom/elements/global-attributes/dir_auto-textarea-script-N-between-Rs-ref.html: Added.
+        * web-platform-tests/html/dom/elements/global-attributes/w3c-import.log:
+        * web-platform-tests/html/dom/interfaces-expected.txt:
+        * web-platform-tests/html/dom/interfaces.html:
+        * web-platform-tests/html/dom/reflection.js:
+        (ReflectionTests.doReflects):
+        * web-platform-tests/html/semantics/embedded-content/media-elements/loading-the-media-resource/resources/delayed-broken-video.py: Removed.
+        * web-platform-tests/html/semantics/embedded-content/media-elements/loading-the-media-resource/resources/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/media-elements/loading-the-media-resource/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/media-elements/location-of-the-media-resource/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/media-elements/ready-states/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/media-elements/seeking/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/media-elements/synchronising-multiple-media-elements/media-controllers/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/the-iframe-element/w3c-import.log: Removed.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/Image-constructor.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/current-pixel-density/basic-expected.txt:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/current-pixel-density/basic.html:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-checkValidity-expected.txt:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing.html:
+        * web-platform-tests/html/semantics/forms/constraints/support/validator.js:
+        (validator.set_conditions):
+        (validator.set_dirty): Deleted.
+        (validator.pre_check): Deleted.
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection.html:
+        * web-platform-tests/html/semantics/forms/the-form-element/form-autocomplete-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-form-element/form-autocomplete.html:
+        * web-platform-tests/html/semantics/forms/the-label-element/label-attributes-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-label-element/label-attributes.html:
+        * web-platform-tests/html/semantics/forms/the-label-element/labelable-elements-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-label-element/labelable-elements.html:
+        * web-platform-tests/html/semantics/forms/the-option-element/option-text-recurse-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-option-element/option-text-recurse.html:
+        * web-platform-tests/html/semantics/forms/the-select-element/common-HTMLOptionsCollection-namedItem-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-select-element/common-HTMLOptionsCollection-namedItem.html:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/w3c-import.log:
+        * web-platform-tests/html/semantics/scripting-1/the-template-element/template-element/template-descendant-frameset.html:
+        * web-platform-tests/html/semantics/selectors/pseudo-classes/disabled-expected.txt:
+        * web-platform-tests/html/semantics/selectors/pseudo-classes/disabled.html:
+        * web-platform-tests/html/semantics/tabular-data/attributes-common-to-td-and-th-elements/cellIndex-expected.txt:
+        * web-platform-tests/html/semantics/tabular-data/attributes-common-to-td-and-th-elements/cellIndex.html:
+        * web-platform-tests/html/semantics/tabular-data/html-table-section-element.js: Added.
+        (testRowsAttribute):
+        * web-platform-tests/html/semantics/tabular-data/the-tbody-element/deleteRow-expected.txt:
+        * web-platform-tests/html/semantics/tabular-data/the-tbody-element/deleteRow.html:
+        * web-platform-tests/html/semantics/tabular-data/the-tbody-element/insertRow-expected.txt:
+        * web-platform-tests/html/semantics/tabular-data/the-tbody-element/insertRow.html:
+        * web-platform-tests/html/semantics/tabular-data/the-tr-element/deleteCell-expected.txt:
+        * web-platform-tests/html/semantics/tabular-data/the-tr-element/deleteCell.html:
+        * web-platform-tests/html/semantics/tabular-data/w3c-import.log: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/semantics/document-metadata/styling/w3c-import.log.
+        * web-platform-tests/lint:
+        * web-platform-tests/lint.whitelist:
+        * web-platform-tests/media/2048x1360-random.jpg: Added.
+        * web-platform-tests/media/w3c-import.log: Added.
+
 2015-12-23  Xabier Rodriguez Calvar  <calvaris@igalia.com>
 
         [Streams API] In RS during enqueuing error should be reported only if readable

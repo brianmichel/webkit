@@ -28,6 +28,8 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
+#include "FileSystem.h"
+#include "SecurityOrigin.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
@@ -52,7 +54,18 @@ IDBDatabaseIdentifier IDBDatabaseIdentifier::isolatedCopy() const
     identifier.m_openingOrigin = m_openingOrigin.isolatedCopy();
     identifier.m_mainFrameOrigin = m_mainFrameOrigin.isolatedCopy();
 
-    return WTF::move(identifier);
+    return identifier;
+}
+
+String IDBDatabaseIdentifier::databaseDirectoryRelativeToRoot(const String& rootDirectory) const
+{
+    String mainFrameDirectory = pathByAppendingComponent(rootDirectory, m_mainFrameOrigin.securityOrigin()->databaseIdentifier());
+
+    // If the opening origin and main frame origins are the same, there is no partitioning.
+    if (m_openingOrigin == m_mainFrameOrigin)
+        return mainFrameDirectory;
+
+    return pathByAppendingComponent(mainFrameDirectory, m_openingOrigin.securityOrigin()->databaseIdentifier());
 }
 
 #ifndef NDEBUG

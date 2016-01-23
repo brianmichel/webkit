@@ -115,7 +115,7 @@ void HTMLTextAreaElement::didAddUserAgentShadowRoot(ShadowRoot* root)
 
 const AtomicString& HTMLTextAreaElement::formControlType() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, textarea, ("textarea", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> textarea("textarea", AtomicString::ConstructFromLiteral);
     return textarea;
 }
 
@@ -190,9 +190,9 @@ void HTMLTextAreaElement::parseAttribute(const QualifiedName& name, const Atomic
         // The virtual/physical values were a Netscape extension of HTML 3.0, now deprecated.
         // The soft/hard /off values are a recommendation for HTML 4 extension by IE and NS 4.
         WrapMethod wrap;
-        if (equalIgnoringCase(value, "physical") || equalIgnoringCase(value, "hard") || equalIgnoringCase(value, "on"))
+        if (equalLettersIgnoringASCIICase(value, "physical") || equalLettersIgnoringASCIICase(value, "hard") || equalLettersIgnoringASCIICase(value, "on"))
             wrap = HardWrap;
-        else if (equalIgnoringCase(value, "off"))
+        else if (equalLettersIgnoringASCIICase(value, "off"))
             wrap = NoWrap;
         else
             wrap = SoftWrap;
@@ -211,7 +211,7 @@ void HTMLTextAreaElement::parseAttribute(const QualifiedName& name, const Atomic
 
 RenderPtr<RenderElement> HTMLTextAreaElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderTextControlMultiLine>(*this, WTF::move(style));
+    return createRenderer<RenderTextControlMultiLine>(*this, WTFMove(style));
 }
 
 bool HTMLTextAreaElement::appendFormData(FormDataList& encoding, bool)

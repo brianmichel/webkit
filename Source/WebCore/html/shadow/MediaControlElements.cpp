@@ -309,7 +309,7 @@ void MediaControlTimelineContainerElement::setTimeDisplaysHidden(bool hidden)
 
 RenderPtr<RenderElement> MediaControlTimelineContainerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderMediaControlTimelineContainer>(*this, WTF::move(style));
+    return createRenderer<RenderMediaControlTimelineContainer>(*this, WTFMove(style));
 }
 
 // ----------------------------
@@ -329,7 +329,7 @@ Ref<MediaControlVolumeSliderContainerElement> MediaControlVolumeSliderContainerE
 
 RenderPtr<RenderElement> MediaControlVolumeSliderContainerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderMediaVolumeSliderContainer>(*this, WTF::move(style));
+    return createRenderer<RenderMediaVolumeSliderContainer>(*this, WTFMove(style));
 }
 
 void MediaControlVolumeSliderContainerElement::defaultEventHandler(Event* event)
@@ -721,7 +721,7 @@ void MediaControlClosedCaptionsTrackListElement::defaultEventHandler(Event* even
 void MediaControlClosedCaptionsTrackListElement::updateDisplay()
 {
 #if ENABLE(VIDEO_TRACK)
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, selectedClassValue, ("selected", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> selectedClassValue("selected", AtomicString::ConstructFromLiteral);
 
     if (!mediaController()->hasClosedCaptions())
         return;
@@ -807,7 +807,7 @@ void MediaControlClosedCaptionsTrackListElement::rebuildTrackListMenu()
 
     Ref<Element> captionsHeader = document().createElement(h3Tag, ASSERT_NO_EXCEPTION);
     captionsHeader->appendChild(document().createTextNode(textTrackSubtitlesText()));
-    appendChild(WTF::move(captionsHeader));
+    appendChild(WTFMove(captionsHeader));
     Ref<Element> captionsMenuList = document().createElement(ulTag, ASSERT_NO_EXCEPTION);
 
     for (auto& textTrack : tracksForMenu) {
@@ -818,7 +818,7 @@ void MediaControlClosedCaptionsTrackListElement::rebuildTrackListMenu()
         m_menuToTrackMap.add(menuItem.ptr(), textTrack);
     }
 
-    appendChild(WTF::move(captionsMenuList));
+    appendChild(WTFMove(captionsMenuList));
 #endif
 }
 
@@ -1038,7 +1038,7 @@ Ref<MediaControlTimeRemainingDisplayElement> MediaControlTimeRemainingDisplayEle
 
 static const AtomicString& getMediaControlTimeRemainingDisplayElementShadowPseudoId()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-time-remaining-display", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> id("-webkit-media-controls-time-remaining-display", AtomicString::ConstructFromLiteral);
     return id;
 }
 
@@ -1057,7 +1057,7 @@ Ref<MediaControlCurrentTimeDisplayElement> MediaControlCurrentTimeDisplayElement
 
 static const AtomicString& getMediaControlCurrentTimeDisplayElementShadowPseudoId()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-current-time-display", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> id("-webkit-media-controls-current-time-display", AtomicString::ConstructFromLiteral);
     return id;
 }
 
@@ -1084,7 +1084,7 @@ Ref<MediaControlTextTrackContainerElement> MediaControlTextTrackContainerElement
 
 RenderPtr<RenderElement> MediaControlTextTrackContainerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderTextTrackContainerElement>(*this, WTF::move(style));
+    return createRenderer<RenderTextTrackContainerElement>(*this, WTFMove(style));
 }
 
 static bool compareCueIntervalForDisplay(const CueInterval& one, const CueInterval& two)
@@ -1374,7 +1374,7 @@ RefPtr<Image> MediaControlTextTrackContainerElement::createTextTrackRepresentati
 
     layer->paint(buffer->context(), paintingRect, LayoutSize(), PaintBehaviorFlattenCompositingLayers, nullptr, RenderLayer::PaintLayerPaintingCompositingAllPhases);
 
-    return ImageBuffer::sinkIntoImage(WTF::move(buffer));
+    return ImageBuffer::sinkIntoImage(WTFMove(buffer));
 }
 
 void MediaControlTextTrackContainerElement::textTrackRepresentationBoundsChanged(const IntRect&)

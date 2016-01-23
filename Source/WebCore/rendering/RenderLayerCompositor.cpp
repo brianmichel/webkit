@@ -273,26 +273,8 @@ static inline bool compositingLogEnabled()
 RenderLayerCompositor::RenderLayerCompositor(RenderView& renderView)
     : m_renderView(renderView)
     , m_updateCompositingLayersTimer(*this, &RenderLayerCompositor::updateCompositingLayersTimerFired)
-    , m_hasAcceleratedCompositing(true)
-    , m_compositingTriggers(static_cast<ChromeClient::CompositingTriggerFlags>(ChromeClient::AllTriggers))
-    , m_showDebugBorders(false)
-    , m_showRepaintCounter(false)
-    , m_acceleratedDrawingEnabled(false)
-    , m_reevaluateCompositingAfterLayout(false)
-    , m_compositing(false)
-    , m_compositingLayersNeedRebuild(false)
-    , m_flushingLayers(false)
-    , m_shouldFlushOnReattach(false)
-    , m_forceCompositingMode(false)
-    , m_inPostLayoutUpdate(false)
-    , m_subframeScrollLayersNeedReattach(false)
-    , m_isTrackingRepaints(false)
-    , m_rootLayerAttachment(RootLayerUnattached)
-    , m_layerFlushTimer(*this, &RenderLayerCompositor::layerFlushTimerFired)
-    , m_layerFlushThrottlingEnabled(false)
-    , m_layerFlushThrottlingTemporarilyDisabledForInteraction(false)
-    , m_hasPendingLayerFlush(false)
     , m_paintRelatedMilestonesTimer(*this, &RenderLayerCompositor::paintRelatedMilestonesTimerFired)
+    , m_layerFlushTimer(*this, &RenderLayerCompositor::layerFlushTimerFired)
 {
 }
 
@@ -324,6 +306,7 @@ void RenderLayerCompositor::cacheAcceleratedCompositingFlags()
     bool showRepaintCounter = false;
     bool forceCompositingMode = false;
     bool acceleratedDrawingEnabled = false;
+    bool displayListDrawingEnabled = false;
 
     const Settings& settings = m_renderView.frameView().frame().settings();
     hasAcceleratedCompositing = settings.acceleratedCompositingEnabled();
@@ -345,7 +328,8 @@ void RenderLayerCompositor::cacheAcceleratedCompositingFlags()
         forceCompositingMode = requiresCompositingForScrollableFrame();
 
     acceleratedDrawingEnabled = settings.acceleratedDrawingEnabled();
-
+    displayListDrawingEnabled = settings.displayListDrawingEnabled();
+    
     if (hasAcceleratedCompositing != m_hasAcceleratedCompositing || showDebugBorders != m_showDebugBorders || showRepaintCounter != m_showRepaintCounter || forceCompositingMode != m_forceCompositingMode)
         setCompositingLayersNeedRebuild();
 
@@ -355,6 +339,7 @@ void RenderLayerCompositor::cacheAcceleratedCompositingFlags()
     m_showRepaintCounter = showRepaintCounter;
     m_forceCompositingMode = forceCompositingMode;
     m_acceleratedDrawingEnabled = acceleratedDrawingEnabled;
+    m_displayListDrawingEnabled = displayListDrawingEnabled;
     
     if (debugBordersChanged) {
         if (m_layerForHorizontalScrollbar)
@@ -1769,7 +1754,7 @@ void RenderLayerCompositor::updateScrollLayerPosition()
     m_scrollLayer->setPosition(FloatPoint(-scrollPosition.x(), -scrollPosition.y()));
 
     if (GraphicsLayer* fixedBackgroundLayer = fixedRootBackgroundLayer())
-        fixedBackgroundLayer->setPosition(toLayoutPoint(frameView.scrollOffsetForFixedPosition()));
+        fixedBackgroundLayer->setPosition(frameView.scrollPositionForFixedPosition());
 }
 
 FloatPoint RenderLayerCompositor::positionForClipLayer() const
@@ -2136,9 +2121,8 @@ void RenderLayerCompositor::clearBackingForAllLayers()
 void RenderLayerCompositor::updateRootLayerPosition()
 {
     if (m_rootContentLayer) {
-        const IntRect& documentRect = m_renderView.documentRect();
-        m_rootContentLayer->setSize(documentRect.size());        
-        m_rootContentLayer->setPosition(FloatPoint(documentRect.x(), documentRect.y() + m_renderView.frameView().yPositionForRootContentLayer()));
+        m_rootContentLayer->setSize(m_renderView.frameView().contentsSize());
+        m_rootContentLayer->setPosition(m_renderView.frameView().positionForRootContentLayer());
         m_rootContentLayer->setAnchorPoint(FloatPoint3D());
     }
     if (m_clipLayer) {
@@ -4045,7 +4029,7 @@ void RenderLayerCompositor::registerAllViewportConstrainedLayers()
         else
             continue;
 
-        layerMap.add(layer->backing()->graphicsLayer()->platformLayer(), WTF::move(constraints));
+        layerMap.add(layer->backing()->graphicsLayer()->platformLayer(), WTFMove(constraints));
     }
     
     if (ChromeClient* client = this->chromeClient())

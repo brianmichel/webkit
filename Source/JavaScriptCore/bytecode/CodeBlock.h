@@ -192,6 +192,7 @@ public:
     void dumpBytecode(
         PrintStream&, unsigned bytecodeOffset,
         const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
+    void dumpExceptionHandlers(PrintStream&);
     void printStructures(PrintStream&, const Instruction*);
     void printStructure(PrintStream&, const char* name, const Instruction*, int operand);
 
@@ -267,7 +268,7 @@ public:
 
     void setJITCodeMap(std::unique_ptr<CompactJITCodeMap> jitCodeMap)
     {
-        m_jitCodeMap = WTF::move(jitCodeMap);
+        m_jitCodeMap = WTFMove(jitCodeMap);
     }
     CompactJITCodeMap* jitCodeMap()
     {
@@ -452,15 +453,19 @@ public:
         return value >= Options::couldTakeSlowCaseMinimumCount();
     }
 
-    ResultProfile* addResultProfile(int bytecodeOffset)
+    ResultProfile* ensureResultProfile(int bytecodeOffset)
     {
-        m_resultProfiles.append(ResultProfile(bytecodeOffset));
-        return &m_resultProfiles.last();
+        ResultProfile* profile = resultProfileForBytecodeOffset(bytecodeOffset);
+        if (!profile) {
+            m_resultProfiles.append(ResultProfile(bytecodeOffset));
+            profile = &m_resultProfiles.last();
+            ASSERT(&m_resultProfiles.last() == &m_resultProfiles[m_resultProfiles.size() - 1]);
+            m_bytecodeOffsetToResultProfileIndexMap.add(bytecodeOffset, m_resultProfiles.size() - 1);
+        }
+        return profile;
     }
     unsigned numberOfResultProfiles() { return m_resultProfiles.size(); }
     ResultProfile* resultProfileForBytecodeOffset(int bytecodeOffset);
-
-    void updateResultProfileForBytecodeOffset(int bytecodeOffset, JSValue result);
 
     unsigned specialFastCaseProfileCountForBytecodeOffset(int bytecodeOffset)
     {
@@ -476,16 +481,6 @@ public:
             return false;
         unsigned specialFastCaseCount = specialFastCaseProfileCountForBytecodeOffset(bytecodeOffset);
         return specialFastCaseCount >= Options::couldTakeSlowCaseMinimumCount();
-    }
-
-    bool likelyToTakeDeepestSlowCase(int bytecodeOffset)
-    {
-        if (!hasBaselineJITProfiling())
-            return false;
-        unsigned slowCaseCount = rareCaseProfileCountForBytecodeOffset(bytecodeOffset);
-        unsigned specialFastCaseCount = specialFastCaseProfileCountForBytecodeOffset(bytecodeOffset);
-        unsigned value = slowCaseCount - specialFastCaseCount;
-        return value >= Options::likelyToTakeSlowCaseMinimumCount();
     }
 
     unsigned numberOfArrayProfiles() const { return m_arrayProfiles.size(); }
@@ -632,7 +627,7 @@ public:
         {
             ConcurrentJITLocker locker(m_lock);
             if (!m_livenessAnalysis)
-                m_livenessAnalysis = WTF::move(analysis);
+                m_livenessAnalysis = WTFMove(analysis);
             return *m_livenessAnalysis;
         }
     }
@@ -1068,6 +1063,7 @@ private:
     Vector<ValueProfile> m_valueProfiles;
     SegmentedVector<RareCaseProfile, 8> m_rareCaseProfiles;
     SegmentedVector<ResultProfile, 8> m_resultProfiles;
+    HashMap<unsigned, unsigned, IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> m_bytecodeOffsetToResultProfileIndexMap;
     Vector<ArrayAllocationProfile> m_arrayAllocationProfiles;
     ArrayProfileVector m_arrayProfiles;
     Vector<ObjectAllocationProfile> m_objectAllocationProfiles;
@@ -1370,8 +1366,9 @@ inline void CodeBlock::clearVisitWeaklyHasBeenCalled()
     m_visitWeaklyHasBeenCalled.store(false, std::memory_order_relaxed);
 }
 
-inline void CodeBlockSet::mark(void* candidateCodeBlock)
+inline void CodeBlockSet::mark(const LockHolder& locker, void* candidateCodeBlock)
 {
+    ASSERT(m_lock.isLocked());
     // We have to check for 0 and -1 because those are used by the HashMap as markers.
     uintptr_t value = reinterpret_cast<uintptr_t>(candidateCodeBlock);
     
@@ -1385,10 +1382,10 @@ inline void CodeBlockSet::mark(void* candidateCodeBlock)
     if (!m_oldCodeBlocks.contains(codeBlock) && !m_newCodeBlocks.contains(codeBlock))
         return;
 
-    mark(codeBlock);
+    mark(locker, codeBlock);
 }
 
-inline void CodeBlockSet::mark(CodeBlock* codeBlock)
+inline void CodeBlockSet::mark(const LockHolder&, CodeBlock* codeBlock)
 {
     if (!codeBlock)
         return;

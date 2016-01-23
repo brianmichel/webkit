@@ -434,7 +434,7 @@ private:
         std::unique_ptr<CalcExpressionNode> right(m_rightSide->createCalcExpression(conversionData));
         if (!right)
             return nullptr;
-        return std::make_unique<CalcExpressionBinaryOperation>(WTF::move(left), WTF::move(right), m_operator);
+        return std::make_unique<CalcExpressionBinaryOperation>(WTFMove(left), WTFMove(right), m_operator);
     }
 
     virtual double doubleValue() const override
@@ -757,7 +757,7 @@ RefPtr<CSSCalcValue> CSSCalcValue::create(CSSParserString name, CSSParserValueLi
     CSSCalcExpressionNodeParser parser;
     RefPtr<CSSCalcExpressionNode> expression;
 
-    if (name.equalIgnoringCase("calc(") || name.equalIgnoringCase("-webkit-calc("))
+    if (equalLettersIgnoringASCIICase(name, "calc(") || equalLettersIgnoringASCIICase(name, "-webkit-calc("))
         expression = parser.parseCalc(&parserValueList);
 
     return expression ? adoptRef(new CSSCalcValue(expression.releaseNonNull(), range != CalculationRangeAll)) : nullptr;

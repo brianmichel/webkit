@@ -83,7 +83,7 @@ const int defaultSize = 4;
 const int baselineAdjustment = 7;
 
 RenderListBox::RenderListBox(HTMLSelectElement& element, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(element, WTF::move(style))
+    : RenderBlockFlow(element, WTFMove(style))
     , m_optionsChanged(true)
     , m_scrollToRevealSelectionAfterLayout(false)
     , m_inAutoscroll(false)
@@ -129,7 +129,6 @@ void RenderListBox::updateFromElement()
                 applyTextTransform(style(), text, ' ');
                 // FIXME: Why is this always LTR? Can't text direction affect the width?
                 TextRun textRun = constructTextRun(this, itemFont, text, style(), AllowTrailingExpansion);
-                textRun.disableRoundingHacks();
                 float textWidth = itemFont.width(textRun);
                 width = std::max(width, textWidth);
             }
@@ -398,7 +397,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
 
     paintInfo.context().setFillColor(textColor);
 
-    TextRun textRun(itemText, 0, 0, AllowTrailingExpansion, itemStyle.direction(), isOverride(itemStyle.unicodeBidi()), true, TextRun::NoRounding);
+    TextRun textRun(itemText, 0, 0, AllowTrailingExpansion, itemStyle.direction(), isOverride(itemStyle.unicodeBidi()), true);
     FontCascade itemFont = style().fontCascade();
     LayoutRect r = itemBoundingBoxRect(paintOffset, listIndex);
     r.move(itemOffsetForAlignment(textRun, &itemStyle, itemFont, r));
@@ -603,12 +602,22 @@ int RenderListBox::scrollSize(ScrollbarOrientation orientation) const
     return ((orientation == VerticalScrollbar) && m_vBar) ? (m_vBar->totalSize() - m_vBar->visibleSize()) : 0;
 }
 
-int RenderListBox::scrollPosition(Scrollbar*) const
+int RenderListBox::scrollOffset(ScrollbarOrientation) const
 {
     return m_indexOffset;
 }
 
-void RenderListBox::setScrollOffset(const IntPoint& offset)
+ScrollPosition RenderListBox::minimumScrollPosition() const
+{
+    return { 0, 0 };
+}
+
+ScrollPosition RenderListBox::maximumScrollPosition() const
+{
+    return { 0, numItems() - numVisibleItems() };
+}
+
+void RenderListBox::setScrollOffset(const ScrollOffset& offset)
 {
     scrollTo(offset.y());
 }

@@ -481,7 +481,7 @@ PassRefPtr<HTMLFormElement> InputType::formForSubmission() const
 
 RenderPtr<RenderElement> InputType::createInputRenderer(Ref<RenderStyle>&& style)
 {
-    return RenderPtr<RenderElement>(RenderElement::createFor(element(), WTF::move(style)));
+    return RenderPtr<RenderElement>(RenderElement::createFor(element(), WTFMove(style)));
 }
 
 void InputType::blur()
@@ -952,10 +952,10 @@ void InputType::listAttributeTargetChanged()
 {
 }
 
-Decimal InputType::findClosestTickMarkValue(const Decimal&)
+Optional<Decimal> InputType::findClosestTickMarkValue(const Decimal&)
 {
     ASSERT_NOT_REACHED();
-    return Decimal::nan();
+    return Nullopt;
 }
 #endif
 
@@ -1006,8 +1006,7 @@ void InputType::applyStep(int count, AnyStepHandling anyStepHandling, TextFieldE
     if (newValue < stepRange.minimum())
         newValue = stepRange.minimum();
 
-    const AtomicString& stepString = element().fastGetAttribute(stepAttr);
-    if (!equalIgnoringCase(stepString, "any"))
+    if (!equalLettersIgnoringASCIICase(element().fastGetAttribute(stepAttr), "any"))
         newValue = stepRange.alignValueForStep(current, newValue);
 
     if (newValue - stepRange.maximum() > acceptableErrorValue) {

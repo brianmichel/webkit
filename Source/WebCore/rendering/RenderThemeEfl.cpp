@@ -246,9 +246,9 @@ RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::getThemePartFromCache(FormT
             if (candidatedEntry->type == type) {
                 // Found the right item, move it to the head of the list
                 // and return it.
-                auto temp = WTF::move(m_partCache[i]);
+                auto temp = WTFMove(m_partCache[i]);
                 m_partCache.remove(i);
-                m_partCache.insert(0, WTF::move(temp));
+                m_partCache.insert(0, WTFMove(temp));
                 return m_partCache.first().get();
             }
             reusableNodeIndex = i;
@@ -258,7 +258,7 @@ RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::getThemePartFromCache(FormT
     if (m_partCache.size() < RENDER_THEME_EFL_PART_CACHE_MAX) {
         auto entry = ThemePartCacheEntry::create(themePath(), type, size);
         if (entry)
-            m_partCache.insert(0, WTF::move(entry));
+            m_partCache.insert(0, WTFMove(entry));
 
         return m_partCache.first().get();
     }
@@ -272,9 +272,9 @@ RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::getThemePartFromCache(FormT
     ThemePartCacheEntry* reusedEntry = m_partCache[reusableNodeIndex].get();
     ASSERT(reusedEntry);
     reusedEntry->reuse(themePath(), type, size);
-    auto temp = WTF::move(m_partCache[reusableNodeIndex]);
+    auto temp = WTFMove(m_partCache[reusableNodeIndex]);
     m_partCache.remove(reusableNodeIndex);
-    m_partCache.insert(0, WTF::move(temp));
+    m_partCache.insert(0, WTFMove(temp));
 
     return m_partCache.first().get();
 }
@@ -364,7 +364,7 @@ bool RenderThemeEfl::paintThemePart(const RenderObject& object, FormType type, c
 
     ThemePartCacheEntry* entry = getThemePartFromCache(type, rect.size());
     if (!entry)
-        return false;
+        return true;
 
     bool haveBackgroundColor = isControlStyled(object.style(), object.style().border(), *object.style().backgroundLayers(), Color::white);
     ControlStates states(extractControlStatesForRenderer(object));
@@ -520,7 +520,7 @@ bool RenderThemeEfl::loadTheme()
         clearThemePartCache();
 
     // Set new loaded theme, and apply it.
-    m_edje = WTF::move(o);
+    m_edje = WTFMove(o);
 
     const char* thickness = edje_object_data_get(m_edje.get(), "scrollbar.thickness");
     if (thickness && !Settings::mockScrollbarsEnabled())
@@ -932,7 +932,7 @@ void RenderThemeEfl::adjustSearchFieldResultsButtonStyle(StyleResolver& styleRes
     style.setHeight(Length(decorationSize, Fixed));
 }
 
-bool RenderThemeEfl::paintSearchFieldResultsButton(const RenderObject& object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeEfl::paintSearchFieldResultsButton(const RenderBox& object, const PaintInfo& info, const IntRect& rect)
 {
     return paintThemePart(object, SearchFieldResultsButton, info, rect);
 }
@@ -954,7 +954,7 @@ void RenderThemeEfl::adjustSearchFieldResultsDecorationPartStyle(StyleResolver& 
     style.setHeight(Length(decorationSize, Fixed));
 }
 
-bool RenderThemeEfl::paintSearchFieldResultsDecorationPart(const RenderObject& object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeEfl::paintSearchFieldResultsDecorationPart(const RenderBox& object, const PaintInfo& info, const IntRect& rect)
 {
     return paintThemePart(object, SearchFieldResultsDecoration, info, rect);
 }
@@ -978,7 +978,7 @@ void RenderThemeEfl::adjustSearchFieldCancelButtonStyle(StyleResolver& styleReso
     style.setHeight(Length(cancelButtonSize, Fixed));
 }
 
-bool RenderThemeEfl::paintSearchFieldCancelButton(const RenderObject& object, const PaintInfo& info, const IntRect& rect)
+bool RenderThemeEfl::paintSearchFieldCancelButton(const RenderBox& object, const PaintInfo& info, const IntRect& rect)
 {
     return paintThemePart(object, SearchFieldCancelButton, info, rect);
 }

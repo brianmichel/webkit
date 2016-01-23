@@ -44,15 +44,14 @@ using namespace WebCore;
 namespace WebKit {
 
 #if USE(NETWORK_SESSION)
-Download::Download(DownloadManager& downloadManager, const NetworkSession& session, DownloadID downloadID, const ResourceRequest& request)
+Download::Download(DownloadManager& downloadManager, DownloadID downloadID)
 #else
 Download::Download(DownloadManager& downloadManager, DownloadID downloadID, const ResourceRequest& request)
 #endif
     : m_downloadManager(downloadManager)
     , m_downloadID(downloadID)
+#if !USE(NETWORK_SESSION)
     , m_request(request)
-#if USE(NETWORK_SESSION)
-    , m_session(session)
 #endif
 {
     ASSERT(m_downloadID.downloadID());
@@ -67,19 +66,24 @@ Download::~Download()
     m_downloadManager.didDestroyDownload();
 }
 
+#if USE(NETWORK_SESSION)
+void Download::didStart(const ResourceRequest& request)
+{
+    send(Messages::DownloadProxy::DidStart(request));
+}
+#else
 void Download::didStart()
 {
     send(Messages::DownloadProxy::DidStart(m_request));
 }
+#endif
 
+#if !USE(NETWORK_SESSION)
 void Download::didReceiveAuthenticationChallenge(const AuthenticationChallenge& authenticationChallenge)
 {
-#if USE(NETWORK_SESSION)
-    notImplemented();
-#else
     m_downloadManager.downloadsAuthenticationManager().didReceiveAuthenticationChallenge(*this, authenticationChallenge);
-#endif
 }
+#endif
 
 void Download::didReceiveResponse(const ResourceResponse& response)
 {

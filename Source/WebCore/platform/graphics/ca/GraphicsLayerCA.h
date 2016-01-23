@@ -41,6 +41,10 @@
 
 namespace WebCore {
 
+namespace DisplayList {
+class DisplayList;
+}
+
 class FloatRoundedRect;
 class Image;
 class TransformState;
@@ -86,6 +90,7 @@ public:
     WEBCORE_EXPORT virtual void setDrawsContent(bool) override;
     WEBCORE_EXPORT virtual void setContentsVisible(bool) override;
     WEBCORE_EXPORT virtual void setAcceleratesDrawing(bool) override;
+    WEBCORE_EXPORT virtual void setUsesDisplayListDrawing(bool) override;
 
     WEBCORE_EXPORT virtual void setBackgroundColor(const Color&) override;
 
@@ -198,9 +203,12 @@ private:
     WEBCORE_EXPORT virtual IntSize platformCALayerTileSize() const override;
 
     virtual bool isCommittingChanges() const override { return m_isCommittingChanges; }
+    virtual bool isUsingDisplayListDrawing(PlatformCALayer*) const override { return m_usesDisplayListDrawing; }
 
     WEBCORE_EXPORT virtual void setIsViewportConstrained(bool) override;
     virtual bool isViewportConstrained() const override { return m_isViewportConstrained; }
+
+    WEBCORE_EXPORT virtual String displayListAsText(DisplayList::AsTextFlags) const override;
 
     WEBCORE_EXPORT virtual double backingStoreMemoryEstimate() const override;
 
@@ -521,6 +529,7 @@ private:
     bool m_usingBackdropLayerType : 1;
     bool m_isViewportConstrained : 1;
     bool m_intersectsCoverageRect : 1;
+    bool m_hasEverPainted : 1;
 
     Color m_contentsSolidColor;
 
@@ -568,6 +577,8 @@ private:
     AnimationsMap m_runningAnimations;
 
     Vector<FloatRect> m_dirtyRects;
+    
+    std::unique_ptr<DisplayList::DisplayList> m_displayList;
 
     FloatSize m_pixelAlignmentOffset;
 

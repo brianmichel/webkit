@@ -68,7 +68,7 @@ using namespace HTMLNames;
 
 static Color& customFocusRingColor()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Color, color, ());
+    static NeverDestroyed<Color> color;
     return color;
 }
 
@@ -1328,9 +1328,9 @@ String RenderTheme::fileListNameForWidth(const FileList* fileList, const FontCas
     else if (fileList->length() == 1)
         string = fileList->item(0)->name();
     else
-        return StringTruncator::rightTruncate(multipleFileUploadText(fileList->length()), width, font, StringTruncator::EnableRoundingHacks);
+        return StringTruncator::rightTruncate(multipleFileUploadText(fileList->length()), width, font);
 
-    return StringTruncator::centerTruncate(string, width, font, StringTruncator::EnableRoundingHacks);
+    return StringTruncator::centerTruncate(string, width, font);
 }
 
 } // namespace WebCore

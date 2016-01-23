@@ -250,7 +250,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     WebCore::MemoryPressureHandler::ReliefLogger::setLoggingEnabled(parameters.shouldEnableMemoryPressureReliefLogging);
 #endif
 
-    platformInitializeWebProcess(WTF::move(parameters));
+    platformInitializeWebProcess(WTFMove(parameters));
 
     WTF::setCurrentThreadIsUserInitiated();
 
@@ -304,6 +304,9 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     for (auto& scheme : parameters.urlSchemesRegisteredAsCORSEnabled)
         registerURLSchemeAsCORSEnabled(scheme);
+
+    for (auto& scheme : parameters.urlSchemesRegisteredAsAlwaysRevalidated)
+        registerURLSchemeAsAlwaysRevalidated(scheme);
 
     WebCore::Settings::setShouldRewriteConstAsVar(parameters.shouldRewriteConstAsVar);
 
@@ -423,6 +426,11 @@ void WebProcess::registerURLSchemeAsDisplayIsolated(const String& urlScheme) con
 void WebProcess::registerURLSchemeAsCORSEnabled(const String& urlScheme) const
 {
     SchemeRegistry::registerURLSchemeAsCORSEnabled(urlScheme);
+}
+
+void WebProcess::registerURLSchemeAsAlwaysRevalidated(const String& urlScheme) const
+{
+    SchemeRegistry::registerURLSchemeAsAlwaysRevalidated(urlScheme);
 }
 
 #if ENABLE(CACHE_PARTITIONING)
@@ -1355,7 +1363,7 @@ RefPtr<API::Object> WebProcess::transformObjectsToHandles(API::Object* object)
                 WebPageGroupData pageGroupData;
                 pageGroupData.pageGroupID = static_cast<const WebPageGroupProxy&>(object).pageGroupID();
 
-                return API::PageGroupHandle::create(WTF::move(pageGroupData));
+                return API::PageGroupHandle::create(WTFMove(pageGroupData));
             }
 
 #if PLATFORM(COCOA)

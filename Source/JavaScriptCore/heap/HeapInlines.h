@@ -260,7 +260,7 @@ inline void Heap::ascribeOwner(JSCell* intendedOwner, void* storage)
 template <typename T>
 inline void Heap::releaseSoon(RetainPtr<T>&& object)
 {
-    m_delayedReleaseObjects.append(WTF::move(object));
+    m_delayedReleaseObjects.append(WTFMove(object));
 }
 #endif
 
@@ -300,7 +300,7 @@ inline HashSet<MarkedArgumentBuffer*>& Heap::markListSet()
 
 inline void Heap::registerWeakGCMap(void* weakGCMap, std::function<void()> pruningCallback)
 {
-    m_weakGCMaps.add(weakGCMap, WTF::move(pruningCallback));
+    m_weakGCMaps.add(weakGCMap, WTFMove(pruningCallback));
 }
 
 inline void Heap::unregisterWeakGCMap(void* weakGCMap)
@@ -324,6 +324,33 @@ inline void Heap::didFreeBlock(size_t capacity)
 #else
     UNUSED_PARAM(capacity);
 #endif
+}
+
+inline bool Heap::isPointerGCObject(TinyBloomFilter filter, MarkedBlockSet& markedBlockSet, void* pointer)
+{
+    MarkedBlock* candidate = MarkedBlock::blockFor(pointer);
+    if (filter.ruleOut(bitwise_cast<Bits>(candidate))) {
+        ASSERT(!candidate || !markedBlockSet.set().contains(candidate));
+        return false;
+    }
+
+    if (!MarkedBlock::isAtomAligned(pointer))
+        return false;
+
+    if (!markedBlockSet.set().contains(candidate))
+        return false;
+
+    if (!candidate->isLiveCell(pointer))
+        return false;
+
+    return true;
+}
+
+inline bool Heap::isValueGCObject(TinyBloomFilter filter, MarkedBlockSet& markedBlockSet, JSValue value)
+{
+    if (!value.isCell())
+        return false;
+    return isPointerGCObject(filter, markedBlockSet, static_cast<void*>(value.asCell()));
 }
 
 } // namespace JSC

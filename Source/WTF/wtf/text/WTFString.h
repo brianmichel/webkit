@@ -339,6 +339,7 @@ public:
     // want to do any conversion for non-ASCII letters.
     WTF_EXPORT_STRING_API String convertToASCIILowercase() const;
     WTF_EXPORT_STRING_API String lower() const;
+    WTF_EXPORT_STRING_API String convertToASCIIUppercase() const;
     WTF_EXPORT_STRING_API String upper() const;
 
     WTF_EXPORT_STRING_API String lower(const AtomicString& localeIdentifier) const;
@@ -492,10 +493,8 @@ inline bool operator==(const String& a, const LChar* b) { return equal(a.impl(),
 inline bool operator==(const String& a, const char* b) { return equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
 inline bool operator==(const LChar* a, const String& b) { return equal(a, b.impl()); }
 inline bool operator==(const char* a, const String& b) { return equal(reinterpret_cast<const LChar*>(a), b.impl()); }
-template<size_t inlineCapacity>
-inline bool operator==(const Vector<char, inlineCapacity>& a, const String& b) { return equal(b.impl(), a.data(), a.size()); }
-template<size_t inlineCapacity>
-inline bool operator==(const String& a, const Vector<char, inlineCapacity>& b) { return b == a; }
+template<size_t inlineCapacity> inline bool operator==(const Vector<char, inlineCapacity>& a, const String& b) { return equal(b.impl(), a.data(), a.size()); }
+template<size_t inlineCapacity> inline bool operator==(const String& a, const Vector<char, inlineCapacity>& b) { return b == a; }
 
 
 inline bool operator!=(const String& a, const String& b) { return !equal(a.impl(), b.impl()); }
@@ -503,10 +502,8 @@ inline bool operator!=(const String& a, const LChar* b) { return !equal(a.impl()
 inline bool operator!=(const String& a, const char* b) { return !equal(a.impl(), reinterpret_cast<const LChar*>(b)); }
 inline bool operator!=(const LChar* a, const String& b) { return !equal(a, b.impl()); }
 inline bool operator!=(const char* a, const String& b) { return !equal(reinterpret_cast<const LChar*>(a), b.impl()); }
-template<size_t inlineCapacity>
-inline bool operator!=(const Vector<char, inlineCapacity>& a, const String& b) { return !(a == b); }
-template<size_t inlineCapacity>
-inline bool operator!=(const String& a, const Vector<char, inlineCapacity>& b) { return b != a; }
+template<size_t inlineCapacity> inline bool operator!=(const Vector<char, inlineCapacity>& a, const String& b) { return !(a == b); }
+template<size_t inlineCapacity> inline bool operator!=(const String& a, const Vector<char, inlineCapacity>& b) { return b != a; }
 
 inline bool equalIgnoringCase(const String& a, const String& b) { return equalIgnoringCase(a.impl(), b.impl()); }
 inline bool equalIgnoringCase(const String& a, const LChar* b) { return equalIgnoringCase(a.impl(), b); }
@@ -514,19 +511,15 @@ inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgno
 inline bool equalIgnoringCase(const LChar* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
 inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(reinterpret_cast<const LChar*>(a), b.impl()); }
 
-inline bool equalIgnoringASCIICase(const String& a, const String& b) { return equalIgnoringASCIICase(a.impl(), b.impl()); }
-template<unsigned charactersCount>
-inline bool equalIgnoringASCIICase(const String& a, const char (&b)[charactersCount]) { return equalIgnoringASCIICase<charactersCount>(a.impl(), b); }
+bool equalPossiblyIgnoringCase(const String&, const String&, bool ignoreCase);
 
-inline bool equalPossiblyIgnoringCase(const String& a, const String& b, bool ignoreCase) 
-{
-    return ignoreCase ? equalIgnoringCase(a, b) : (a == b);
-}
+inline bool equalIgnoringASCIICase(const String& a, const String& b) { return equalIgnoringASCIICase(a.impl(), b.impl()); }
+template<unsigned charactersCount> inline bool equalIgnoringASCIICase(const String& a, const char (&b)[charactersCount]) { return equalIgnoringASCIICase<charactersCount>(a.impl(), b); }
+
+template<unsigned length> bool equalLettersIgnoringASCIICase(const String&, const char (&lowercaseLetters)[length]);
 
 inline bool equalIgnoringNullity(const String& a, const String& b) { return equalIgnoringNullity(a.impl(), b.impl()); }
-
-template<size_t inlineCapacity>
-inline bool equalIgnoringNullity(const Vector<UChar, inlineCapacity>& a, const String& b) { return equalIgnoringNullity(a, b.impl()); }
+template<size_t inlineCapacity> inline bool equalIgnoringNullity(const Vector<UChar, inlineCapacity>& a, const String& b) { return equalIgnoringNullity(a, b.impl()); }
 
 inline bool operator!(const String& str) { return str.isNull(); }
 
@@ -550,22 +543,22 @@ inline String::String(PassRefPtr<StringImpl> impl)
 }
 
 inline String::String(Ref<StringImpl>&& impl)
-    : m_impl(WTF::move(impl))
+    : m_impl(WTFMove(impl))
 {
 }
 
 inline String::String(RefPtr<StringImpl>&& impl)
-    : m_impl(WTF::move(impl))
+    : m_impl(WTFMove(impl))
 {
 }
 
 inline String::String(Ref<AtomicStringImpl>&& impl)
-    : m_impl(WTF::move(impl))
+    : m_impl(WTFMove(impl))
 {
 }
 
 inline String::String(RefPtr<AtomicStringImpl>&& impl)
-    : m_impl(WTF::move(impl))
+    : m_impl(WTFMove(impl))
 {
 }
 
@@ -676,6 +669,11 @@ inline bool String::isAllSpecialCharacters() const
     return WTF::isAllSpecialCharacters<isSpecialCharacter, UChar>(characters16(), len);
 }
 
+inline bool equalPossiblyIgnoringCase(const String& a, const String& b, bool ignoreCase)
+{
+    return ignoreCase ? equalIgnoringCase(a, b) : (a == b);
+}
+
 // StringHash is the default hash for String
 template<typename T> struct DefaultHash;
 template<> struct DefaultHash<String> {
@@ -704,7 +702,7 @@ public:
     explicit StringCapture(String&& string) : m_string(string) { }
     StringCapture(const StringCapture& other) : m_string(other.m_string.isolatedCopy()) { }
     const String& string() const { return m_string; }
-    String releaseString() { return WTF::move(m_string); }
+    String releaseString() { return WTFMove(m_string); }
 
     void operator=(const StringCapture& other) { m_string = other.m_string.isolatedCopy(); }
 
@@ -714,6 +712,11 @@ private:
 
 // Shared global empty string.
 WTF_EXPORT_STRING_API const String& emptyString();
+
+template<unsigned length> inline bool equalLettersIgnoringASCIICase(const String& string, const char (&lowercaseLetters)[length])
+{
+    return equalLettersIgnoringASCIICase(string.impl(), lowercaseLetters);
+}
 
 }
 
@@ -737,6 +740,7 @@ using WTF::charactersToDouble;
 using WTF::charactersToFloat;
 using WTF::equal;
 using WTF::equalIgnoringCase;
+using WTF::equalLettersIgnoringASCIICase;
 using WTF::find;
 using WTF::isAllSpecialCharacters;
 using WTF::isSpaceOrNewline;

@@ -787,7 +787,7 @@ bool URL::protocolIs(const char* protocol) const
 
     // JavaScript URLs are "valid" and should be executed even if URL decides they are invalid.
     // The free function protocolIsJavaScript() should be used instead. 
-    ASSERT(!equalIgnoringCase(protocol, String("javascript")));
+    ASSERT(!equalLettersIgnoringASCIICase(StringView(protocol), "javascript"));
 
     if (!m_isValid)
         return false;
@@ -1981,7 +1981,7 @@ bool protocolIsInHTTPFamily(const String& url)
 
 const URL& blankURL()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(URL, staticBlankURL, (ParsedURLString, "about:blank"));
+    static NeverDestroyed<URL> staticBlankURL(ParsedURLString, "about:blank");
     return staticBlankURL;
 }
 

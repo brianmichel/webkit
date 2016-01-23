@@ -20,6 +20,7 @@ WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
 WEBKIT_WRAP_SOURCELIST(${JSC_SOURCES})
 include_directories(./ ${JavaScriptCore_INCLUDE_DIRECTORIES})
+include_directories(SYSTEM ${JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES})
 add_executable(jsc ${JSC_SOURCES})
 target_link_libraries(jsc ${JSC_LIBRARIES})
 set_target_properties(jsc PROPERTIES FOLDER "JavaScriptCore")
@@ -45,6 +46,14 @@ if (NOT WIN32)
         ../b3/testb3.cpp
     )
 
+    set(TESTAIR_SOURCES
+        ../b3/air/testair.cpp
+    )
+
     add_executable(testb3 ${TESTB3_SOURCES})
     target_link_libraries(testb3 ${JSC_LIBRARIES})
+
+    add_executable(testair ${TESTAIR_SOURCES})
+    target_link_libraries(testair ${JSC_LIBRARIES})
+
 endif ()

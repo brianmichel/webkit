@@ -37,12 +37,14 @@
 
 #include "AffineTransform.h"
 #include "CairoUtilities.h"
+#include "DisplayListRecorder.h"
 #include "DrawErrorUnderline.h"
 #include "FloatConversion.h"
 #include "FloatRect.h"
 #include "FloatRoundedRect.h"
 #include "Font.h"
 #include "GraphicsContextPlatformPrivateCairo.h"
+#include "ImageBuffer.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
 #include "Path.h"
@@ -73,14 +75,6 @@ static inline void fillRectWithColor(cairo_t* cr, const FloatRect& rect, const C
     setSourceRGBAFromColor(cr, color);
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
     cairo_fill(cr);
-}
-
-static void addConvexPolygonToContext(cairo_t* context, size_t numPoints, const FloatPoint* points)
-{
-    cairo_move_to(context, points[0].x(), points[0].y());
-    for (size_t i = 1; i < numPoints; i++)
-        cairo_line_to(context, points[i].x(), points[i].y());
-    cairo_close_path(context);
 }
 
 enum PathDrawingStyle { 
@@ -174,19 +168,20 @@ static inline void shadowAndStrokeCurrentCairoPath(GraphicsContext& context)
 }
 
 GraphicsContext::GraphicsContext(cairo_t* cr)
-    : m_updatingControlTints(false)
-    , m_transparencyCount(0)
 {
+    if (!cr)
+        return;
+
     m_data = new GraphicsContextPlatformPrivateToplevel(new PlatformContextCairo(cr));
 }
 
 void GraphicsContext::platformInit(PlatformContextCairo* platformContext)
 {
+    if (!platformContext)
+        return;
+
     m_data = new GraphicsContextPlatformPrivate(platformContext);
-    if (platformContext)
-        m_data->syncContext(platformContext->cr());
-    else
-        setPaintingDisabled(true);
+    m_data->syncContext(platformContext->cr());
 }
 
 void GraphicsContext::platformDestroy()
@@ -198,6 +193,11 @@ AffineTransform GraphicsContext::getCTM(IncludeDeviceScale) const
 {
     if (paintingDisabled())
         return AffineTransform();
+
+    if (isRecording()) {
+        WTFLogAlways("GraphicsContext::getCTM() is not yet compatible with recording contexts.");
+        return AffineTransform();
+    }
 
     cairo_t* cr = platformContext()->cr();
     cairo_matrix_t m;
@@ -212,12 +212,14 @@ PlatformContextCairo* GraphicsContext::platformContext() const
 
 void GraphicsContext::savePlatformState()
 {
+    ASSERT(!isRecording());
     platformContext()->save();
     m_data->save();
 }
 
 void GraphicsContext::restorePlatformState()
 {
+    ASSERT(!isRecording());
     platformContext()->restore();
     m_data->restore();
 
@@ -228,10 +230,15 @@ void GraphicsContext::restorePlatformState()
 }
 
 // Draws a filled rectangle with a stroked border.
-void GraphicsContext::drawRect(const FloatRect& rect, float)
+void GraphicsContext::drawRect(const FloatRect& rect, float borderThickness)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->drawRect(rect, borderThickness);
+        return;
+    }
 
     ASSERT(!rect.isEmpty());
 
@@ -245,11 +252,49 @@ void GraphicsContext::drawRect(const FloatRect& rect, float)
         FloatRect r(rect);
         r.inflate(-.5f);
         cairo_rectangle(cr, r.x(), r.y(), r.width(), r.height());
-        cairo_set_line_width(cr, 1.0);
+        cairo_set_line_width(cr, 1.0); // borderThickness?
         cairo_stroke(cr);
     }
 
     cairo_restore(cr);
+}
+
+void GraphicsContext::drawNativeImage(PassNativeImagePtr imagePtr, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode, ImageOrientation orientation)
+{
+    if (paintingDisabled())
+        return;
+
+    if (isRecording()) {
+        m_displayListRecorder->drawNativeImage(imagePtr, imageSize, destRect, srcRect, op, blendMode, orientation);
+        return;
+    }
+
+    NativeImagePtr image = imagePtr;
+
+    platformContext()->save();
+
+    // Set the compositing operation.
+    if (op == CompositeSourceOver && blendMode == BlendModeNormal)
+        setCompositeOperation(CompositeCopy);
+    else
+        setCompositeOperation(op, blendMode);
+
+    FloatRect dst = destRect;
+
+    if (orientation != DefaultImageOrientation) {
+        // ImageOrientation expects the origin to be at (0, 0).
+        translate(dst.x(), dst.y());
+        dst.setLocation(FloatPoint());
+        concatCTM(orientation.transformFromDefault(dst.size()));
+        if (orientation.usesWidthAsHeight()) {
+            // The destination rectangle will have its width and height already reversed for the orientation of
+            // the image, as it was needed for page layout, so we need to reverse it back here.
+            dst = FloatRect(dst.x(), dst.y(), dst.height(), dst.width());
+        }
+    }
+
+    platformContext()->drawSurfaceToContext(image.get(), dst, srcRect, *this);
+    platformContext()->restore();
 }
 
 // This is only used to draw borders, so we should not draw shadows.
@@ -260,6 +305,11 @@ void GraphicsContext::drawLine(const FloatPoint& point1, const FloatPoint& point
 
     if (strokeStyle() == NoStroke)
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->drawLine(point1, point2);
+        return;
+    }
 
     const Color& strokeColor = this->strokeColor();
     float thickness = strokeThickness();
@@ -350,6 +400,11 @@ void GraphicsContext::drawEllipse(const FloatRect& rect)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->drawEllipse(rect);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     cairo_save(cr);
     float yRadius = .5 * rect.height();
@@ -372,63 +427,15 @@ void GraphicsContext::drawEllipse(const FloatRect& rect)
         cairo_new_path(cr);
 }
 
-void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool shouldAntialias)
-{
-    if (paintingDisabled())
-        return;
-
-    if (npoints <= 1)
-        return;
-
-    cairo_t* cr = platformContext()->cr();
-
-    cairo_save(cr);
-    cairo_set_antialias(cr, shouldAntialias ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
-    addConvexPolygonToContext(cr, npoints, points);
-
-    if (fillColor().alpha()) {
-        setSourceRGBAFromColor(cr, fillColor());
-        cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
-        cairo_fill_preserve(cr);
-    }
-
-    if (strokeStyle() != NoStroke) {
-        setSourceRGBAFromColor(cr, strokeColor());
-        cairo_set_line_width(cr, strokeThickness());
-        cairo_stroke(cr);
-    } else
-        cairo_new_path(cr);
-
-    cairo_restore(cr);
-}
-
-void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialiased)
-{
-    if (paintingDisabled())
-        return;
-
-    if (numPoints <= 1)
-        return;
-
-    cairo_t* cr = platformContext()->cr();
-
-    cairo_new_path(cr);
-    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
-    cairo_antialias_t savedAntialiasRule = cairo_get_antialias(cr);
-
-    cairo_set_antialias(cr, antialiased ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
-    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
-    addConvexPolygonToContext(cr, numPoints, points);
-    cairo_clip(cr);
-
-    cairo_set_antialias(cr, savedAntialiasRule);
-    cairo_set_fill_rule(cr, savedFillRule);
-}
-
 void GraphicsContext::fillPath(const Path& path)
 {
     if (paintingDisabled() || path.isEmpty())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->fillPath(path);
+        return;
+    }
 
     cairo_t* cr = platformContext()->cr();
     setPathOnCairoContext(cr, path.platformPath()->context());
@@ -440,6 +447,11 @@ void GraphicsContext::strokePath(const Path& path)
     if (paintingDisabled() || path.isEmpty())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->strokePath(path);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     setPathOnCairoContext(cr, path.platformPath()->context());
     shadowAndStrokeCurrentCairoPath(*this);
@@ -449,6 +461,11 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->fillRect(rect);
+        return;
+    }
 
     cairo_t* cr = platformContext()->cr();
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
@@ -460,6 +477,11 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->fillRect(rect, color);
+        return;
+    }
+
     if (hasShadow())
         platformContext()->shadowBlur().drawRectShadow(*this, FloatRoundedRect(rect));
 
@@ -470,6 +492,11 @@ void GraphicsContext::clip(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->clip(rect);
+        return;
+    }
 
     cairo_t* cr = platformContext()->cr();
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
@@ -493,6 +520,11 @@ void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->clipPath(path, clipRule);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     if (!path.isNull())
         setPathOnCairoContext(cr, path.platformPath()->context());
@@ -505,8 +537,27 @@ void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
     m_data->clip(path);
 }
 
+void GraphicsContext::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& destRect)
+{
+    if (paintingDisabled())
+        return;
+
+    RefPtr<Image> image = buffer.copyImage(DontCopyBackingStore);
+    RefPtr<cairo_surface_t> surface = image->nativeImageForCurrentFrame();
+    if (surface)
+        platformContext()->pushImageMask(surface.get(), destRect);
+}
+
 IntRect GraphicsContext::clipBounds() const
 {
+    if (paintingDisabled())
+        return IntRect();
+
+    if (isRecording()) {
+        WTFLogAlways("Getting the clip bounds not yet supported with display lists");
+        return IntRect(-2048, -2048, 4096, 4096); // FIXME: display lists.
+    }
+
     double x1, x2, y1, y2;
     cairo_clip_extents(platformContext()->cr(), &x1, &y1, &x2, &y2);
     return enclosingIntRect(FloatRect(x1, y1, x2 - x1, y2 - y1));
@@ -602,13 +653,6 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, float width, f
     cairo_restore(cr);
 }
 
-FloatRect GraphicsContext::computeLineBoundsForText(const FloatPoint& origin, float width, bool printing)
-{
-    bool dummyBool;
-    Color dummyColor;
-    return computeLineBoundsAndAntialiasingModeForText(origin, width, printing, dummyBool, dummyColor);
-}
-
 void GraphicsContext::drawLineForText(const FloatPoint& origin, float width, bool printing, bool doubleUnderlines)
 {
     DashArray widths;
@@ -625,10 +669,14 @@ void GraphicsContext::drawLinesForText(const FloatPoint& point, const DashArray&
     if (widths.size() <= 0)
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->drawLinesForText(point, widths, printing, doubleUnderlines, strokeThickness());
+        return;
+    }
+
     Color localStrokeColor(strokeColor());
 
-    bool shouldAntialiasLine;
-    FloatRect bounds = computeLineBoundsAndAntialiasingModeForText(point, widths.last(), printing, shouldAntialiasLine, localStrokeColor);
+    FloatRect bounds = computeLineBoundsAndAntialiasingModeForText(point, widths.last(), printing, localStrokeColor);
 
     Vector<FloatRect, 4> dashBounds;
     ASSERT(!(widths.size() % 2));
@@ -683,6 +731,14 @@ void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& origin, float 
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect, RoundingMode)
 {
+    if (paintingDisabled())
+        return frect;
+
+    if (isRecording()) {
+        WTFLogAlways("GraphicsContext::roundToDevicePixels() is not yet compatible with recording contexts.");
+        return frect;
+    }
+
     FloatRect result;
     double x = frect.x();
     double y = frect.y();
@@ -723,6 +779,11 @@ void GraphicsContext::translate(float x, float y)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->translate(x, y);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     cairo_translate(cr, x, y);
     m_data->translate(x, y);
@@ -745,6 +806,8 @@ void GraphicsContext::setPlatformStrokeThickness(float strokeThickness)
     if (paintingDisabled())
         return;
 
+    ASSERT(!isRecording());
+
     cairo_set_line_width(platformContext()->cr(), strokeThickness);
 }
 
@@ -755,6 +818,8 @@ void GraphicsContext::setPlatformStrokeStyle(StrokeStyle strokeStyle)
 
     if (paintingDisabled())
         return;
+
+    ASSERT(!isRecording());
 
     switch (strokeStyle) {
     case NoStroke:
@@ -785,6 +850,11 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->concatCTM(transform);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     const cairo_matrix_t matrix = cairo_matrix_t(transform);
     cairo_transform(cr, &matrix);
@@ -795,6 +865,11 @@ void GraphicsContext::setCTM(const AffineTransform& transform)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        WTFLogAlways("GraphicsContext::setCTM() is not compatible with recording contexts.");
+        return;
+    }
 
     cairo_t* cr = platformContext()->cr();
     const cairo_matrix_t matrix = cairo_matrix_t(transform);
@@ -833,6 +908,8 @@ void GraphicsContext::beginPlatformTransparencyLayer(float opacity)
     if (paintingDisabled())
         return;
 
+    ASSERT(!isRecording());
+
     cairo_t* cr = platformContext()->cr();
     cairo_push_group(cr);
     m_data->layers.append(opacity);
@@ -842,6 +919,8 @@ void GraphicsContext::endPlatformTransparencyLayer()
 {
     if (paintingDisabled())
         return;
+
+    ASSERT(!isRecording());
 
     cairo_t* cr = platformContext()->cr();
 
@@ -860,6 +939,11 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->clearRect(rect);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
 
     cairo_save(cr);
@@ -874,6 +958,11 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float width)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->strokeRect(rect, width);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     cairo_save(cr);
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
@@ -886,6 +975,11 @@ void GraphicsContext::setLineCap(LineCap lineCap)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->setLineCap(lineCap);
+        return;
+    }
 
     cairo_line_cap_t cairoCap = CAIRO_LINE_CAP_BUTT;
     switch (lineCap) {
@@ -913,6 +1007,14 @@ static inline bool isDashArrayAllZero(const DashArray& dashes)
 
 void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
 {
+    if (paintingDisabled())
+        return;
+
+    if (isRecording()) {
+        m_displayListRecorder->setLineDash(dashes, dashOffset);
+        return;
+    }
+
     if (isDashArrayAllZero(dashes))
         cairo_set_dash(platformContext()->cr(), 0, 0, 0);
     else
@@ -923,6 +1025,11 @@ void GraphicsContext::setLineJoin(LineJoin lineJoin)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->setLineJoin(lineJoin);
+        return;
+    }
 
     cairo_line_join_t cairoJoin = CAIRO_LINE_JOIN_MITER;
     switch (lineJoin) {
@@ -976,6 +1083,11 @@ void GraphicsContext::clipOut(const Path& path)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->clipOut(path);
+        return;
+    }
+
     cairo_t* cr = platformContext()->cr();
     double x1, y1, x2, y2;
     cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
@@ -993,6 +1105,11 @@ void GraphicsContext::rotate(float radians)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->rotate(radians);
+        return;
+    }
+
     cairo_rotate(platformContext()->cr(), radians);
     m_data->rotate(radians);
 }
@@ -1002,6 +1119,11 @@ void GraphicsContext::scale(const FloatSize& size)
     if (paintingDisabled())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->scale(size);
+        return;
+    }
+
     cairo_scale(platformContext()->cr(), size.width(), size.height());
     m_data->scale(size);
 }
@@ -1010,6 +1132,11 @@ void GraphicsContext::clipOut(const FloatRect& r)
 {
     if (paintingDisabled())
         return;
+
+    if (isRecording()) {
+        m_displayListRecorder->clipOut(r);
+        return;
+    }
 
     cairo_t* cr = platformContext()->cr();
     double x1, y1, x2, y2;
@@ -1026,6 +1153,8 @@ void GraphicsContext::platformFillRoundedRect(const FloatRoundedRect& rect, cons
 {
     if (paintingDisabled())
         return;
+
+    ASSERT(!isRecording());
 
     if (hasShadow())
         platformContext()->shadowBlur().drawRectShadow(*this, rect);
@@ -1045,6 +1174,11 @@ void GraphicsContext::fillRectWithRoundedHole(const FloatRect& rect, const Float
     if (paintingDisabled() || !color.isValid())
         return;
 
+    if (isRecording()) {
+        m_displayListRecorder->fillRectWithRoundedHole(rect, roundedHoleRect, color);
+        return;
+    }
+
     if (this->mustUseShadowBlur())
         platformContext()->shadowBlur().drawInsetShadow(*this, rect, roundedHoleRect);
 
@@ -1062,8 +1196,16 @@ void GraphicsContext::fillRectWithRoundedHole(const FloatRect& rect, const Float
     cairo_restore(cr);
 }
 
-void GraphicsContext::drawPattern(Image& image, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize&, CompositeOperator op, const FloatRect& destRect, BlendMode)
+void GraphicsContext::drawPattern(Image& image, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator op, const FloatRect& destRect, BlendMode blendMode)
 {
+    if (paintingDisabled())
+        return;
+
+    if (isRecording()) {
+        m_displayListRecorder->drawPattern(image, tileRect, patternTransform, phase, spacing, op, destRect, blendMode);
+        return;
+    }
+
     RefPtr<cairo_surface_t> surface = image.nativeImageForCurrentFrame();
     if (!surface) // If it's too early we won't have an image yet.
         return;
@@ -1077,19 +1219,26 @@ void GraphicsContext::setPlatformShouldAntialias(bool enable)
     if (paintingDisabled())
         return;
 
+    ASSERT(!isRecording());
+
     // When true, use the default Cairo backend antialias mode (usually this
     // enables standard 'grayscale' antialiasing); false to explicitly disable
-    // antialiasing. This is the same strategy as used in drawConvexPolygon().
+    // antialiasing.
     cairo_set_antialias(platformContext()->cr(), enable ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
 }
 
 void GraphicsContext::setPlatformImageInterpolationQuality(InterpolationQuality quality)
 {
+    ASSERT(!isRecording());
+
     platformContext()->setImageInterpolationQuality(quality);
 }
 
 bool GraphicsContext::isAcceleratedContext() const
 {
+    if (isRecording())
+        return false;
+
     return cairo_surface_get_type(cairo_get_target(platformContext()->cr())) == CAIRO_SURFACE_TYPE_GL;
 }
 

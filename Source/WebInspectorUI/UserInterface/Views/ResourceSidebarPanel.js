@@ -67,13 +67,18 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
         this.contentTreeOutline.includeSourceMapResourceChildren = true;
 
         if (WebInspector.debuggableType === WebInspector.DebuggableType.JavaScript)
-            this.contentTreeOutline.element.classList.add(WebInspector.NavigationSidebarPanel.HideDisclosureButtonsStyleClassName);
+            this.contentTreeOutline.disclosureButtons = false;
 
         if (WebInspector.frameResourceManager.mainFrame)
             this._mainFrameMainResourceDidChange(WebInspector.frameResourceManager.mainFrame);
     }
 
     // Public
+
+    get minimumWidth()
+    {
+        return this._navigationBar.minimumWidth;
+    }
 
     closed()
     {
@@ -373,7 +378,7 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
     _extraDomainsActivated()
     {
         if (WebInspector.debuggableType === WebInspector.DebuggableType.JavaScript)
-            this.contentTreeOutline.element.classList.remove(WebInspector.NavigationSidebarPanel.HideDisclosureButtonsStyleClassName);
+            this.contentTreeOutline.disclosureButtons = true;
     }
 
     _scopeBarSelectionDidChange(event)

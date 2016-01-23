@@ -84,6 +84,8 @@ public:
     static const unsigned maximumIdentifierCount = 4;
     const unsigned* descendantSelectorIdentifierHashes() const { return m_descendantSelectorIdentifierHashes; }
 
+    void disableSelectorFiltering() { m_descendantSelectorIdentifierHashes[0] = 0; }
+
 #if ENABLE(CSS_SELECTOR_JIT)
     SelectorCompilationStatus compilationStatus() const { return m_compilationStatus; }
     JSC::MacroAssemblerCodeRef compiledSelectorCodeRef() const { return m_compiledSelectorCodeRef; }
@@ -147,7 +149,7 @@ class RuleSet {
     WTF_MAKE_NONCOPYABLE(RuleSet); WTF_MAKE_FAST_ALLOCATED;
 public:
     struct RuleSetSelectorPair {
-        RuleSetSelectorPair(const CSSSelector* selector, std::unique_ptr<RuleSet> ruleSet) : selector(selector), ruleSet(WTF::move(ruleSet)) { }
+        RuleSetSelectorPair(const CSSSelector* selector, std::unique_ptr<RuleSet> ruleSet) : selector(selector), ruleSet(WTFMove(ruleSet)) { }
         RuleSetSelectorPair(const RuleSetSelectorPair& pair) : selector(pair.selector), ruleSet(const_cast<RuleSetSelectorPair*>(&pair)->ruleSet.release()) { }
 
         const CSSSelector* selector;

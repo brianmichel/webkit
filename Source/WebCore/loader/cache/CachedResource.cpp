@@ -359,14 +359,30 @@ bool CachedResource::isExpired() const
     return computeCurrentAge(m_response, m_responseTimestamp) > freshnessLifetime(m_response);
 }
 
+static inline bool shouldCacheSchemeIndefinitely(const String& scheme)
+{
+#if PLATFORM(COCOA)
+    if (equalLettersIgnoringASCIICase(scheme, "applewebdata"))
+        return true;
+#endif
+#if USE(SOUP)
+    if (equalLettersIgnoringASCIICase(scheme, "resource"))
+        return true;
+#endif
+    return equalLettersIgnoringASCIICase(scheme, "data");
+}
+
 std::chrono::microseconds CachedResource::freshnessLifetime(const ResourceResponse& response) const
 {
     if (!response.url().protocolIsInHTTPFamily()) {
-        // Don't cache non-HTTP main resources since we can't check for freshness.
-        // FIXME: We should not cache subresources either, but when we tried this
-        // it caused performance and flakiness issues in our test infrastructure.
-        if (m_type == MainResource && !SchemeRegistry::shouldCacheResponsesFromURLSchemeIndefinitely(response.url().protocol()))
-            return std::chrono::microseconds::zero();
+        String protocol = response.url().protocol();
+        if (!shouldCacheSchemeIndefinitely(protocol)) {
+            // Don't cache non-HTTP main resources since we can't check for freshness.
+            // FIXME: We should not cache subresources either, but when we tried this
+            // it caused performance and flakiness issues in our test infrastructure.
+            if (m_type == MainResource || SchemeRegistry::shouldAlwaysRevalidateURLScheme(protocol))
+                return std::chrono::microseconds::zero();
+        }
 
         return std::chrono::microseconds::max();
     }
@@ -791,10 +807,8 @@ void CachedResource::tryReplaceEncodedData(SharedBuffer& newBuffer)
     if (m_data->size() != newBuffer.size() || memcmp(m_data->data(), newBuffer.data(), m_data->size()))
         return;
 
-    if (m_data->tryReplaceContentsWithPlatformBuffer(newBuffer)) {
+    if (m_data->tryReplaceContentsWithPlatformBuffer(newBuffer))
         didReplaceSharedBufferContents();
-        // FIXME: Should we call checkNotify() here to move already-decoded images to the new data source?
-    }
 }
 
 #endif

@@ -37,16 +37,6 @@
 
 namespace WebCore {
 
-bool CSSFontFace::isLoaded() const
-{
-    size_t size = m_sources.size();
-    for (size_t i = 0; i < size; i++) {
-        if (!m_sources[i]->isLoaded())
-            return false;
-    }
-    return true;
-}
-
 bool CSSFontFace::isValid() const
 {
     size_t size = m_sources.size();
@@ -70,7 +60,7 @@ void CSSFontFace::removedFromSegmentedFontFace(CSSSegmentedFontFace* segmentedFo
 void CSSFontFace::addSource(std::unique_ptr<CSSFontFaceSource> source)
 {
     source->setFontFace(this);
-    m_sources.append(WTF::move(source));
+    m_sources.append(WTFMove(source));
 }
 
 void CSSFontFace::fontLoaded(CSSFontFaceSource* source)

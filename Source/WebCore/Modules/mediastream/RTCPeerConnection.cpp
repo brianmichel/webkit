@@ -49,8 +49,6 @@
 #include "RTCIceCandidate.h"
 #include "RTCIceCandidateEvent.h"
 #include "RTCOfferAnswerOptions.h"
-#include "RTCRtpReceiver.h"
-#include "RTCRtpSender.h"
 #include "RTCSessionDescription.h"
 #include "RTCTrackEvent.h"
 #include <wtf/MainThread.h>
@@ -67,7 +65,7 @@ RefPtr<RTCPeerConnection> RTCPeerConnection::create(ScriptExecutionContext& cont
     if (ec)
         return nullptr;
 
-    RefPtr<RTCPeerConnection> peerConnection = adoptRef(new RTCPeerConnection(context, WTF::move(configuration), ec));
+    RefPtr<RTCPeerConnection> peerConnection = adoptRef(new RTCPeerConnection(context, WTFMove(configuration), ec));
     peerConnection->suspendIfNeeded();
     if (ec)
         return nullptr;
@@ -80,7 +78,7 @@ RTCPeerConnection::RTCPeerConnection(ScriptExecutionContext& context, RefPtr<RTC
     , m_signalingState(SignalingState::Stable)
     , m_iceGatheringState(IceGatheringState::New)
     , m_iceConnectionState(IceConnectionState::New)
-    , m_configuration(WTF::move(configuration))
+    , m_configuration(WTFMove(configuration))
     , m_stopped(false)
 {
     Document& document = downcast<Document>(context);
@@ -104,24 +102,6 @@ RTCPeerConnection::~RTCPeerConnection()
     stop();
 }
 
-Vector<RefPtr<RTCRtpSender>> RTCPeerConnection::getSenders() const
-{
-    Vector<RefPtr<RTCRtpSender>> senders;
-    senders.reserveCapacity(m_senderSet.size());
-    copyValuesToVector(m_senderSet, senders);
-
-    return senders;
-}
-
-Vector<RefPtr<RTCRtpReceiver>> RTCPeerConnection::getReceivers() const
-{
-    Vector<RefPtr<RTCRtpReceiver>> receivers;
-    receivers.reserveCapacity(m_receiverSet.size());
-    copyValuesToVector(m_receiverSet, receivers);
-
-    return receivers;
-}
-
 RefPtr<RTCRtpSender> RTCPeerConnection::addTrack(RefPtr<MediaStreamTrack>&& track, Vector<MediaStream*> streams, ExceptionCode& ec)
 {
     if (!track) {
@@ -140,15 +120,20 @@ RefPtr<RTCRtpSender> RTCPeerConnection::addTrack(RefPtr<MediaStreamTrack>&& trac
         return nullptr;
     }
 
-    if (m_senderSet.contains(track->id())) {
-        // FIXME: Spec says InvalidParameter
-        ec = INVALID_MODIFICATION_ERR;
-        return nullptr;
+    for (auto& sender : m_senderSet) {
+        if (sender->trackId() == track->id()) {
+            // FIXME: Spec says InvalidParameter
+            ec = INVALID_MODIFICATION_ERR;
+            return nullptr;
+        }
     }
 
-    const String& trackId = track->id();
-    RefPtr<RTCRtpSender> sender = RTCRtpSender::create(WTF::move(track), streams[0]->id());
-    m_senderSet.add(trackId, sender);
+    Vector<String> mediaStreamIds;
+    for (auto stream : streams)
+        mediaStreamIds.append(stream->id());
+
+    RefPtr<RTCRtpSender> sender = RTCRtpSender::create(WTFMove(track), WTFMove(mediaStreamIds), *this);
+    m_senderSet.append(sender);
 
     m_backend->markAsNeedingNegotiation();
 
@@ -167,8 +152,10 @@ void RTCPeerConnection::removeTrack(RTCRtpSender* sender, ExceptionCode& ec)
         return;
     }
 
-    if (!m_senderSet.remove(sender->track()->id()))
+    if (!m_senderSet.contains(sender))
         return;
+
+    sender->stop();
 
     m_backend->markAsNeedingNegotiation();
 }
@@ -188,7 +175,7 @@ void RTCPeerConnection::queuedCreateOffer(const Dictionary& offerOptions, Sessio
     }
     ASSERT(options);
 
-    m_backend->createOffer(*options, WTF::move(promise));
+    m_backend->createOffer(*options, WTFMove(promise));
 }
 
 void RTCPeerConnection::queuedCreateAnswer(const Dictionary& answerOptions, SessionDescriptionPromise&& promise)
@@ -205,7 +192,7 @@ void RTCPeerConnection::queuedCreateAnswer(const Dictionary& answerOptions, Sess
         return;
     }
 
-    m_backend->createAnswer(*options, WTF::move(promise));
+    m_backend->createAnswer(*options, WTFMove(promise));
 }
 
 void RTCPeerConnection::queuedSetLocalDescription(RTCSessionDescription* description, PeerConnection::VoidPromise&& promise)
@@ -216,7 +203,7 @@ void RTCPeerConnection::queuedSetLocalDescription(RTCSessionDescription* descrip
     }
 
     ASSERT(description);
-    m_backend->setLocalDescription(*description, WTF::move(promise));
+    m_backend->setLocalDescription(*description, WTFMove(promise));
 }
 
 RefPtr<RTCSessionDescription> RTCPeerConnection::localDescription() const
@@ -242,7 +229,7 @@ void RTCPeerConnection::queuedSetRemoteDescription(RTCSessionDescription* descri
     }
 
     ASSERT(description);
-    m_backend->setRemoteDescription(*description, WTF::move(promise));
+    m_backend->setRemoteDescription(*description, WTFMove(promise));
 }
 
 RefPtr<RTCSessionDescription> RTCPeerConnection::remoteDescription() const
@@ -268,7 +255,7 @@ void RTCPeerConnection::queuedAddIceCandidate(RTCIceCandidate* rtcCandidate, Voi
     }
 
     ASSERT(rtcCandidate);
-    m_backend->addIceCandidate(*rtcCandidate, WTF::move(promise));
+    m_backend->addIceCandidate(*rtcCandidate, WTFMove(promise));
 }
 
 String RTCPeerConnection::signalingState() const
@@ -351,18 +338,18 @@ void RTCPeerConnection::setConfiguration(const Dictionary& configuration, Except
     if (ec)
         return;
 
-    m_configuration = WTF::move(newConfiguration);
+    m_configuration = WTFMove(newConfiguration);
     m_backend->setConfiguration(*m_configuration);
 }
 
 void RTCPeerConnection::privateGetStats(MediaStreamTrack* selector, PeerConnection::StatsPromise&& promise)
 {
-    m_backend->getStats(selector, WTF::move(promise));
+    m_backend->getStats(selector, WTFMove(promise));
 }
 
 void RTCPeerConnection::privateGetStats(PeerConnection::StatsPromise&& promise)
 {
-    privateGetStats(nullptr, WTF::move(promise));
+    privateGetStats(nullptr, WTFMove(promise));
 }
 
 RefPtr<RTCDataChannel> RTCPeerConnection::createDataChannel(String, const Dictionary&, ExceptionCode& ec)
@@ -440,6 +427,11 @@ void RTCPeerConnection::scheduleNegotiationNeededEvent()
 void RTCPeerConnection::fireEvent(Event& event)
 {
     dispatchEvent(event);
+}
+
+void RTCPeerConnection::replaceTrack(RTCRtpSender& sender, MediaStreamTrack& withTrack, PeerConnection::VoidPromise&& promise)
+{
+    m_backend->replaceTrack(sender, withTrack, WTFMove(promise));
 }
 
 } // namespace WebCore

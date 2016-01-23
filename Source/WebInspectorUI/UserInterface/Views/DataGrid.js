@@ -33,7 +33,9 @@ WebInspector.DataGrid = class DataGrid extends WebInspector.View
         this.orderedColumns = [];
 
         this._sortColumnIdentifier = null;
+        this._sortColumnIdentifierSetting = null;
         this._sortOrder = WebInspector.DataGrid.SortOrder.Indeterminate;
+        this._sortOrderSetting = null;
 
         this.children = [];
         this.selectedNode = null;
@@ -184,6 +186,9 @@ WebInspector.DataGrid = class DataGrid extends WebInspector.View
 
         this._sortOrder = order;
 
+        if (this._sortOrderSetting)
+            this._sortOrderSetting.value = this._sortOrder;
+
         if (!this._sortColumnIdentifier)
             return;
 
@@ -193,6 +198,15 @@ WebInspector.DataGrid = class DataGrid extends WebInspector.View
         sortHeaderCellElement.classList.toggle(WebInspector.DataGrid.SortColumnDescendingStyleClassName, this._sortOrder === WebInspector.DataGrid.SortOrder.Descending);
 
         this.dispatchEventToListeners(WebInspector.DataGrid.Event.SortChanged);
+    }
+
+    set sortOrderSetting(setting)
+    {
+        console.assert(setting instanceof WebInspector.Setting);
+
+        this._sortOrderSetting = setting;
+        if (this._sortOrderSetting.value)
+            this.sortOrder = this._sortOrderSetting.value;
     }
 
     get sortColumnIdentifier()
@@ -208,17 +222,33 @@ WebInspector.DataGrid = class DataGrid extends WebInspector.View
         if (this._sortColumnIdentifier === columnIdentifier)
             return;
 
-        var oldSortColumnIdentifier = this._sortColumnIdentifier;
+        let oldSortColumnIdentifier = this._sortColumnIdentifier;
         this._sortColumnIdentifier = columnIdentifier;
+        this._updateSortedColumn(oldSortColumnIdentifier);
+    }
+
+    set sortColumnIdentifierSetting(setting)
+    {
+        console.assert(setting instanceof WebInspector.Setting);
+
+        this._sortColumnIdentifierSetting = setting;
+        if (this._sortColumnIdentifierSetting.value)
+            this.sortColumnIdentifier = this._sortColumnIdentifierSetting.value;
+    }
+
+    _updateSortedColumn(oldSortColumnIdentifier)
+    {
+        if (this._sortColumnIdentifierSetting)
+            this._sortColumnIdentifierSetting.value = this._sortColumnIdentifier;
 
         if (oldSortColumnIdentifier) {
-            var oldSortHeaderCellElement = this._headerTableCellElements.get(oldSortColumnIdentifier);
+            let oldSortHeaderCellElement = this._headerTableCellElements.get(oldSortColumnIdentifier);
             oldSortHeaderCellElement.classList.remove(WebInspector.DataGrid.SortColumnAscendingStyleClassName);
             oldSortHeaderCellElement.classList.remove(WebInspector.DataGrid.SortColumnDescendingStyleClassName);
         }
 
         if (this._sortColumnIdentifier) {
-            var newSortHeaderCellElement = this._headerTableCellElements.get(this._sortColumnIdentifier);
+            let newSortHeaderCellElement = this._headerTableCellElements.get(this._sortColumnIdentifier);
             newSortHeaderCellElement.classList.toggle(WebInspector.DataGrid.SortColumnAscendingStyleClassName, this._sortOrder === WebInspector.DataGrid.SortOrder.Ascending);
             newSortHeaderCellElement.classList.toggle(WebInspector.DataGrid.SortColumnDescendingStyleClassName, this._sortOrder === WebInspector.DataGrid.SortOrder.Descending);
         }
@@ -1586,6 +1616,12 @@ WebInspector.DataGridNode = class DataGridNode extends WebInspector.Object
         var content = this.createCellContent(columnIdentifier, cellElement);
         div.append(content);
 
+        if (column["icon"]) {
+            let iconElement = document.createElement("div");
+            iconElement.classList.add("icon");
+            div.insertBefore(iconElement, div.firstChild);
+        }
+
         if (columnIdentifier === this.dataGrid.disclosureColumnIdentifier) {
             cellElement.classList.add("disclosure");
             if (this.leftPadding)
@@ -1824,11 +1860,12 @@ WebInspector.DataGridNode = class DataGridNode extends WebInspector.Object
     {
         if (!this.hasChildren)
             return false;
-        var cell = event.target.enclosingNodeOrSelfWithNodeName("td");
+        let cell = event.target.enclosingNodeOrSelfWithNodeName("td");
         if (!cell.classList.contains("disclosure"))
             return false;
 
-        var left = cell.totalOffsetLeft + this.leftPadding;
+        let computedLeftPadding = window.getComputedStyle(cell).getPropertyCSSValue("padding-left").getFloatValue(CSSPrimitiveValue.CSS_PX);
+        let left = cell.totalOffsetLeft + computedLeftPadding;
         return event.pageX >= left && event.pageX <= left + this.disclosureToggleWidth;
     }
 

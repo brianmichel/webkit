@@ -39,6 +39,7 @@
 #include "ScriptDebugServer.h"
 #include "ScriptObject.h"
 #include "ScriptValue.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Stopwatch.h>
 #include <wtf/text/WTFString.h>
 
@@ -52,8 +53,8 @@ const char* InspectorDebuggerAgent::backtraceObjectGroup = "backtrace";
 // create objects in the same group.
 static String objectGroupForBreakpointAction(const ScriptBreakpointAction& action)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, objectGroup, ("breakpoint-action-", AtomicString::ConstructFromLiteral));
-    return makeString(objectGroup, String::number(action.identifier));
+    static NeverDestroyed<String> objectGroup(ASCIILiteral("breakpoint-action-"));
+    return makeString(objectGroup.get(), String::number(action.identifier));
 }
 
 InspectorDebuggerAgent::InspectorDebuggerAgent(AgentContext& context)
@@ -323,7 +324,7 @@ void InspectorDebuggerAgent::setBreakpointByUrl(ErrorString& errorString, int li
 
         RefPtr<Inspector::Protocol::Debugger::Location> location = resolveBreakpoint(breakpointIdentifier, it->key, breakpoint);
         if (location)
-            locations->addItem(WTF::move(location));
+            locations->addItem(WTFMove(location));
     }
     *outBreakpointIdentifier = breakpointIdentifier;
 }
@@ -442,7 +443,7 @@ RefPtr<Inspector::Protocol::Debugger::Location> InspectorDebuggerAgent::resolveB
         .setLineNumber(actualLineNumber)
         .release();
     location->setColumnNumber(actualColumnNumber);
-    return WTF::move(location);
+    return WTFMove(location);
 }
 
 void InspectorDebuggerAgent::searchInContent(ErrorString& error, const String& scriptIDStr, const String& query, const bool* optionalCaseSensitive, const bool* optionalIsRegex, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>>& results)
@@ -486,7 +487,7 @@ void InspectorDebuggerAgent::schedulePauseOnNextStatement(DebuggerFrontendDispat
         return;
 
     m_breakReason = breakReason;
-    m_breakAuxData = WTF::move(data);
+    m_breakAuxData = WTFMove(data);
     m_scriptDebugServer.setPauseOnNextStatement(true);
 }
 
@@ -742,7 +743,7 @@ void InspectorDebuggerAgent::breakpointActionProbe(JSC::ExecState* scriptState, 
         .setPayload(payload.release())
         .release();
 
-    m_frontendDispatcher->didSampleProbe(WTF::move(result));
+    m_frontendDispatcher->didSampleProbe(WTFMove(result));
 }
 
 void InspectorDebuggerAgent::didContinue()
@@ -764,7 +765,7 @@ void InspectorDebuggerAgent::didContinue()
 void InspectorDebuggerAgent::breakProgram(DebuggerFrontendDispatcher::Reason breakReason, RefPtr<InspectorObject>&& data)
 {
     m_breakReason = breakReason;
-    m_breakAuxData = WTF::move(data);
+    m_breakAuxData = WTFMove(data);
     m_scriptDebugServer.breakProgram();
 }
 

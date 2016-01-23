@@ -78,7 +78,7 @@ inline static bool hasVerticalAppearance(HTMLInputElement& input)
 // --------------------------------
 
 RenderSliderThumb::RenderSliderThumb(SliderThumbElement& element, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(element, WTF::move(style))
+    : RenderBlockFlow(element, WTFMove(style))
 {
 }
 
@@ -112,7 +112,7 @@ bool RenderSliderThumb::isSliderThumb() const
 class RenderSliderContainer final : public RenderFlexibleBox {
 public:
     RenderSliderContainer(SliderContainerElement& element, Ref<RenderStyle>&& style)
-        : RenderFlexibleBox(element, WTF::move(style))
+        : RenderFlexibleBox(element, WTFMove(style))
     {
     }
 
@@ -220,7 +220,7 @@ void SliderThumbElement::setPositionFromValue()
 
 RenderPtr<RenderElement> SliderThumbElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSliderThumb>(*this, WTF::move(style));
+    return createRenderer<RenderSliderThumb>(*this, WTFMove(style));
 }
 
 bool SliderThumbElement::isDisabledFormControl() const
@@ -289,13 +289,12 @@ void SliderThumbElement::setPositionFromPoint(const LayoutPoint& absolutePoint)
 #if ENABLE(DATALIST_ELEMENT)
     const LayoutUnit snappingThreshold = renderer()->theme().sliderTickSnappingThreshold();
     if (snappingThreshold > 0) {
-        Decimal closest = input->findClosestTickMarkValue(value);
-        if (closest.isFinite()) {
-            double closestFraction = stepRange.proportionFromValue(closest).toDouble();
+        if (Optional<Decimal> closest = input->findClosestTickMarkValue(value)) {
+            double closestFraction = stepRange.proportionFromValue(*closest).toDouble();
             double closestRatio = isVertical || !isLeftToRightDirection ? 1.0 - closestFraction : closestFraction;
             LayoutUnit closestPosition = trackLength * closestRatio;
             if ((closestPosition - position).abs() <= snappingThreshold)
-                value = closest;
+                value = *closest;
         }
     }
 #endif
@@ -576,13 +575,13 @@ HTMLInputElement* SliderThumbElement::hostInput() const
 
 static const AtomicString& sliderThumbShadowPseudoId()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, sliderThumb, ("-webkit-slider-thumb", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> sliderThumb("-webkit-slider-thumb", AtomicString::ConstructFromLiteral);
     return sliderThumb;
 }
 
 static const AtomicString& mediaSliderThumbShadowPseudoId()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, mediaSliderThumb, ("-webkit-media-slider-thumb", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> mediaSliderThumb("-webkit-media-slider-thumb", AtomicString::ConstructFromLiteral);
     return mediaSliderThumb;
 }
 
@@ -632,7 +631,7 @@ Ref<SliderContainerElement> SliderContainerElement::create(Document& document)
 
 RenderPtr<RenderElement> SliderContainerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSliderContainer>(*this, WTF::move(style));
+    return createRenderer<RenderSliderContainer>(*this, WTFMove(style));
 }
 
 const AtomicString& SliderContainerElement::shadowPseudoId() const
@@ -642,8 +641,8 @@ const AtomicString& SliderContainerElement::shadowPseudoId() const
     // that value depends on the style, which means the style needs to be computed twice to get
     // a correct value: once to get the Input's appearance, then a second time to style the shadow tree correctly.
 
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, mediaSliderContainer, ("-webkit-media-slider-container", AtomicString::ConstructFromLiteral));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, sliderContainer, ("-webkit-slider-container", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> mediaSliderContainer("-webkit-media-slider-container", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> sliderContainer("-webkit-slider-container", AtomicString::ConstructFromLiteral);
 
     if (!is<HTMLInputElement>(*shadowHost()))
         return sliderContainer;

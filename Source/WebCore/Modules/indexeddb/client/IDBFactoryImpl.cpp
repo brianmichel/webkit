@@ -52,8 +52,6 @@ static bool shouldThrowSecurityException(ScriptExecutionContext* context)
             return true;
         if (!document.page())
             return true;
-        if (document.page()->usesEphemeralSession() && !SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(document.securityOrigin()->protocol()))
-            return true;
     }
 
     if (!context->securityOrigin()->canAccessDatabase(context->topOrigin()))
@@ -124,7 +122,7 @@ RefPtr<IDBOpenDBRequest> IDBFactory::openInternal(ScriptExecutionContext* contex
 
 RefPtr<WebCore::IDBOpenDBRequest> IDBFactory::deleteDatabase(ScriptExecutionContext* context, const String& name, ExceptionCode& ec)
 {
-    LOG(IndexedDB, "IDBFactory::deleteDatabase");
+    LOG(IndexedDB, "IDBFactory::deleteDatabase - %s", name.utf8().data());
 
     if (name.isNull()) {
         ec = TypeError;

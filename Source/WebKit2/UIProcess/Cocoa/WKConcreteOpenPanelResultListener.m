@@ -63,7 +63,7 @@ using namespace WebKit;
         for (NSURL *fileURL in fileURLs)
             urls.uncheckedAppend(adoptRef(toImpl(WKURLCreateWithCFURL((CFURLRef)fileURL))));
 
-        RefPtr<API::Array> fileURLsRef = API::Array::create(WTF::move(urls));
+        RefPtr<API::Array> fileURLsRef = API::Array::create(std::move(urls));
         m_listener->chooseFiles(fileURLsRef.get());
     }
 }

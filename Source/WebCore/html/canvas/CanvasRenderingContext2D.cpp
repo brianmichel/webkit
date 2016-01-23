@@ -58,6 +58,7 @@
 
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 
 #if USE(CG)
@@ -1597,7 +1598,7 @@ void CanvasRenderingContext2D::drawImage(HTMLVideoElement* video, const FloatRec
 
     checkOrigin(video);
 
-#if USE(CG)
+#if USE(CG) || (ENABLE(ACCELERATED_2D_CANVAS) && USE(GSTREAMER_GL) && USE(CAIRO))
     if (PassNativeImagePtr image = video->nativeImageForCurrentTime()) {
         c->drawNativeImage(image, FloatSize(video->videoWidth(), video->videoHeight()), dstRect, srcRect);
         if (rectContainsCanvas(dstRect))
@@ -1777,7 +1778,7 @@ RefPtr<CanvasGradient> CanvasRenderingContext2D::createLinearGradient(float x0, 
 
     Ref<CanvasGradient> gradient = CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1));
     prepareGradientForDashboard(gradient.get());
-    return WTF::move(gradient);
+    return WTFMove(gradient);
 }
 
 RefPtr<CanvasGradient> CanvasRenderingContext2D::createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1, ExceptionCode& ec)
@@ -1794,7 +1795,7 @@ RefPtr<CanvasGradient> CanvasRenderingContext2D::createRadialGradient(float x0, 
 
     Ref<CanvasGradient> gradient = CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1);
     prepareGradientForDashboard(gradient.get());
-    return WTF::move(gradient);
+    return WTFMove(gradient);
 }
 
 RefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageElement* imageElement,
@@ -1959,7 +1960,7 @@ RefPtr<ImageData> CanvasRenderingContext2D::webkitGetImageDataHD(float sx, float
 RefPtr<ImageData> CanvasRenderingContext2D::getImageData(ImageBuffer::CoordinateSystem coordinateSystem, float sx, float sy, float sw, float sh, ExceptionCode& ec) const
 {
     if (!canvas()->originClean()) {
-        DEPRECATED_DEFINE_STATIC_LOCAL(String, consoleMessage, (ASCIILiteral("Unable to get image data from canvas because the canvas has been tainted by cross-origin data.")));
+        static NeverDestroyed<String> consoleMessage(ASCIILiteral("Unable to get image data from canvas because the canvas has been tainted by cross-origin data."));
         canvas()->document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, consoleMessage);
         ec = SECURITY_ERR;
         return nullptr;
@@ -2361,7 +2362,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     bool isRTL = direction == RTL;
     bool override = computedStyle ? isOverride(computedStyle->unicodeBidi()) : false;
 
-    TextRun textRun(normalizedText, 0, 0, AllowTrailingExpansion, direction, override, true, TextRun::NoRounding);
+    TextRun textRun(normalizedText, 0, 0, AllowTrailingExpansion, direction, override, true);
     // Draw the item text at the correct point.
     FloatPoint location(x, y);
     switch (state().textBaseline) {

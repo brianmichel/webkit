@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2015 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2009, 2015-2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *  Copyright (C) 2015 Canon Inc. All rights reserved.
@@ -63,7 +63,12 @@ bool JSFunction::isHostFunctionNonInline() const
 
 JSFunction* JSFunction::create(VM& vm, FunctionExecutable* executable, JSScope* scope)
 {
-    JSFunction* result = createImpl(vm, executable, scope);
+    return create(vm, executable, scope, scope->globalObject()->functionStructure());
+}
+
+JSFunction* JSFunction::create(VM& vm, FunctionExecutable* executable, JSScope* scope, Structure* structure)
+{
+    JSFunction* result = createImpl(vm, executable, scope, structure);
     executable->singletonFunction()->notifyWrite(vm, result, "Allocating a function");
     return result;
 }
@@ -78,22 +83,22 @@ JSFunction* JSFunction::create(VM& vm, WebAssemblyExecutable* executable, JSScop
 }
 #endif
 
-NativeExecutable* JSFunction::lookUpOrCreateNativeExecutable(VM& vm, NativeFunction nativeFunction, Intrinsic intrinsic, NativeFunction nativeConstructor)
+NativeExecutable* JSFunction::lookUpOrCreateNativeExecutable(VM& vm, NativeFunction nativeFunction, Intrinsic intrinsic, NativeFunction nativeConstructor, const String& name)
 {
 #if !ENABLE(JIT)
     UNUSED_PARAM(intrinsic);
 #else
     if (intrinsic != NoIntrinsic && vm.canUseJIT()) {
         ASSERT(nativeConstructor == callHostFunctionAsConstructor);
-        return vm.getHostFunction(nativeFunction, intrinsic);
+        return vm.getHostFunction(nativeFunction, intrinsic, name);
     }
 #endif
-    return vm.getHostFunction(nativeFunction, nativeConstructor);
+    return vm.getHostFunction(nativeFunction, nativeConstructor, name);
 }
 
 JSFunction* JSFunction::create(VM& vm, JSGlobalObject* globalObject, int length, const String& name, NativeFunction nativeFunction, Intrinsic intrinsic, NativeFunction nativeConstructor)
 {
-    NativeExecutable* executable = lookUpOrCreateNativeExecutable(vm, nativeFunction, intrinsic, nativeConstructor);
+    NativeExecutable* executable = lookUpOrCreateNativeExecutable(vm, nativeFunction, intrinsic, nativeConstructor, name);
     JSFunction* function = new (NotNull, allocateCell<JSFunction>(vm.heap)) JSFunction(vm, globalObject, globalObject->functionStructure());
     // Can't do this during initialization because getHostFunction might do a GC allocation.
     function->finishCreation(vm, executable, length, name);
@@ -131,6 +136,19 @@ JSFunction* JSFunction::createBuiltinFunction(VM& vm, FunctionExecutable* execut
     return function;
 }
 
+FunctionRareData* JSFunction::allocateRareData(VM& vm)
+{
+    ASSERT(!m_rareData);
+    FunctionRareData* rareData = FunctionRareData::create(vm);
+
+    // A DFG compilation thread may be trying to read the rare data
+    // We want to ensure that it sees it properly allocated
+    WTF::storeStoreFence();
+
+    m_rareData.set(vm, this, rareData);
+    return m_rareData.get();
+}
+
 FunctionRareData* JSFunction::allocateAndInitializeRareData(ExecState* exec, size_t inlineCapacity)
 {
     ASSERT(!m_rareData);
@@ -138,7 +156,8 @@ FunctionRareData* JSFunction::allocateAndInitializeRareData(ExecState* exec, siz
     JSObject* prototype = jsDynamicCast<JSObject*>(get(exec, vm.propertyNames->prototype));
     if (!prototype)
         prototype = globalObject()->objectPrototype();
-    FunctionRareData* rareData = FunctionRareData::create(vm, prototype, inlineCapacity);
+    FunctionRareData* rareData = FunctionRareData::create(vm);
+    rareData->initializeObjectAllocationProfile(globalObject()->vm(), prototype, inlineCapacity);
 
     // A DFG compilation thread may be trying to read the rare data
     // We want to ensure that it sees it properly allocated
@@ -155,7 +174,7 @@ FunctionRareData* JSFunction::initializeRareData(ExecState* exec, size_t inlineC
     JSObject* prototype = jsDynamicCast<JSObject*>(get(exec, vm.propertyNames->prototype));
     if (!prototype)
         prototype = globalObject()->objectPrototype();
-    m_rareData->initialize(globalObject()->vm(), prototype, inlineCapacity);
+    m_rareData->initializeObjectAllocationProfile(globalObject()->vm(), prototype, inlineCapacity);
     return m_rareData.get();
 }
 

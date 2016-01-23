@@ -64,7 +64,7 @@ ShadowRoot::ShadowRoot(Document& document, std::unique_ptr<SlotAssignment>&& slo
     : DocumentFragment(document, CreateShadowRoot)
     , TreeScope(*this, document)
     , m_type(Type::UserAgent)
-    , m_slotAssignment(WTF::move(slotAssignment))
+    , m_slotAssignment(WTFMove(slotAssignment))
 {
 }
 
@@ -121,12 +121,6 @@ void ShadowRoot::updateStyle()
 
     if (shouldRecalcStyle)
         setNeedsStyleRecalc();
-}
-
-PassRefPtr<Node> ShadowRoot::cloneNode(bool, ExceptionCode& ec)
-{
-    ec = DATA_CLONE_ERR;
-    return 0;
 }
 
 String ShadowRoot::innerHTML() const

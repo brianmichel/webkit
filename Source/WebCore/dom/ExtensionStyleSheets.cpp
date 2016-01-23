@@ -159,14 +159,14 @@ void ExtensionStyleSheets::invalidateInjectedStyleSheetCache()
 void ExtensionStyleSheets::addUserStyleSheet(Ref<StyleSheetContents>&& userSheet)
 {
     ASSERT(userSheet.get().isUserStyleSheet());
-    m_userStyleSheets.append(CSSStyleSheet::create(WTF::move(userSheet), &m_document));
+    m_userStyleSheets.append(CSSStyleSheet::create(WTFMove(userSheet), &m_document));
     m_document.styleResolverChanged(RecalcStyleImmediately);
 }
 
 void ExtensionStyleSheets::addAuthorStyleSheetForTesting(Ref<StyleSheetContents>&& authorSheet)
 {
     ASSERT(!authorSheet.get().isUserStyleSheet());
-    m_authorStyleSheetsForTesting.append(CSSStyleSheet::create(WTF::move(authorSheet), &m_document));
+    m_authorStyleSheetsForTesting.append(CSSStyleSheet::create(WTFMove(authorSheet), &m_document));
     m_document.styleResolverChanged(RecalcStyleImmediately);
 }
 
@@ -179,8 +179,8 @@ void ExtensionStyleSheets::addDisplayNoneSelector(const String& identifier, cons
         m_userStyleSheets.append(&result.iterator->value->styleSheet());
     }
 
-    result.iterator->value->addDisplayNoneSelector(selector, selectorID);
-    m_styleResolverChangedTimer.startOneShot(0);
+    if (result.iterator->value->addDisplayNoneSelector(selector, selectorID))
+        m_styleResolverChangedTimer.startOneShot(0);
 }
 
 void ExtensionStyleSheets::maybeAddContentExtensionSheet(const String& identifier, StyleSheetContents& sheet)

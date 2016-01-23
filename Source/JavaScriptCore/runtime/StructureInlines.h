@@ -27,6 +27,7 @@
 #define StructureInlines_h
 
 #include "JSArrayBufferView.h"
+#include "JSCJSValueInlines.h"
 #include "JSGlobalObject.h"
 #include "PropertyMapHashTable.h"
 #include "Structure.h"

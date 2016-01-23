@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2006, 2007, 2008, 2009, 2015 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2006-2009, 2015-2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -41,6 +41,7 @@ class LLIntOffsetsExtractor;
 class NativeExecutable;
 class SourceCode;
 class WebAssemblyExecutable;
+class InternalFunction;
 namespace DFG {
 class SpeculativeJIT;
 class JITCompiler;
@@ -55,6 +56,7 @@ class JSFunction : public JSCallee {
     friend class DFG::SpeculativeJIT;
     friend class DFG::JITCompiler;
     friend class VM;
+    friend class InternalFunction;
 
 public:
     typedef JSCallee Base;
@@ -71,6 +73,7 @@ public:
     static JSFunction* createWithInvalidatedReallocationWatchpoint(VM&, FunctionExecutable*, JSScope*);
 
     static JSFunction* create(VM&, FunctionExecutable*, JSScope*);
+    static JSFunction* create(VM&, FunctionExecutable*, JSScope*, Structure*);
 #if ENABLE(WEBASSEMBLY)
     static JSFunction* create(VM&, WebAssemblyExecutable*, JSScope*);
 #endif
@@ -115,11 +118,18 @@ public:
         return OBJECT_OFFSETOF(JSFunction, m_rareData);
     }
 
+    FunctionRareData* rareData(VM& vm)
+    {
+        if (UNLIKELY(!m_rareData))
+            return allocateRareData(vm);
+        return m_rareData.get();
+    }
+
     FunctionRareData* rareData(ExecState* exec, unsigned inlineCapacity)
     {
         if (UNLIKELY(!m_rareData))
             return allocateAndInitializeRareData(exec, inlineCapacity);
-        if (UNLIKELY(!m_rareData->isInitialized()))
+        if (UNLIKELY(!m_rareData->isObjectAllocationProfileInitialized()))
             return initializeRareData(exec, inlineCapacity);
         return m_rareData.get();
     }
@@ -142,7 +152,6 @@ public:
 
 protected:
     JS_EXPORT_PRIVATE JSFunction(VM&, JSGlobalObject*, Structure*);
-    JSFunction(VM&, FunctionExecutable*, JSScope*);
     JSFunction(VM&, FunctionExecutable*, JSScope*, Structure*);
 
 #if ENABLE(WEBASSEMBLY)
@@ -152,6 +161,7 @@ protected:
     void finishCreation(VM&, NativeExecutable*, int length, const String& name);
     using Base::finishCreation;
 
+    FunctionRareData* allocateRareData(VM&);
     FunctionRareData* allocateAndInitializeRareData(ExecState*, size_t inlineCapacity);
     FunctionRareData* initializeRareData(ExecState*, size_t inlineCapacity);
 
@@ -166,12 +176,12 @@ protected:
     static void visitChildren(JSCell*, SlotVisitor&);
 
 
-    static NativeExecutable* lookUpOrCreateNativeExecutable(VM&, NativeFunction, Intrinsic, NativeFunction nativeConstructor);
+    static NativeExecutable* lookUpOrCreateNativeExecutable(VM&, NativeFunction, Intrinsic, NativeFunction nativeConstructor, const String& name);
 
 private:
-    static JSFunction* createImpl(VM& vm, FunctionExecutable* executable, JSScope* scope)
+    static JSFunction* createImpl(VM& vm, FunctionExecutable* executable, JSScope* scope, Structure* structure)
     {
-        JSFunction* function = new (NotNull, allocateCell<JSFunction>(vm.heap)) JSFunction(vm, executable, scope);
+        JSFunction* function = new (NotNull, allocateCell<JSFunction>(vm.heap)) JSFunction(vm, executable, scope, structure);
         ASSERT(function->structure()->globalObject());
         function->finishCreation(vm);
         return function;

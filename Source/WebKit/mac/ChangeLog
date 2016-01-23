@@ -1,3 +1,450 @@
+2016-01-17  Ada Chan  <adachan@apple.com>
+
+        Add a mode parameter to MediaControllerInterface::supportsFullscreen() and ChromeClient::supportsVideoFullscreen().
+        https://bugs.webkit.org/show_bug.cgi?id=153220
+
+        Reviewed by Eric Carlson.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::supportsVideoFullscreen):
+
+2016-01-22  Darin Adler  <darin@apple.com>
+
+        Reduce use of equalIgnoringCase to just ignore ASCII case
+        https://bugs.webkit.org/show_bug.cgi?id=153266
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::createPlugin): Use equalLettersIgnoringASCIICase.
+
+2016-01-21  Brent Fulgham  <bfulgham@apple.com>
+
+        [Mac] Tooltips do not honor some types of obscuring windows
+        https://bugs.webkit.org/show_bug.cgi?id=153263
+        <rdar://problem/21423972>
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _updateMouseoverWithEvent:]): When the WebView is not the key window, don't
+        display tooltips.
+
+2016-01-19  Ada Chan  <adachan@apple.com>
+
+        Make it possible to enable VIDEO_PRESENTATION_MODE on other Cocoa platforms.
+        https://bugs.webkit.org/show_bug.cgi?id=153218
+
+        Reviewed by Eric Carlson.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2016-01-19  Beth Dakin  <bdakin@apple.com>
+
+        32-bit build fix.
+
+        * WebView/WebView.mm:
+        (-[WebView updateWebViewAdditions]):
+        (-[WebView showCandidates:forString:inRect:view:completionHandler:]):
+        * WebView/WebViewInternal.h:
+
+2016-01-19  Beth Dakin  <bdakin@apple.com>
+
+        Move away from NSSpellChecker's showCandidates method
+        https://bugs.webkit.org/show_bug.cgi?id=153254
+        -and corresponding-
+        rdar://problem/24216292
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::handleRequestedCandidates):
+        * WebView/WebView.mm:
+        (-[WebView updateWebViewAdditions]):
+        (-[WebView showCandidates:forString:inRect:view:completionHandler:]):
+        * WebView/WebViewInternal.h:
+
+2016-01-19  Enrica Casucci  <enrica@apple.com>
+
+        Add support for DataDetectors in WK (iOS).
+        https://bugs.webkit.org/show_bug.cgi?id=152989
+        rdar://problem/22855960
+
+        Reviewed by Tim Horton.
+
+        Adding feature definition for data detection.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2016-01-19  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r195300.
+        https://bugs.webkit.org/show_bug.cgi?id=153244
+
+        enrica wants more time to fix Windows (Requested by thorton on
+        #webkit).
+
+        Reverted changeset:
+
+        "Add support for DataDetectors in WK (iOS)."
+        https://bugs.webkit.org/show_bug.cgi?id=152989
+        http://trac.webkit.org/changeset/195300
+
+2016-01-19  Enrica Casucci  <enrica@apple.com>
+
+        Add support for DataDetectors in WK (iOS).
+        https://bugs.webkit.org/show_bug.cgi?id=152989
+        rdar://problem/22855960
+
+        Reviewed by Tim Horton.
+
+        Adding feature definition for data detection.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2016-01-16  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Remove TextRun::allowsRoundingHacks()
+        https://bugs.webkit.org/show_bug.cgi?id=153185
+
+        Reviewed by Simon Fraser.
+
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:allowingFontSmoothing:]): Deleted.
+        (-[NSString _web_widthWithFont:]): Deleted.
+        * WebView/WebView.mm:
+        (+[WebView _setAllowsRoundingHacks:]): Deleted.
+        (+[WebView _allowsRoundingHacks]): Deleted.
+        * WebView/WebViewPrivate.h:
+
+2016-01-15  Tim Horton  <timothy_horton@apple.com>
+
+        Data detector yellow highlight location is vertically mirrored in WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=152216
+        <rdar://problem/23848003>
+
+        Reviewed by Beth Dakin.
+
+        * WebView/WebImmediateActionController.mm:
+        (-[WebImmediateActionController _animationControllerForDataDetectedText]):
+        (-[WebImmediateActionController _animationControllerForDataDetectedLink]):
+        These assignments have no effect because they're operating on a copy, because
+        TextIndicator::data() does not return a reference... so remove them.
+
+        * WebView/WebView.mm:
+        (-[WebView _setTextIndicator:withLifetime:]):
+        Convert textBoundingRectInRootViewCoordinates to WebView coordinates before
+        converting to Window coordinates from WebView coordinates so we get flipping right.
+
+        (-[WebView _animationControllerForDictionaryLookupPopupInfo:]):
+        (-[WebView _showDictionaryLookupPopup:]):
+        Ditto for these, except in the aforementioned conversion callback.
+
+2016-01-14  Brady Eidson  <beidson@apple.com>
+
+        Modern IDB: Support opening and deleting SQLite databases on disk.
+        https://bugs.webkit.org/show_bug.cgi?id=153084
+
+        Reviewed by Alex Christensen, Sam Weinig and Andy Estes (oh my!).
+
+        * Storage/WebDatabaseProvider.mm: Copied from Source/WebKit/Storage/WebDatabaseProvider.cpp.
+        (WebDatabaseProvider::indexedDatabaseDirectoryPath):
+
+2016-01-14  Beth Dakin  <bdakin@apple.com>
+
+        WK1 and WK2 should share more candidate request code
+        https://bugs.webkit.org/show_bug.cgi?id=153108
+
+        Reviewed by Simon Fraser.
+
+        requestCandidatesForSelection() does not need to be exposed as an 
+        EditorClient function. WK1 can just call invoke this code from the existing 
+        respondToChangedSelection EditorClient function, which is what WK2 does.
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::respondToChangedSelection):
+
+        Cleanup — use some code that was moved to WebCore::Editor.
+        (WebEditorClient::requestCandidatesForSelection):
+        (WebEditorClient::handleRequestedCandidates):
+        (textCheckingResultFromNSTextCheckingResult):
+        (WebEditorClient::handleAcceptedCandidate):
+        (candidateRangeForSelection): Deleted.
+        (candidateWouldReplaceText): Deleted.
+
+2016-01-13  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, rolling out r194900.
+
+        Roll back in as this did not actually regress PLT
+
+        Reverted changeset:
+
+        "Unreviewed, rolling out r194826."
+        https://bugs.webkit.org/show_bug.cgi?id=153020
+        http://trac.webkit.org/changeset/194900
+
+2016-01-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Add a build flag for custom element
+        https://bugs.webkit.org/show_bug.cgi?id=153005
+
+        Reviewed by Alex Christensen.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2016-01-12  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r194826.
+        https://bugs.webkit.org/show_bug.cgi?id=153020
+
+        Appears to have regressed PLT (Requested by kling on #webkit).
+
+        Reverted changeset:
+
+        "Use NeverDestroyed instead of DEPRECATED_DEFINE_STATIC_LOCAL
+        cont'd"
+        https://bugs.webkit.org/show_bug.cgi?id=152902
+        http://trac.webkit.org/changeset/194826
+
+2016-01-11  Anders Carlsson  <andersca@apple.com>
+
+        Get rid of CFMakeCollectable, it is a no-op
+        https://bugs.webkit.org/show_bug.cgi?id=152988
+
+        Reviewed by Sam Weinig.
+
+        * Misc/WebNSDataExtras.m:
+        (-[NSString _web_capitalizeRFC822HeaderFieldName]):
+        (-[NSData _webkit_parseRFC822HeaderFields]):
+        * Plugins/WebPluginController.mm:
+        (-[WebPluginController initWithDocumentView:]):
+
+2016-01-10  Andreas Kling  <akling@apple.com>
+
+        Use NeverDestroyed instead of DEPRECATED_DEFINE_STATIC_LOCAL cont'd
+        <https://webkit.org/b/152902>
+
+        Reviewed by Andy Estes.
+
+        Convert some more of the remaining clients to use NeverDestroyed.
+
+        * History/WebBackForwardList.mm:
+        (backForwardLists):
+        * History/WebHistoryItem.mm:
+        (historyItemWrappers):
+        * Misc/WebNSPasteboardExtras.mm:
+        (+[NSPasteboard _web_writableTypesForURL]):
+        (_writableTypesForImageWithoutArchive):
+        (_writableTypesForImageWithArchive):
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::singleton):
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::pluginProxyMap):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::globalExceptionString):
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::proxyClass):
+        * Plugins/WebNetscapePluginStream.mm:
+        (streams):
+        * Storage/WebDatabaseManager.mm:
+        (transactionBackgroundTaskIdentifierLock):
+        * WebCoreSupport/WebUserMediaClient.mm:
+        (userMediaCheckMap):
+        * WebView/WebHTMLRepresentation.mm:
+        (regExpForLabels):
+        * WebView/WebView.mm:
+        (aeDescFromJSValue):
+
+2016-01-09  Dan Bernstein  <mitz@apple.com>
+
+        [Cocoa] Allow overriding the frameworks directory independently of using a staging install path
+        https://bugs.webkit.org/show_bug.cgi?id=152926
+
+        Reviewed by Tim Horton.
+
+        Introduce a new build setting, WK_OVERRIDE_FRAMEWORKS_DIR. When not empty, it determines
+        where the frameworks are installed. Setting USE_STAGING_INSTALL_PATH to YES sets
+        WK_OVERRIDE_FRAMEWORKS_DIR to $(SYSTEM_LIBRARY_DIR)/StagedFrameworks/Safari.
+
+        Account for the possibility of WK_OVERRIDE_FRAMEWORKS_DIR containing spaces.
+
+        * Configurations/WebKitLegacy.xcconfig:
+        - Replace STAGED_FRAMEWORKS_SEARCH_PATH in FRAMEWORK_SEARCH_PATHS with
+          WK_OVERRIDE_FRAMEWORKS_DIR and add quotes to account for spaces.
+        - Define WEBKIT_LEGACY_FRAMEWORKS_DIR, PRODUCTION_FRAMEWORKS_DIR, and
+          WEBCORE_PRIVATE_HEADERS_DIR based on WK_OVERRIDE_FRAMEWORKS_DIR.
+
+        * MigrateHeaders.make:
+          Use a symlink under BUILT_PRODUCTS_DIR to the WebCore Private Headers. Use a
+          BUILT_PRODUCTS_DIR-based path to the framework instead of a TARGET_BUILD_DIR-based one in
+          order to avoid spaces.
+        * migrate-headers.sh:
+          Make the symlink to WEBCORE_PRIVATE_HEADERS_DIR that the makefile now uses.
+
+2016-01-07  Tim Horton  <timothy_horton@apple.com>
+
+        Can't play inline video in a stock WK1 WebView on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=152860
+
+        Rubber-stamped by Jer Noble.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        The default for this preference is supposed to be NO on Mac. It is in
+        Settings.in, and in WebKit2, but this one place got it wrong.
+
+2016-01-06  Simon Fraser  <simon.fraser@apple.com>
+
+        Add a setting and preferences to enable display-list drawing. Does nothing yet.
+        https://bugs.webkit.org/show_bug.cgi?id=152807
+
+        Reviewed by Zalan Bujtas.
+        
+        WK1 pref for display-list drawing, defaults to off.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences displayListDrawingEnabled]):
+        (-[WebPreferences setDisplayListDrawingEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+        (-[WebView _preferencesChanged:]):
+
+2016-01-06  Simon Fraser  <simon.fraser@apple.com>
+
+        [iOS] Revert overflow:hidden on the body affecting viewport scale (r186786)
+        https://bugs.webkit.org/show_bug.cgi?id=152803
+        rdar://problem/22242515
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebView.mm:
+        (-[WebView _contentsSizeRespectingOverflow]): Keep this function which is used
+        by UIKit, but change the implementation to just return the document size.
+
+2016-01-04  Tim Horton  <timothy_horton@apple.com>
+
+        Turn on gesture events when building for Yosemite
+        https://bugs.webkit.org/show_bug.cgi?id=152704
+        rdar://problem/24042472
+
+        Reviewed by Anders Carlsson.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2015-12-31  Andy Estes  <aestes@apple.com>
+
+        Replace WTF::move with WTFMove
+        https://bugs.webkit.org/show_bug.cgi?id=152601
+
+        Reviewed by Brady Eidson.
+
+        * History/WebHistoryItem.mm:
+        (-[WebHistoryItem initFromDictionaryRepresentation:]):
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::willSendRequest):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        (WebKit::NetscapePluginInstanceProxy::setCurrentReply):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::willSendRequest):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView scheduleTimerWithInterval:repeat:timerFunc:]):
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::imageForCurrentSharingServicePickerItem):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+        (WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+        (WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+        (WebFrameLoaderClient::dispatchWillSubmitForm):
+        (WebFrameLoaderClient::createDocumentLoader):
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorFrontendClient::WebInspectorFrontendClient):
+        * WebView/WebArchive.mm:
+        (-[WebArchive initWithMainResource:subresources:subframeArchives:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _documentFragmentWithNodesAsParagraphs:]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _applyEditingStyleToSelection:withUndoAction:]):
+        * WebView/WebMediaPlaybackTargetPicker.mm:
+        (WebMediaPlaybackTargetPicker::setPlaybackTarget):
+        * WebView/WebView.mm:
+        (-[WebView _loadBackForwardListFromOtherView:]):
+        (+[WebView _addUserScriptToGroup:world:source:url:whitelist:blacklist:injectionTime:injectedFrames:]):
+        (+[WebView _addUserStyleSheetToGroup:world:source:url:whitelist:blacklist:injectedFrames:]):
+
+2016-01-01  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix the iOS and EFL builds, after an over-eager commit-queue commit.
+
+        * History/WebHistoryItem.mm:
+        (-[WebHistoryItem initFromDictionaryRepresentation:]):
+
+2016-01-01  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix naming in HistoryItem to refer to scrollPositions
+        https://bugs.webkit.org/show_bug.cgi?id=152646
+
+        Reviewed by Zalan Bujtas.
+
+        HistoryItem stores a scrollPosition, so call it that.
+
+        * History/WebHistoryItem.mm:
+        (-[WebHistoryItem scrollPoint]):
+
+2016-01-01  Jeff Miller  <jeffm@apple.com>
+
+        Update user-visible copyright strings to include 2016
+        https://bugs.webkit.org/show_bug.cgi?id=152531
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Info.plist:
+
+2015-12-31  David Kilzer  <ddkilzer@apple.com>
+
+        Stop using USE(CFNETWORK) path on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=142540
+
+        Step 1/2: Do everything but turn off USE(CFNETWORK) internally.
+
+        Original patch by Antti Koivisto <antti@apple.com> on 2015-03-10
+        Reviewed by Daniel Bates.
+
+        * Misc/WebDownload.h: Add header guard to make
+        NSURLDownloadSPI.h work when pre-declaring NSURLDownload object.
+        * Misc/WebKitVersionChecks.h: Define
+        WEBKIT_FIRST_VERSION_WITH_LOADING_DURING_COMMON_RUNLOOP_MODES
+        for iOS.
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]): Use
+        the correct runloop on iOS.
+        * WebView/WebViewPrivate.h:
+        (-[WebView(WebPendingPublic) scheduleInRunLoop:forMode:]):
+        (-[WebView(WebPendingPublic) unscheduleFromRunLoop:forMode:]):
+        - These are available on iOS now.
+
+2015-12-31  Simon Fraser  <simon.fraser@apple.com>
+
+        Clarify that scrollPositionChangedViaPlatformWidget takes offsets
+        https://bugs.webkit.org/show_bug.cgi?id=152606
+
+        Reviewed by Zalan Bujtas.
+
+        scrollPositionChangedViaPlatformWidget actually gets scroll offsets, since the
+        values we get from AppKit are zero-based, so rename to scrollOffsetChangedViaPlatformWidget().
+        
+        Change ScrollableArea's setScrollPosition() and requestScrollPositionUpdate() to take
+        ScrollPositions.
+        
+        Add a FIXME noting that willRevealEdge events are probably broken in RTL documents.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _frameOrBoundsChanged]):
+
 2015-12-22  Andy Estes  <aestes@apple.com>
 
         [CF] Replace CFNetwork-related WebKitSystemInterface calls with SPI

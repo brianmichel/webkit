@@ -50,13 +50,13 @@ PassRefPtr<PluginReplacement> YouTubePluginReplacement::create(HTMLPlugInElement
 
 bool YouTubePluginReplacement::supportsMimeType(const String& mimeType)
 {
-    return equalIgnoringCase(mimeType, "application/x-shockwave-flash")
-        || equalIgnoringCase(mimeType, "application/futuresplash");
+    return equalLettersIgnoringASCIICase(mimeType, "application/x-shockwave-flash")
+        || equalLettersIgnoringASCIICase(mimeType, "application/futuresplash");
 }
 
 bool YouTubePluginReplacement::supportsFileExtension(const String& extension)
 {
-    return equalIgnoringCase(extension, "spl") || equalIgnoringCase(extension, "swf");
+    return equalLettersIgnoringASCIICase(extension, "spl") || equalLettersIgnoringASCIICase(extension, "swf");
 }
 
 YouTubePluginReplacement::YouTubePluginReplacement(HTMLPlugInElement& plugin, const Vector<String>& paramNames, const Vector<String>& paramValues)
@@ -74,7 +74,7 @@ RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlu
     if (!m_embedShadowElement)
         return nullptr;
     
-    return m_embedShadowElement->createElementRenderer(WTF::move(style), insertionPosition);
+    return m_embedShadowElement->createElementRenderer(WTFMove(style), insertionPosition);
 }
 
 bool YouTubePluginReplacement::installReplacement(ShadowRoot* root)
@@ -98,7 +98,7 @@ bool YouTubePluginReplacement::installReplacement(ShadowRoot* root)
     
     // Disable frame flattening for this iframe.
     iframeElement->setAttribute(HTMLNames::scrollingAttr, AtomicString("no", AtomicString::ConstructFromLiteral));
-    m_embedShadowElement->appendChild(WTF::move(iframeElement));
+    m_embedShadowElement->appendChild(WTFMove(iframeElement));
 
     return true;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,6 +91,13 @@ public:
         ASSERT(!!reg);
         return m_vector.get(reg.index());
     }
+
+    template<typename Iterable>
+    void setAll(const Iterable& iterable)
+    {
+        for (Reg reg : iterable)
+            set(reg);
+    }
     
     void merge(const RegisterSet& other) { m_vector.merge(other.m_vector); }
     void filter(const RegisterSet& other) { m_vector.filter(other.m_vector); }
@@ -124,7 +131,7 @@ public:
     template<typename Functor>
     void forEach(const Functor& functor) const
     {
-        for (size_t index : m_vector.setBits())
+        for (size_t index : m_vector)
             functor(Reg::fromIndex(index));
     }
     

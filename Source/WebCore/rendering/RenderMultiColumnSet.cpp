@@ -37,7 +37,7 @@
 namespace WebCore {
 
 RenderMultiColumnSet::RenderMultiColumnSet(RenderFlowThread& flowThread, Ref<RenderStyle>&& style)
-    : RenderRegionSet(flowThread.document(), WTF::move(style), flowThread)
+    : RenderRegionSet(flowThread.document(), WTFMove(style), flowThread)
     , m_computedColumnCount(1)
     , m_computedColumnWidth(0)
     , m_computedColumnHeight(0)
@@ -362,7 +362,7 @@ void RenderMultiColumnSet::prepareForLayout(bool initial)
     // Start with "infinite" flow thread portion height until height is known.
     setLogicalBottomInFlowThread(RenderFlowThread::maxLogicalHeight());
 
-    setNeedsLayout();
+    setNeedsLayout(MarkOnlyThis);
 }
 
 void RenderMultiColumnSet::beginFlow(RenderBlock* container)

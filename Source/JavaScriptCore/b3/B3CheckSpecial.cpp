@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,26 +105,22 @@ Inst CheckSpecial::hiddenBranch(const Inst& inst) const
     return hiddenBranch;
 }
 
-void CheckSpecial::commitHiddenBranch(Inst& original, Inst& hiddenBranch)
-{
-    ASSERT(hiddenBranch.args.size() == m_numCheckArgs);
-    ASSERT(hiddenBranch.opcode = m_checkOpcode);
-    for (unsigned i = 0; i < m_numCheckArgs; ++i)
-        original.args[i + 1] = hiddenBranch.args[i];
-}
-
 void CheckSpecial::forEachArg(Inst& inst, const ScopedLambda<Inst::EachArgCallback>& callback)
 {
     Inst hidden = hiddenBranch(inst);
-    hidden.forEachArg(callback);
-    commitHiddenBranch(inst, hidden);
+    hidden.forEachArg(
+        [&] (Arg& arg, Arg::Role role, Arg::Type type, Arg::Width width) {
+            unsigned index = &arg - &hidden.args[0];
+            callback(inst.args[1 + index], role, type, width);
+        });
     forEachArgImpl(numB3Args(inst), m_numCheckArgs + 1, inst, m_stackmapRole, callback);
 }
 
 bool CheckSpecial::isValid(Inst& inst)
 {
     return hiddenBranch(inst).isValidForm()
-        && isValidImpl(numB3Args(inst), m_numCheckArgs + 1, inst);
+        && isValidImpl(numB3Args(inst), m_numCheckArgs + 1, inst)
+        && inst.args.size() - m_numCheckArgs - 1 == inst.origin->numChildren() - numB3Args(inst);
 }
 
 bool CheckSpecial::admitsStack(Inst& inst, unsigned argIndex)
@@ -142,8 +138,7 @@ CCallHelpers::Jump CheckSpecial::generate(Inst& inst, CCallHelpers& jit, Generat
     StackmapValue* value = inst.origin->as<StackmapValue>();
     ASSERT(value);
 
-    Vector<ValueRep> reps;
-    appendRepsImpl(context, m_numCheckArgs + 1, inst, reps);
+    Vector<ValueRep> reps = repsImpl(context, numB3Args(inst), m_numCheckArgs + 1, inst);
 
     // Set aside the args that are relevant to undoing the operation. This is because we don't want to
     // capture all of inst in the closure below.

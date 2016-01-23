@@ -27,6 +27,9 @@
 #include "DownloadManager.h"
 
 #include "Download.h"
+#include "NetworkLoad.h"
+#include "NetworkSession.h"
+#include "PendingDownload.h"
 #include "SessionTracker.h"
 #include <WebCore/NotImplemented.h>
 #include <WebCore/SessionID.h>
@@ -36,7 +39,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-DownloadManager::DownloadManager(Client* client)
+DownloadManager::DownloadManager(Client& client)
     : m_client(client)
 {
 }
@@ -47,24 +50,53 @@ void DownloadManager::startDownload(SessionID sessionID, DownloadID downloadID, 
     auto* networkSession = SessionTracker::networkSession(sessionID);
     if (!networkSession)
         return;
-    auto download = std::make_unique<Download>(*this, *networkSession, downloadID, request);
+    NetworkLoadParameters parameters;
+    parameters.sessionID = sessionID;
+    parameters.request = request;
+    parameters.clientCredentialPolicy = AskClientForAllCredentials;
+    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(parameters, downloadID));
 #else
     auto download = std::make_unique<Download>(*this, downloadID, request);
-#endif
     download->start();
 
     ASSERT(!m_downloads.contains(downloadID));
-    m_downloads.add(downloadID, WTF::move(download));
+    m_downloads.add(downloadID, WTFMove(download));
+#endif
 }
 
-#if !USE(NETWORK_SESSION)
+#if USE(NETWORK_SESSION)
+std::unique_ptr<PendingDownload> DownloadManager::dataTaskBecameDownloadTask(DownloadID downloadID, std::unique_ptr<Download>&& download)
+{
+    // This is needed for downloads started with startDownload, otherwise it will return nullptr.
+    auto pendingDownload = m_pendingDownloads.take(downloadID);
+
+    m_downloads.add(downloadID, WTFMove(download));
+    return pendingDownload;
+}
+    
+void DownloadManager::continueCanAuthenticateAgainstProtectionSpace(DownloadID downloadID, bool canAuthenticate)
+{
+    auto* pendingDownload = m_pendingDownloads.get(downloadID);
+    ASSERT(pendingDownload);
+    if (pendingDownload)
+        pendingDownload->continueCanAuthenticateAgainstProtectionSpace(canAuthenticate);
+}
+
+void DownloadManager::continueWillSendRequest(DownloadID downloadID, const WebCore::ResourceRequest& request)
+{
+    auto* pendingDownload = m_pendingDownloads.get(downloadID);
+    ASSERT(pendingDownload);
+    if (pendingDownload)
+        pendingDownload->continueWillSendRequest(request);
+}
+#else
 void DownloadManager::convertHandleToDownload(DownloadID downloadID, ResourceHandle* handle, const ResourceRequest& request, const ResourceResponse& response)
 {
     auto download = std::make_unique<Download>(*this, downloadID, request);
 
     download->startWithHandle(handle, response);
     ASSERT(!m_downloads.contains(downloadID));
-    m_downloads.add(downloadID, WTF::move(download));
+    m_downloads.add(downloadID, WTFMove(download));
 }
 #endif
 
@@ -78,7 +110,7 @@ void DownloadManager::resumeDownload(SessionID, DownloadID downloadID, const IPC
 
     download->resume(resumeData, path, sandboxExtensionHandle);
     ASSERT(!m_downloads.contains(downloadID));
-    m_downloads.add(downloadID, WTF::move(download));
+    m_downloads.add(downloadID, WTFMove(download));
 #endif
 }
 
@@ -99,22 +131,22 @@ void DownloadManager::downloadFinished(Download* download)
 
 void DownloadManager::didCreateDownload()
 {
-    m_client->didCreateDownload();
+    m_client.didCreateDownload();
 }
 
 void DownloadManager::didDestroyDownload()
 {
-    m_client->didDestroyDownload();
+    m_client.didDestroyDownload();
 }
 
 IPC::Connection* DownloadManager::downloadProxyConnection()
 {
-    return m_client->downloadProxyConnection();
+    return m_client.downloadProxyConnection();
 }
 
 AuthenticationManager& DownloadManager::downloadsAuthenticationManager()
 {
-    return m_client->downloadsAuthenticationManager();
+    return m_client.downloadsAuthenticationManager();
 }
 
 } // namespace WebKit

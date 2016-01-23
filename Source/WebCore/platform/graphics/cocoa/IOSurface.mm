@@ -98,12 +98,12 @@ std::unique_ptr<IOSurface> IOSurface::createFromImage(CGImageRef image)
 
 void IOSurface::moveToPool(std::unique_ptr<IOSurface>&& surface)
 {
-    IOSurfacePool::sharedPool().addSurface(WTF::move(surface));
+    IOSurfacePool::sharedPool().addSurface(WTFMove(surface));
 }
 
 std::unique_ptr<IOSurface> IOSurface::createFromImageBuffer(std::unique_ptr<ImageBuffer> imageBuffer)
 {
-    return WTF::move(imageBuffer->m_data.surface);
+    return WTFMove(imageBuffer->m_data.surface);
 }
 
 IOSurface::IOSurface(IntSize size, ColorSpace colorSpace, Format format)
@@ -286,13 +286,12 @@ CGContextRef IOSurface::ensurePlatformContext()
     case Format::RGBA:
         break;
     case Format::RGB10:
-        bitsPerComponent = 10;
-        bitsPerPixel = 32;
-        break;
     case Format::RGB10A8:
-        // FIXME: This doesn't take the two-plane format into account.
-        bitsPerComponent = 10;
-        bitsPerPixel = 32;
+        // A half-float format will be used if CG needs to read back the IOSurface contents,
+        // but for an IOSurface-to-IOSurface copy, there shoud be no conversion.
+        bitsPerComponent = 16;
+        bitsPerPixel = 64;
+        bitmapInfo = kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder16Host | kCGBitmapFloatComponents;
         break;
     case Format::YUV422:
         ASSERT_NOT_REACHED();
@@ -374,25 +373,12 @@ void IOSurface::releaseGraphicsContext()
 }
 
 #if PLATFORM(IOS)
-WEBCORE_EXPORT void IOSurface::copyToSurface(IOSurface& destSurface)
+bool IOSurface::allowConversionFromFormatToFormat(Format sourceFormat, Format destFormat)
 {
-    if (destSurface.format() != format()) {
-        WTFLogAlways("Trying to copy IOSurface to another surface with a different format");
-        return;
-    }
+    if ((sourceFormat == Format::RGB10 || sourceFormat == Format::RGB10A8) && destFormat == Format::YUV422)
+        return false;
 
-    if (destSurface.size() != size()) {
-        WTFLogAlways("Trying to copy IOSurface to another surface with a different size");
-        return;
-    }
-
-    static IOSurfaceAcceleratorRef accelerator;
-    if (!accelerator)
-        IOSurfaceAcceleratorCreate(nullptr, nullptr, &accelerator);
-
-    IOReturn ret = IOSurfaceAcceleratorTransformSurface(accelerator, m_surface.get(), destSurface.surface(), nullptr, nullptr, nullptr, nullptr, nullptr);
-    if (ret)
-        WTFLogAlways("IOSurfaceAcceleratorTransformSurface %p to %p failed with error %d", m_surface.get(), destSurface.surface(), ret);
+    return true;
 }
 
 void IOSurface::convertToFormat(std::unique_ptr<WebCore::IOSurface>&& inSurface, Format format, std::function<void(std::unique_ptr<WebCore::IOSurface>)> callback)
@@ -406,7 +392,7 @@ void IOSurface::convertToFormat(std::unique_ptr<WebCore::IOSurface>&& inSurface,
     }
 
     if (inSurface->format() == format) {
-        callback(WTF::move(inSurface));
+        callback(WTFMove(inSurface));
         return;
     }
 
@@ -414,13 +400,13 @@ void IOSurface::convertToFormat(std::unique_ptr<WebCore::IOSurface>&& inSurface,
     IOSurfaceRef destinationIOSurfaceRef = destinationSurface->surface();
 
     IOSurfaceAcceleratorCompletion completion;
-    completion.completionRefCon = new std::function<void(std::unique_ptr<IOSurface>)> (WTF::move(callback));
+    completion.completionRefCon = new std::function<void(std::unique_ptr<IOSurface>)> (WTFMove(callback));
     completion.completionRefCon2 = destinationSurface.release();
     completion.completionCallback = [](void *completionRefCon, IOReturn, void * completionRefCon2) {
         auto* callback = static_cast<std::function<void(std::unique_ptr<WebCore::IOSurface>)>*>(completionRefCon);
         auto destinationSurface = std::unique_ptr<IOSurface>(static_cast<IOSurface*>(completionRefCon2));
         
-        (*callback)(WTF::move(destinationSurface));
+        (*callback)(WTFMove(destinationSurface));
         delete callback;
     };
 

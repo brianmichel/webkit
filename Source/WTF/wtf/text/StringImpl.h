@@ -348,22 +348,6 @@ public:
     WTF_EXPORT_STRING_API static Ref<StringImpl> create(const LChar*);
     ALWAYS_INLINE static Ref<StringImpl> create(const char* s) { return create(reinterpret_cast<const LChar*>(s)); }
 
-    static ALWAYS_INLINE Ref<StringImpl> createSubstringSharingImpl8(PassRefPtr<StringImpl> rep, unsigned offset, unsigned length)
-    {
-        ASSERT(rep);
-        ASSERT(length <= rep->length());
-
-        if (!length)
-            return *empty();
-
-        ASSERT(rep->is8Bit());
-        StringImpl* ownerRep = (rep->bufferOwnership() == BufferSubstring) ? rep->substringBuffer() : rep.get();
-
-        // We allocate a buffer that contains both the StringImpl struct as well as the pointer to the owner string.
-        StringImpl* stringImpl = static_cast<StringImpl*>(fastMalloc(allocationSize<StringImpl*>(1)));
-        return adoptRef(*new (NotNull, stringImpl) StringImpl(rep->m_data8 + offset, length, ownerRep));
-    }
-
     static ALWAYS_INLINE Ref<StringImpl> createSubstringSharingImpl(PassRefPtr<StringImpl> rep, unsigned offset, unsigned length)
     {
         ASSERT(rep);
@@ -692,6 +676,7 @@ public:
     float toFloat(bool* ok = 0);
 
     WTF_EXPORT_STRING_API Ref<StringImpl> convertToASCIILowercase();
+    WTF_EXPORT_STRING_API Ref<StringImpl> convertToASCIIUppercase();
     WTF_EXPORT_STRING_API Ref<StringImpl> lower();
     WTF_EXPORT_STRING_API Ref<StringImpl> upper();
     WTF_EXPORT_STRING_API Ref<StringImpl> lower(const AtomicString& localeIdentifier);
@@ -867,6 +852,9 @@ private:
     // This number must be at least 2 to avoid sharing empty, null as well as 1 character strings from SmallStrings.
     static const unsigned s_copyCharsInlineCutOff = 20;
 
+    enum class CaseConvertType { Upper, Lower };
+    template<CaseConvertType type, typename CharacterType> static Ref<StringImpl> convertASCIICase(StringImpl&, const CharacterType*, unsigned);
+
     BufferOwnership bufferOwnership() const { return static_cast<BufferOwnership>(m_hashAndFlags & s_hashMaskBufferOwnership); }
     template <class UCharPredicate> Ref<StringImpl> stripMatchedCharacters(UCharPredicate);
     template <typename CharType, class UCharPredicate> Ref<StringImpl> simplifyMatchedCharactersToSpace(UCharPredicate);
@@ -983,6 +971,9 @@ bool equalIgnoringASCIICase(const StringImpl* a, const char (&b)[charactersCount
 {
     return a ? equalIgnoringASCIICase(*a, b, charactersCount - 1) : false;
 }
+
+template<unsigned length> bool equalLettersIgnoringASCIICase(const StringImpl&, const char (&lowercaseLetters)[length]);
+template<unsigned length> bool equalLettersIgnoringASCIICase(const StringImpl*, const char (&lowercaseLetters)[length]);
 
 inline size_t find(const LChar* characters, unsigned length, CharacterMatchFunctionPtr matchFunction, unsigned index = 0)
 {
@@ -1198,6 +1189,16 @@ template<> struct DefaultHash<StringImpl*> {
 template<> struct DefaultHash<RefPtr<StringImpl>> {
     typedef StringHash Hash;
 };
+
+template<unsigned length> inline bool equalLettersIgnoringASCIICase(const StringImpl& string, const char (&lowercaseLetters)[length])
+{
+    return equalLettersIgnoringASCIICaseCommon(string, lowercaseLetters);
+}
+
+template<unsigned length> inline bool equalLettersIgnoringASCIICase(const StringImpl* string, const char (&lowercaseLetters)[length])
+{
+    return string && equalLettersIgnoringASCIICase(*string, lowercaseLetters);
+}
 
 } // namespace WTF
 

@@ -944,7 +944,7 @@ void RenderStyle::setWillChange(PassRefPtr<WillChangeData> willChangeData)
     if (arePointingToEqualData(rareNonInheritedData->m_willChange.get(), willChangeData.get()))
         return;
 
-    rareNonInheritedData.access()->m_willChange = WTF::move(willChangeData);
+    rareNonInheritedData.access()->m_willChange = WTFMove(willChangeData);
 }
 
 void RenderStyle::clearCursorList()
@@ -967,9 +967,9 @@ void RenderStyle::appendContent(std::unique_ptr<ContentData> contentData)
         lastContent = lastContent->next();
 
     if (lastContent)
-        lastContent->setNext(WTF::move(contentData));
+        lastContent->setNext(WTFMove(contentData));
     else
-        content = WTF::move(contentData);
+        content = WTFMove(contentData);
 }
 
 void RenderStyle::setContent(PassRefPtr<StyleImage> image, bool add)
@@ -1020,11 +1020,11 @@ void RenderStyle::setContent(std::unique_ptr<CounterContent> counter, bool add)
         return;
 
     if (add) {
-        appendContent(std::make_unique<CounterContentData>(WTF::move(counter)));
+        appendContent(std::make_unique<CounterContentData>(WTFMove(counter)));
         return;
     }
 
-    rareNonInheritedData.access()->m_content = std::make_unique<CounterContentData>(WTF::move(counter));
+    rareNonInheritedData.access()->m_content = std::make_unique<CounterContentData>(WTFMove(counter));
 }
 
 void RenderStyle::setContent(QuoteType quote, bool add)
@@ -1113,24 +1113,24 @@ void RenderStyle::setTextShadow(std::unique_ptr<ShadowData> shadowData, bool add
 
     StyleRareInheritedData* rareData = rareInheritedData.access();
     if (!add) {
-        rareData->textShadow = WTF::move(shadowData);
+        rareData->textShadow = WTFMove(shadowData);
         return;
     }
 
-    shadowData->setNext(WTF::move(rareData->textShadow));
-    rareData->textShadow = WTF::move(shadowData);
+    shadowData->setNext(WTFMove(rareData->textShadow));
+    rareData->textShadow = WTFMove(shadowData);
 }
 
 void RenderStyle::setBoxShadow(std::unique_ptr<ShadowData> shadowData, bool add)
 {
     StyleRareNonInheritedData* rareData = rareNonInheritedData.access();
     if (!add) {
-        rareData->m_boxShadow = WTF::move(shadowData);
+        rareData->m_boxShadow = WTFMove(shadowData);
         return;
     }
 
-    shadowData->setNext(WTF::move(rareData->m_boxShadow));
-    rareData->m_boxShadow = WTF::move(shadowData);
+    shadowData->setNext(WTFMove(rareData->m_boxShadow));
+    rareData->m_boxShadow = WTFMove(shadowData);
 }
 
 static RoundedRect::Radii calcRadiiFor(const BorderData& border, const LayoutSize& size)
@@ -1248,8 +1248,8 @@ const AtomicString& RenderStyle::hyphenString() const
         return hyphenationString;
 
     // FIXME: This should depend on locale.
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, hyphenMinusString, (&hyphenMinus, 1));
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, hyphenString, (&hyphen, 1));
+    static NeverDestroyed<AtomicString> hyphenMinusString(&hyphenMinus, 1);
+    static NeverDestroyed<AtomicString> hyphenString(&hyphen, 1);
     return fontCascade().primaryFont().glyphForCharacter(hyphen) ? hyphenString : hyphenMinusString;
 }
 
@@ -1261,28 +1261,28 @@ const AtomicString& RenderStyle::textEmphasisMarkString() const
     case TextEmphasisMarkCustom:
         return textEmphasisCustomMark();
     case TextEmphasisMarkDot: {
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, filledDotString, (&bullet, 1));
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, openDotString, (&whiteBullet, 1));
+        static NeverDestroyed<AtomicString> filledDotString(&bullet, 1);
+        static NeverDestroyed<AtomicString> openDotString(&whiteBullet, 1);
         return textEmphasisFill() == TextEmphasisFillFilled ? filledDotString : openDotString;
     }
     case TextEmphasisMarkCircle: {
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, filledCircleString, (&blackCircle, 1));
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, openCircleString, (&whiteCircle, 1));
+        static NeverDestroyed<AtomicString> filledCircleString(&blackCircle, 1);
+        static NeverDestroyed<AtomicString> openCircleString(&whiteCircle, 1);
         return textEmphasisFill() == TextEmphasisFillFilled ? filledCircleString : openCircleString;
     }
     case TextEmphasisMarkDoubleCircle: {
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, filledDoubleCircleString, (&fisheye, 1));
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, openDoubleCircleString, (&bullseye, 1));
+        static NeverDestroyed<AtomicString> filledDoubleCircleString(&fisheye, 1);
+        static NeverDestroyed<AtomicString> openDoubleCircleString(&bullseye, 1);
         return textEmphasisFill() == TextEmphasisFillFilled ? filledDoubleCircleString : openDoubleCircleString;
     }
     case TextEmphasisMarkTriangle: {
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, filledTriangleString, (&blackUpPointingTriangle, 1));
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, openTriangleString, (&whiteUpPointingTriangle, 1));
+        static NeverDestroyed<AtomicString> filledTriangleString(&blackUpPointingTriangle, 1);
+        static NeverDestroyed<AtomicString> openTriangleString(&whiteUpPointingTriangle, 1);
         return textEmphasisFill() == TextEmphasisFillFilled ? filledTriangleString : openTriangleString;
     }
     case TextEmphasisMarkSesame: {
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, filledSesameString, (&sesameDot, 1));
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, openSesameString, (&whiteSesameDot, 1));
+        static NeverDestroyed<AtomicString> filledSesameString(&sesameDot, 1);
+        static NeverDestroyed<AtomicString> openSesameString(&whiteSesameDot, 1);
         return textEmphasisFill() == TextEmphasisFillFilled ? filledSesameString : openSesameString;
     }
     case TextEmphasisMarkAuto:
@@ -1297,13 +1297,13 @@ const AtomicString& RenderStyle::textEmphasisMarkString() const
 #if ENABLE(DASHBOARD_SUPPORT)
 const Vector<StyleDashboardRegion>& RenderStyle::initialDashboardRegions()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<StyleDashboardRegion>, emptyList, ());
+    static NeverDestroyed<Vector<StyleDashboardRegion>> emptyList;
     return emptyList;
 }
 
 const Vector<StyleDashboardRegion>& RenderStyle::noneDashboardRegions()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<StyleDashboardRegion>, noneList, ());
+    static NeverDestroyed<Vector<StyleDashboardRegion>> noneList;
     static bool noneListInitialized = false;
 
     if (!noneListInitialized) {
@@ -1314,7 +1314,7 @@ const Vector<StyleDashboardRegion>& RenderStyle::noneDashboardRegions()
         region.offset.bottom() = Length();
         region.offset.left() = Length();
         region.type = StyleDashboardRegion::None;
-        noneList.append(region);
+        noneList.get().append(region);
         noneListInitialized = true;
     }
     return noneList;
@@ -1484,7 +1484,7 @@ void RenderStyle::setWordSpacing(Length value)
         break;
     }
     inherited.access()->fontCascade.setWordSpacing(fontWordSpacing);
-    rareInheritedData.access()->wordSpacing = WTF::move(value);
+    rareInheritedData.access()->wordSpacing = WTFMove(value);
 }
 
 void RenderStyle::setLetterSpacing(float v) { inherited.access()->fontCascade.setLetterSpacing(v); }
@@ -1943,28 +1943,28 @@ void RenderStyle::setScrollSnapPointsX(std::unique_ptr<ScrollSnapPoints> points)
 {
     if (rareNonInheritedData->m_scrollSnapPoints->xPoints.get() == points.get())
         return;
-    rareNonInheritedData.access()->m_scrollSnapPoints.access()->xPoints = WTF::move(points);
+    rareNonInheritedData.access()->m_scrollSnapPoints.access()->xPoints = WTFMove(points);
 }
 
 void RenderStyle::setScrollSnapPointsY(std::unique_ptr<ScrollSnapPoints> points)
 {
     if (rareNonInheritedData->m_scrollSnapPoints->yPoints.get() == points.get())
         return;
-    rareNonInheritedData.access()->m_scrollSnapPoints.access()->yPoints = WTF::move(points);
+    rareNonInheritedData.access()->m_scrollSnapPoints.access()->yPoints = WTFMove(points);
 }
 
 void RenderStyle::setScrollSnapDestination(LengthSize destination)
 {
     if (rareNonInheritedData->m_scrollSnapPoints->destination == destination)
         return;
-    rareNonInheritedData.access()->m_scrollSnapPoints.access()->destination = WTF::move(destination);
+    rareNonInheritedData.access()->m_scrollSnapPoints.access()->destination = WTFMove(destination);
 }
 
 void RenderStyle::setScrollSnapCoordinates(Vector<LengthSize> coordinates)
 {
     if (rareNonInheritedData->m_scrollSnapPoints->coordinates == coordinates)
         return;
-    rareNonInheritedData.access()->m_scrollSnapPoints.access()->coordinates = WTF::move(coordinates);
+    rareNonInheritedData.access()->m_scrollSnapPoints.access()->coordinates = WTFMove(coordinates);
 }
 
 #endif

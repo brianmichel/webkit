@@ -64,7 +64,7 @@ private:
 };
 
 RenderSVGShape::RenderSVGShape(SVGGraphicsElement& element, Ref<RenderStyle>&& style)
-    : RenderSVGModelObject(element, WTF::move(style))
+    : RenderSVGModelObject(element, WTFMove(style))
     , m_needsBoundariesUpdate(false) // Default is false, the cached rects are empty from the beginning.
     , m_needsShapeUpdate(true) // Default is true, so we grab a Path object once from SVGGraphicsElement.
     , m_needsTransformUpdate(true) // Default is true, so we grab a AffineTransform object once from SVGGraphicsElement.
@@ -89,7 +89,11 @@ void RenderSVGShape::updateShapeFromElement()
 
 bool RenderSVGShape::isEmpty() const
 {
-    return path().isEmpty();
+    // This function should never be called before assigning a new Path to m_path.
+    // But this bug can happen if this renderer was created and its layout was not
+    // done before painting. Assert this did not happen but do not crash.
+    ASSERT(hasPath());
+    return !hasPath() || path().isEmpty();
 }
 
 void RenderSVGShape::fillShape(GraphicsContext& context) const
@@ -187,12 +191,12 @@ void RenderSVGShape::layout()
 
 Path* RenderSVGShape::nonScalingStrokePath(const Path* path, const AffineTransform& strokeTransform) const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Path, tempPath, ());
+    static NeverDestroyed<Path> tempPath;
 
-    tempPath = *path;
-    tempPath.transform(strokeTransform);
+    tempPath.get() = *path;
+    tempPath.get().transform(strokeTransform);
 
-    return &tempPath;
+    return &tempPath.get();
 }
 
 bool RenderSVGShape::setupNonScalingStrokeContext(AffineTransform& strokeTransform, GraphicsContextStateSaver& stateSaver)

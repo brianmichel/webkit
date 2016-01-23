@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,8 +56,16 @@ public:
     // is Void. Otherwise you can set this to any input constraint.
     ValueRep resultConstraint;
 
+    // The number of scratch registers that this patchpoint gets. The scratch register is guaranteed
+    // to be different from any input register and the destination register. It's also guaranteed not
+    // to be clobbered either early or late. These are 0 by default.
+    uint8_t numGPScratchRegisters { 0 };
+    uint8_t numFPScratchRegisters { 0 };
+
 protected:
     void dumpMeta(CommaPrinter&, PrintStream&) const override;
+
+    Value* cloneImpl() const override;
 
 private:
     friend class Procedure;

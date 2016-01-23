@@ -715,6 +715,11 @@ RefPtr<Range> AccessibilityObject::selectionRange() const
     return Range::create(*frame->document());
 }
 
+RefPtr<Range> AccessibilityObject::elementRange() const
+{    
+    return AXObjectCache::rangeForNodeContents(node());
+}
+
 String AccessibilityObject::selectText(AccessibilitySelectTextCriteria* criteria)
 {
     ASSERT(criteria);
@@ -745,7 +750,7 @@ String AccessibilityObject::selectText(AccessibilitySelectTextCriteria* criteria
         closestBeforeStringRange = rangeOfStringClosestToRangeInDirection(selectedStringRange.get(), SearchDirectionPrevious, searchStrings);
     
     // Determine which candidate is closest to the selection and perform the activity.
-    if (RefPtr<Range> closestStringRange = rangeClosestToRange(selectedStringRange.get(), WTF::move(closestAfterStringRange), WTF::move(closestBeforeStringRange))) {
+    if (RefPtr<Range> closestStringRange = rangeClosestToRange(selectedStringRange.get(), WTFMove(closestAfterStringRange), WTFMove(closestBeforeStringRange))) {
         // If the search started within a text control, ensure that the result is inside that element.
         if (element() && element()->isTextFormControl()) {
             if (!closestStringRange->startContainer().isDescendantOrShadowDescendantOf(element()) || !closestStringRange->endContainer().isDescendantOrShadowDescendantOf(element()))
@@ -1203,7 +1208,7 @@ VisiblePositionRange AccessibilityObject::lineRangeForPosition(const VisiblePosi
     return VisiblePositionRange(startPosition, endPosition);
 }
 
-static bool replacedNodeNeedsCharacter(Node* replacedNode)
+bool AccessibilityObject::replacedNodeNeedsCharacter(Node* replacedNode)
 {
     // we should always be given a rendered node and a replaced node, but be safe
     // replaced nodes are either attachments (widgets) or images
@@ -1228,7 +1233,19 @@ static RenderListItem* renderListItemContainerForNode(Node* node)
     }
     return nullptr;
 }
+
+static String listMarkerTextForNode(Node* node)
+{
+    RenderListItem* listItem = renderListItemContainerForNode(node);
+    if (!listItem)
+        return String();
     
+    // If this is in a list item, we need to manually add the text for the list marker
+    // because a RenderListMarker does not have a Node equivalent and thus does not appear
+    // when iterating text.
+    return listItem->markerTextWithSuffix();
+}
+
 // Returns the text associated with a list marker if this node is contained within a list item.
 String AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, const VisiblePosition& visiblePositionStart) const
 {
@@ -1236,14 +1253,36 @@ String AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, const V
     if (!isStartOfLine(visiblePositionStart))
         return String();
 
-    RenderListItem* listItem = renderListItemContainerForNode(node);
-    if (!listItem)
+    return listMarkerTextForNode(node);
+}
+
+String AccessibilityObject::stringForRange(RefPtr<Range> range) const
+{
+    if (!range)
         return String();
-        
-    // If this is in a list item, we need to manually add the text for the list marker 
-    // because a RenderListMarker does not have a Node equivalent and thus does not appear
-    // when iterating text.
-    return listItem->markerTextWithSuffix();
+    
+    TextIterator it(range.get());
+    if (it.atEnd())
+        return String();
+    
+    StringBuilder builder;
+    for (; !it.atEnd(); it.advance()) {
+        // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
+        if (it.text().length()) {
+            // Add a textual representation for list marker text.
+            builder.append(listMarkerTextForNode(it.node()));
+            it.appendTextToStringBuilder(builder);
+        } else {
+            // locate the node and starting offset for this replaced range
+            Node& node = it.range()->startContainer();
+            ASSERT(&node == &it.range()->endContainer());
+            int offset = it.range()->startOffset();
+            if (replacedNodeNeedsCharacter(node.traverseToChildAt(offset)))
+                builder.append(objectReplacementCharacter);
+        }
+    }
+    
+    return builder.toString();
 }
 
 String AccessibilityObject::stringForVisiblePositionRange(const VisiblePositionRange& visiblePositionRange) const
@@ -1507,7 +1546,7 @@ bool AccessibilityObject::contentEditableAttributeIsEnabled(Element* element)
         return false;
     
     // Both "true" (case-insensitive) and the empty string count as true.
-    return contentEditableValue.isEmpty() || equalIgnoringCase(contentEditableValue, "true");
+    return contentEditableValue.isEmpty() || equalLettersIgnoringASCIICase(contentEditableValue, "true");
 }
     
 #if HAVE(ACCESSIBILITY)
@@ -1796,7 +1835,7 @@ const String& AccessibilityObject::actionVerb() const
 
 bool AccessibilityObject::ariaIsMultiline() const
 {
-    return equalIgnoringCase(getAttribute(aria_multilineAttr), "true");
+    return equalLettersIgnoringASCIICase(getAttribute(aria_multilineAttr), "true");
 }
 
 String AccessibilityObject::invalidStatus() const
@@ -2207,7 +2246,7 @@ bool AccessibilityObject::supportsARIAAttributes() const
     
 bool AccessibilityObject::liveRegionStatusIsEnabled(const AtomicString& liveRegionStatus)
 {
-    return equalIgnoringCase(liveRegionStatus, "polite") || equalIgnoringCase(liveRegionStatus, "assertive");
+    return equalLettersIgnoringASCIICase(liveRegionStatus, "polite") || equalLettersIgnoringASCIICase(liveRegionStatus, "assertive");
 }
     
 bool AccessibilityObject::supportsARIALiveRegion() const
@@ -2260,11 +2299,11 @@ AccessibilityObject* AccessibilityObject::focusedUIElement() const
 AccessibilitySortDirection AccessibilityObject::sortDirection() const
 {
     const AtomicString& sortAttribute = getAttribute(aria_sortAttr);
-    if (equalIgnoringCase(sortAttribute, "ascending"))
+    if (equalLettersIgnoringASCIICase(sortAttribute, "ascending"))
         return SortDirectionAscending;
-    if (equalIgnoringCase(sortAttribute, "descending"))
+    if (equalLettersIgnoringASCIICase(sortAttribute, "descending"))
         return SortDirectionDescending;
-    if (equalIgnoringCase(sortAttribute, "other"))
+    if (equalLettersIgnoringASCIICase(sortAttribute, "other"))
         return SortDirectionOther;
     
     return SortDirectionNone;
@@ -2319,14 +2358,14 @@ void AccessibilityObject::classList(Vector<String>& classList) const
 bool AccessibilityObject::supportsARIAPressed() const
 {
     const AtomicString& expanded = getAttribute(aria_pressedAttr);
-    return equalIgnoringCase(expanded, "true") || equalIgnoringCase(expanded, "false");
+    return equalLettersIgnoringASCIICase(expanded, "true") || equalLettersIgnoringASCIICase(expanded, "false");
 }
     
 bool AccessibilityObject::supportsExpanded() const
 {
     // Undefined values should not result in this attribute being exposed to ATs according to ARIA.
     const AtomicString& expanded = getAttribute(aria_expandedAttr);
-    if (equalIgnoringCase(expanded, "true") || equalIgnoringCase(expanded, "false"))
+    if (equalLettersIgnoringASCIICase(expanded, "true") || equalLettersIgnoringASCIICase(expanded, "false"))
         return true;
     switch (roleValue()) {
     case ComboBoxRole:
@@ -2340,7 +2379,7 @@ bool AccessibilityObject::supportsExpanded() const
     
 bool AccessibilityObject::isExpanded() const
 {
-    if (equalIgnoringCase(getAttribute(aria_expandedAttr), "true"))
+    if (equalLettersIgnoringASCIICase(getAttribute(aria_expandedAttr), "true"))
         return true;
     
     if (is<HTMLDetailsElement>(node()))
@@ -2371,17 +2410,17 @@ AccessibilityButtonState AccessibilityObject::checkboxOrRadioValue() const
 
     if (isToggleButton()) {
         const AtomicString& ariaPressed = getAttribute(aria_pressedAttr);
-        if (equalIgnoringCase(ariaPressed, "true"))
+        if (equalLettersIgnoringASCIICase(ariaPressed, "true"))
             return ButtonStateOn;
-        if (equalIgnoringCase(ariaPressed, "mixed"))
+        if (equalLettersIgnoringASCIICase(ariaPressed, "mixed"))
             return ButtonStateMixed;
         return ButtonStateOff;
     }
     
     const AtomicString& result = getAttribute(aria_checkedAttr);
-    if (equalIgnoringCase(result, "true"))
+    if (equalLettersIgnoringASCIICase(result, "true"))
         return ButtonStateOn;
-    if (equalIgnoringCase(result, "mixed")) {
+    if (equalLettersIgnoringASCIICase(result, "mixed")) {
         // ARIA says that radio, menuitemradio, and switch elements must NOT expose button state mixed.
         AccessibilityRole ariaRole = ariaRoleAttribute();
         if (ariaRole == RadioButtonRole || ariaRole == MenuItemRadioRole || ariaRole == SwitchRole)
@@ -2389,7 +2428,7 @@ AccessibilityButtonState AccessibilityObject::checkboxOrRadioValue() const
         return ButtonStateMixed;
     }
     
-    if (equalIgnoringCase(getAttribute(indeterminateAttr), "true"))
+    if (equalLettersIgnoringASCIICase(getAttribute(indeterminateAttr), "true"))
         return ButtonStateMixed;
     
     return ButtonStateOff;
@@ -2803,7 +2842,7 @@ bool AccessibilityObject::accessibilityIsIgnoredByDefault() const
 bool AccessibilityObject::isARIAHidden() const
 {
     for (const AccessibilityObject* object = this; object; object = object->parentObject()) {
-        if (equalIgnoringCase(object->getAttribute(aria_hiddenAttr), "true"))
+        if (equalLettersIgnoringASCIICase(object->getAttribute(aria_hiddenAttr), "true"))
             return true;
     }
     return false;
@@ -2901,6 +2940,18 @@ void AccessibilityObject::setPreventKeyboardDOMEventDispatch(bool on)
 }
 #endif
 
+bool AccessibilityObject::isStyleFormatGroup() const
+{
+    Node* node = this->node();
+    if (!node)
+        return false;
+    
+    return node->hasTagName(kbdTag) || node->hasTagName(codeTag)
+    || node->hasTagName(preTag) || node->hasTagName(sampTag)
+    || node->hasTagName(varTag) || node->hasTagName(citeTag)
+    || node->hasTagName(insTag) || node->hasTagName(delTag);
+}
+    
 bool AccessibilityObject::isContainedByPasswordField() const
 {
     Node* node = this->node();

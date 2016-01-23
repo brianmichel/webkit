@@ -167,31 +167,10 @@ namespace WebCore {
 static const unsigned INVALID_NUM_PARSED_PROPERTIES = UINT_MAX;
 static const double MAX_SCALE = 1000000;
 
-template <unsigned N>
-static bool equal(const CSSParserString& a, const char (&b)[N])
-{
-    unsigned length = N - 1; // Ignore the trailing null character
-    if (a.length() != length)
-        return false;
-
-    return a.is8Bit() ? WTF::equal(a.characters8(), reinterpret_cast<const LChar*>(b), length) : WTF::equal(a.characters16(), reinterpret_cast<const LChar*>(b), length);
-}
-
-template <unsigned N>
-static bool equalIgnoringCase(const CSSParserString& a, const char (&b)[N])
-{
-    unsigned length = N - 1; // Ignore the trailing null character
-    if (a.length() != length)
-        return false;
-
-    return a.is8Bit() ? WTF::equalIgnoringCase(b, a.characters8(), length) : WTF::equalIgnoringCase(b, a.characters16(), length);
-}
-
-template <unsigned N>
-static bool equalIgnoringCase(CSSParserValue& value, const char (&b)[N])
+template<unsigned length> bool equalLettersIgnoringASCIICase(const CSSParserValue& value, const char (&lowercaseLetters)[length])
 {
     ASSERT(value.unit == CSSPrimitiveValue::CSS_IDENT || value.unit == CSSPrimitiveValue::CSS_STRING);
-    return equalIgnoringCase(value.string, b);
+    return equalLettersIgnoringASCIICase(value.string, lowercaseLetters);
 }
 
 static bool hasPrefix(const char* string, unsigned length, const char* prefix)
@@ -1340,7 +1319,7 @@ RefPtr<CSSValueList> CSSParser::parseFontFaceValue(const AtomicString& string)
         valueList->append(value.releaseNonNull());
     }
 
-    return WTF::move(valueList);
+    return WTFMove(valueList);
 }
 
 CSSParser::ParseResult CSSParser::parseValue(MutableStyleProperties* declaration, CSSPropertyID propertyID, const String& string, bool important, CSSParserMode cssParserMode, StyleSheetContents* contextStyleSheet)
@@ -1550,7 +1529,7 @@ std::unique_ptr<MediaQuery> CSSParser::parseMediaQuery(const String& string)
     setupParser("@-webkit-mediaquery ", string, "} ");
     cssyyparse(this);
 
-    return WTF::move(m_mediaQuery);
+    return WTFMove(m_mediaQuery);
 }
 
 Vector<CSSParser::SourceSize> CSSParser::parseSizesAttribute(StringView string)
@@ -1568,7 +1547,7 @@ Vector<CSSParser::SourceSize> CSSParser::parseSizesAttribute(StringView string)
     if (!m_sourceSizeList)
         return result;
 
-    result = WTF::move(*m_sourceSizeList);
+    result = WTFMove(*m_sourceSizeList);
     m_sourceSizeList = nullptr;
     return result;
 }
@@ -1576,13 +1555,13 @@ Vector<CSSParser::SourceSize> CSSParser::parseSizesAttribute(StringView string)
 // FIXME(141289): The following two constructors are only needed because of a bug in MSVC 2013 (and prior).
 // We should remove this code as soon as a Visual Studio update that fixes this problem is released.
 CSSParser::SourceSize::SourceSize(CSSParser::SourceSize&& original)
-    : expression(WTF::move(original.expression))
+    : expression(WTFMove(original.expression))
     , length(original.length)
 {
 }
 
 CSSParser::SourceSize::SourceSize(std::unique_ptr<MediaQueryExp>&& origExp, RefPtr<CSSValue> value)
-    : expression(WTF::move(origExp))
+    : expression(WTFMove(origExp))
     , length(value)
 {
 }
@@ -1600,7 +1579,7 @@ CSSParser::SourceSize CSSParser::sourceSize(std::unique_ptr<MediaQueryExp>&& exp
     destroy(parserValue);
     // FIXME: Calling the constructor explicitly here to work around an MSVC bug.
     // For other compilers, we did not need to define the constructors and we could use aggregate initialization syntax.
-    return SourceSize(WTF::move(expression), WTF::move(value));
+    return SourceSize(WTFMove(expression), WTFMove(value));
 }
 
 static inline void filterProperties(bool important, const CSSParser::ParsedPropertyVector& input, Vector<CSSProperty, 256>& output, size_t& unusedEntries, std::bitset<numCSSProperties>& seenProperties, HashSet<AtomicString>& seenCustomProperties)
@@ -2150,7 +2129,7 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
                 if (!uri.isNull())
                     image = CSSImageValue::create(completeURL(uri));
 #if ENABLE(CSS_IMAGE_SET) && ENABLE(MOUSE_CURSOR_SCALE)
-            } else if (value->unit == CSSParserValue::Function && equalIgnoringCase(value->function->name, "-webkit-image-set(")) {
+            } else if (value->unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(value->function->name, "-webkit-image-set(")) {
                 image = parseImageSet();
                 if (!image)
                     break;
@@ -2283,7 +2262,7 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
                 return false;
         }
 #if ENABLE(CSS_IMAGE_SET)
-        else if (valueWithCalculation.value().unit == CSSParserValue::Function && equalIgnoringCase(valueWithCalculation.value().function->name, "-webkit-image-set(")) {
+        else if (valueWithCalculation.value().unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(valueWithCalculation.value().function->name, "-webkit-image-set(")) {
             parsedValue = parseImageSet();
             if (!parsedValue)
                 return false;
@@ -3340,19 +3319,19 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
 void CSSParser::addFillValue(RefPtr<CSSValue>& lval, Ref<CSSValue>&& rval)
 {
     if (!lval) {
-        lval = WTF::move(rval);
+        lval = WTFMove(rval);
         return;
     }
 
     if (lval->isBaseValueList()) {
-        downcast<CSSValueList>(*lval).append(WTF::move(rval));
+        downcast<CSSValueList>(*lval).append(WTFMove(rval));
         return;
     }
 
     auto list = CSSValueList::createCommaSeparated();
     list.get().append(lval.releaseNonNull());
-    list.get().append(WTF::move(rval));
-    lval = WTF::move(list);
+    list.get().append(WTFMove(rval));
+    lval = WTFMove(list);
 }
 
 static bool isContentDistributionKeyword(CSSValueID id)
@@ -3538,7 +3517,7 @@ bool CSSParser::parseNonElementSnapPoints(CSSPropertyID propId, bool important)
         else if (value->unit == CSSParserValue::Function
             && value->function->args
             && value->function->args->size() == 1
-            && equalIgnoringCase(value->function->name, "repeat(")) {
+            && equalLettersIgnoringASCIICase(value->function->name, "repeat(")) {
             ValueWithCalculation argumentWithCalculation(*value->function->args.get()->current());
             if (validateUnit(argumentWithCalculation, FLength | FPercent | FNonNeg)) {
                 values->append(CSSValuePool::singleton().createValue(LengthRepeat::create(createPrimitiveNumericValue(argumentWithCalculation))));
@@ -3762,19 +3741,19 @@ bool CSSParser::parseFillShorthand(CSSPropertyID propId, const CSSPropertyID* pr
 void CSSParser::addAnimationValue(RefPtr<CSSValue>& lval, Ref<CSSValue>&& rval)
 {
     if (!lval) {
-        lval = WTF::move(rval);
+        lval = WTFMove(rval);
         return;
     }
 
     if (is<CSSValueList>(*lval)) {
-        downcast<CSSValueList>(*lval).append(WTF::move(rval));
+        downcast<CSSValueList>(*lval).append(WTFMove(rval));
         return;
     }
 
     auto list = CSSValueList::createCommaSeparated();
     list.get().append(lval.releaseNonNull());
-    list.get().append(WTF::move(rval));
-    lval = WTF::move(list);
+    list.get().append(WTFMove(rval));
+    lval = WTFMove(list);
 }
 
 bool CSSParser::parseAnimationShorthand(CSSPropertyID propId, bool important)
@@ -4213,7 +4192,7 @@ bool CSSParser::parseAlt(CSSPropertyID propID, bool important)
         CSSParserValueList* args = currentValue.function->args.get();
         if (!args)
             return false;
-        if (equalIgnoringCase(currentValue.function->name, "attr("))
+        if (equalLettersIgnoringASCIICase(currentValue.function->name, "attr("))
             parsedValue = parseAttr(*args);
     }
     
@@ -4270,20 +4249,20 @@ bool CSSParser::parseContent(CSSPropertyID propId, bool important)
             CSSParserValueList* args = value->function->args.get();
             if (!args)
                 return false;
-            if (equalIgnoringCase(value->function->name, "attr(")) {
+            if (equalLettersIgnoringASCIICase(value->function->name, "attr(")) {
                 parsedValue = parseAttr(*args);
                 if (!parsedValue)
                     return false;
-            } else if (equalIgnoringCase(value->function->name, "counter(")) {
+            } else if (equalLettersIgnoringASCIICase(value->function->name, "counter(")) {
                 parsedValue = parseCounterContent(*args, false);
                 if (!parsedValue)
                     return false;
-            } else if (equalIgnoringCase(value->function->name, "counters(")) {
+            } else if (equalLettersIgnoringASCIICase(value->function->name, "counters(")) {
                 parsedValue = parseCounterContent(*args, true);
                 if (!parsedValue)
                     return false;
 #if ENABLE(CSS_IMAGE_SET)
-            } else if (equalIgnoringCase(value->function->name, "-webkit-image-set(")) {
+            } else if (equalLettersIgnoringASCIICase(value->function->name, "-webkit-image-set(")) {
                 parsedValue = parseImageSet();
                 if (!parsedValue)
                     return false;
@@ -4379,7 +4358,7 @@ bool CSSParser::parseFillImage(CSSParserValueList& valueList, RefPtr<CSSValue>& 
         return parseGeneratedImage(valueList, value);
     
 #if ENABLE(CSS_IMAGE_SET)
-    if (valueList.current()->unit == CSSParserValue::Function && equalIgnoringCase(valueList.current()->function->name, "-webkit-image-set(")) {
+    if (valueList.current()->unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(valueList.current()->function->name, "-webkit-image-set(")) {
         value = parseImageSet();
         if (value)
             return true;
@@ -4526,7 +4505,7 @@ void CSSParser::parse4ValuesFillPosition(CSSParserValueList& valueList, RefPtr<C
     if (isFillPositionKeyword(value4->getValueID()))
         return;
 
-    value1 = createPrimitiveValuePair(WTF::move(parsedValue1), WTF::move(parsedValue2));
+    value1 = createPrimitiveValuePair(WTFMove(parsedValue1), WTFMove(parsedValue2));
     value2 = createPrimitiveValuePair(value3.copyRef(), value4.copyRef());
 
     if (ident1 == CSSValueTop || ident1 == CSSValueBottom)
@@ -4570,7 +4549,7 @@ void CSSParser::parse3ValuesFillPosition(CSSParserValueList& valueList, RefPtr<C
             swapNeeded = true;
         }
         value1 = createPrimitiveValuePair(cssValuePool.createIdentifierValue(firstPositionKeyword), cssValuePool.createValue(50, CSSPrimitiveValue::CSS_PERCENTAGE));
-        value2 = createPrimitiveValuePair(WTF::move(parsedValue2), value3.copyRef());
+        value2 = createPrimitiveValuePair(WTFMove(parsedValue2), value3.copyRef());
     } else if (ident3 == CSSValueCenter) {
         if (isFillPositionKeyword(ident2))
             return;
@@ -4580,7 +4559,7 @@ void CSSParser::parse3ValuesFillPosition(CSSParserValueList& valueList, RefPtr<C
             secondPositionKeyword = CSSValueLeft;
             swapNeeded = true;
         }
-        value1 = createPrimitiveValuePair(WTF::move(parsedValue1), parsedValue2.copyRef());
+        value1 = createPrimitiveValuePair(WTFMove(parsedValue1), parsedValue2.copyRef());
         value2 = createPrimitiveValuePair(cssValuePool.createIdentifierValue(secondPositionKeyword), cssValuePool.createValue(50, CSSPrimitiveValue::CSS_PERCENTAGE));
     } else {
         RefPtr<CSSPrimitiveValue> firstPositionValue;
@@ -4609,7 +4588,7 @@ void CSSParser::parse3ValuesFillPosition(CSSParserValueList& valueList, RefPtr<C
         if (isValueConflictingWithCurrentEdge(ident1, secondPositionKeyword))
             return;
 
-        value1 = createPrimitiveValuePair(WTF::move(parsedValue1), firstPositionValue.copyRef());
+        value1 = createPrimitiveValuePair(WTFMove(parsedValue1), firstPositionValue.copyRef());
         value2 = createPrimitiveValuePair(cssValuePool.createIdentifierValue(secondPositionKeyword), secondPositionValue.copyRef());
     }
 
@@ -4692,9 +4671,9 @@ void CSSParser::parseFillPosition(CSSParserValueList& valueList, RefPtr<CSSValue
         return;
 
     if (numberOfValues == 3)
-        parse3ValuesFillPosition(valueList, value1, value2, WTF::move(parsedValue1), WTF::move(parsedValue2));
+        parse3ValuesFillPosition(valueList, value1, value2, WTFMove(parsedValue1), WTFMove(parsedValue2));
     else
-        parse4ValuesFillPosition(valueList, value1, value2, WTF::move(parsedValue1), WTF::move(parsedValue2));
+        parse4ValuesFillPosition(valueList, value1, value2, WTFMove(parsedValue1), WTFMove(parsedValue2));
 }
 
 void CSSParser::parse2ValuesFillPosition(CSSParserValueList& valueList, RefPtr<CSSValue>& value1, RefPtr<CSSValue>& value2)
@@ -4824,7 +4803,7 @@ RefPtr<CSSValue> CSSParser::parseFillSize(CSSPropertyID propId, bool& allowComma
 
     if (!parsedValue2)
         return parsedValue1;
-    return createPrimitiveValuePair(WTF::move(parsedValue1), WTF::move(parsedValue2), propId == CSSPropertyWebkitBackgroundSize ? Pair::IdenticalValueEncoding::Coalesce : Pair::IdenticalValueEncoding::DoNotCoalesce);
+    return createPrimitiveValuePair(WTFMove(parsedValue1), WTFMove(parsedValue2), propId == CSSPropertyWebkitBackgroundSize ? Pair::IdenticalValueEncoding::Coalesce : Pair::IdenticalValueEncoding::DoNotCoalesce);
 }
 
 bool CSSParser::parseFillProperty(CSSPropertyID propId, CSSPropertyID& propId1, CSSPropertyID& propId2,
@@ -5059,7 +5038,7 @@ RefPtr<CSSValue> CSSParser::parseAnimationName()
 {
     CSSParserValue& value = *m_valueList->current();
     if (value.unit == CSSPrimitiveValue::CSS_STRING || value.unit == CSSPrimitiveValue::CSS_IDENT) {
-        if (value.id == CSSValueNone || (value.unit == CSSPrimitiveValue::CSS_STRING && equalIgnoringCase(value, "none"))) {
+        if (value.id == CSSValueNone || (value.unit == CSSPrimitiveValue::CSS_STRING && equalLettersIgnoringASCIICase(value, "none"))) {
             return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
         }
         return createPrimitiveStringValue(value);
@@ -5087,7 +5066,7 @@ RefPtr<CSSValue> CSSParser::parseAnimationTrigger()
 
     CSSParserValueList* args = value->function->args.get();
 
-    if (equalIgnoringCase(value->function->name, "container-scroll(")) {
+    if (equalLettersIgnoringASCIICase(value->function->name, "container-scroll(")) {
         if (!args || (args->size() != 1 && args->size() != 3))
             return nullptr;
 
@@ -5128,11 +5107,11 @@ RefPtr<CSSValue> CSSParser::parseAnimationProperty(AnimationParseContext& contex
     CSSPropertyID result = cssPropertyID(value.string);
     if (result && result != CSSPropertyAll) // "all" value in animation is not equivalent to the all property.
         return CSSValuePool::singleton().createIdentifierValue(result);
-    if (equalIgnoringCase(value, "all")) {
+    if (equalLettersIgnoringASCIICase(value, "all")) {
         context.sawAnimationPropertyKeyword();
         return CSSValuePool::singleton().createIdentifierValue(CSSValueAll);
     }
-    if (equalIgnoringCase(value, "none")) {
+    if (equalLettersIgnoringASCIICase(value, "none")) {
         context.commitAnimationPropertyKeyword();
         context.sawAnimationPropertyKeyword();
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
@@ -5151,9 +5130,9 @@ Vector<double> CSSParser::parseKeyframeSelector(const String& selector) {
         String cur = strings[i].stripWhiteSpace();
 
         // For now the syntax MUST be 'xxx%' or 'from' or 'to', where xxx is a legal floating point number
-        if (equalIgnoringCase(cur, "from"))
+        if (equalLettersIgnoringASCIICase(cur, "from"))
             key = 0;
-        else if (equalIgnoringCase(cur, "to"))
+        else if (equalLettersIgnoringASCIICase(cur, "to"))
             key = 1;
         else if (cur.endsWith('%')) {
             double k = cur.substring(0, cur.length() - 1).toDouble();
@@ -5218,7 +5197,7 @@ RefPtr<CSSValue> CSSParser::parseAnimationTimingFunction()
 
     CSSParserValueList* args = value.function->args.get();
 
-    if (equalIgnoringCase(value.function->name, "steps(")) {
+    if (equalLettersIgnoringASCIICase(value.function->name, "steps(")) {
         // For steps, 1 or 2 params must be specified (comma-separated)
         if (!args || (args->size() != 1 && args->size() != 3))
             return nullptr;
@@ -5249,7 +5228,7 @@ RefPtr<CSSValue> CSSParser::parseAnimationTimingFunction()
         return CSSStepsTimingFunctionValue::create(numSteps, stepAtStart);
     }
 
-    if (equalIgnoringCase(value.function->name, "cubic-bezier(")) {
+    if (equalLettersIgnoringASCIICase(value.function->name, "cubic-bezier(")) {
         // For cubic bezier, 4 values must be specified.
         if (!args || args->size() != 7)
             return nullptr;
@@ -5827,7 +5806,7 @@ RefPtr<CSSValue> CSSParser::parseGridTrackList()
     while (CSSParserValue* currentValue = m_valueList->current()) {
         if (isForwardSlashOperator(*currentValue))
             break;
-        if (currentValue->unit == CSSParserValue::Function && equalIgnoringCase(currentValue->function->name, "repeat(")) {
+        if (currentValue->unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(currentValue->function->name, "repeat(")) {
             if (!parseGridTrackRepeatFunction(*values))
                 return nullptr;
         } else {
@@ -5913,7 +5892,7 @@ RefPtr<CSSValue> CSSParser::parseGridTrackSize(CSSParserValueList& inputList)
     if (currentValue.id == CSSValueAuto)
         return CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
 
-    if (currentValue.unit == CSSParserValue::Function && equalIgnoringCase(currentValue.function->name, "minmax(")) {
+    if (currentValue.unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(currentValue.function->name, "minmax(")) {
         // The spec defines the following grammar: minmax( <track-breadth> , <track-breadth> )
         CSSParserValueList* arguments = currentValue.function->args.get();
         if (!arguments || arguments->size() != 3 || !isComma(arguments->valueAt(1)))
@@ -6066,7 +6045,7 @@ bool CSSParser::parseDashboardRegions(CSSPropertyID propId, bool important)
         // dashboard-region(label, type) or dashboard-region(label type)
         // dashboard-region(label, type) or dashboard-region(label type)
         CSSParserValueList* args = value->function->args.get();
-        if (!equalIgnoringCase(value->function->name, "dashboard-region(") || !args) {
+        if (!equalLettersIgnoringASCIICase(value->function->name, "dashboard-region(") || !args) {
             valid = false;
             break;
         }
@@ -6095,9 +6074,9 @@ bool CSSParser::parseDashboardRegions(CSSPropertyID propId, bool important)
             break;
         }
 
-        if (equalIgnoringCase(*arg, "circle"))
+        if (equalLettersIgnoringASCIICase(*arg, "circle"))
             region->m_isCircle = true;
-        else if (equalIgnoringCase(*arg, "rectangle"))
+        else if (equalLettersIgnoringASCIICase(*arg, "rectangle"))
             region->m_isRectangle = true;
         else {
             valid = false;
@@ -6145,7 +6124,7 @@ bool CSSParser::parseDashboardRegions(CSSPropertyID propId, bool important)
     }
 
     if (valid)
-        addProperty(propId, CSSValuePool::singleton().createValue(RefPtr<DashboardRegion>(WTF::move(firstRegion))), important);
+        addProperty(propId, CSSValuePool::singleton().createValue(RefPtr<DashboardRegion>(WTFMove(firstRegion))), important);
 
     return valid;
 }
@@ -6325,7 +6304,7 @@ bool CSSParser::parseClipShape(CSSPropertyID propId, bool important)
     CSSParserValue& value = *m_valueList->current();
     CSSParserValueList* args = value.function->args.get();
 
-    if (!equalIgnoringCase(value.function->name, "rect(") || !args)
+    if (!equalLettersIgnoringASCIICase(value.function->name, "rect(") || !args)
         return false;
 
     // rect(t, r, b, l) || rect(t r b l)
@@ -6361,7 +6340,7 @@ bool CSSParser::parseClipShape(CSSPropertyID propId, bool important)
         i++;
     }
     if (valid) {
-        addProperty(propId, CSSValuePool::singleton().createValue(WTF::move(rect)), important);
+        addProperty(propId, CSSValuePool::singleton().createValue(WTFMove(rect)), important);
         m_valueList->next();
         return true;
     }
@@ -6454,7 +6433,7 @@ RefPtr<CSSBasicShape> CSSParser::parseBasicShapeInset(CSSParserValueList& args)
     Vector<RefPtr<CSSPrimitiveValue> > widthArguments;
     bool hasRoundedInset = false;
     while (argument) {
-        if (argument->unit == CSSPrimitiveValue::CSS_IDENT && equalIgnoringCase(argument->string, "round")) {
+        if (argument->unit == CSSPrimitiveValue::CSS_IDENT && equalLettersIgnoringASCIICase(argument->string, "round")) {
             hasRoundedInset = true;
             break;
         }
@@ -6668,7 +6647,7 @@ RefPtr<CSSBasicShape> CSSParser::parseBasicShapePath(CSSParserValueList& args)
     if (!buildSVGPathByteStreamFromString(argument->string, *byteStream, UnalteredParsing))
         return nullptr;
 
-    RefPtr<CSSBasicShapePath> shape = CSSBasicShapePath::create(WTF::move(byteStream));
+    RefPtr<CSSBasicShapePath> shape = CSSBasicShapePath::create(WTFMove(byteStream));
     shape->setWindRule(windRule);
 
     args.next();
@@ -6779,15 +6758,15 @@ RefPtr<CSSPrimitiveValue> CSSParser::parseBasicShape()
         return nullptr;
 
     RefPtr<CSSBasicShape> shape;
-    if (equalIgnoringCase(value.function->name, "circle("))
+    if (equalLettersIgnoringASCIICase(value.function->name, "circle("))
         shape = parseBasicShapeCircle(*args);
-    else if (equalIgnoringCase(value.function->name, "ellipse("))
+    else if (equalLettersIgnoringASCIICase(value.function->name, "ellipse("))
         shape = parseBasicShapeEllipse(*args);
-    else if (equalIgnoringCase(value.function->name, "polygon("))
+    else if (equalLettersIgnoringASCIICase(value.function->name, "polygon("))
         shape = parseBasicShapePolygon(*args);
-    else if (equalIgnoringCase(value.function->name, "path("))
+    else if (equalLettersIgnoringASCIICase(value.function->name, "path("))
         shape = parseBasicShapePath(*args);
-    else if (equalIgnoringCase(value.function->name, "inset("))
+    else if (equalLettersIgnoringASCIICase(value.function->name, "inset("))
         shape = parseBasicShapeInset(*args);
 
     if (!shape)
@@ -6891,7 +6870,7 @@ void CSSParser::parseSystemFont(bool important)
     addProperty(CSSPropertyFontSize, CSSValuePool::singleton().createValue(fontDescription.specifiedSize(), CSSPrimitiveValue::CSS_PX), important);
     Ref<CSSValueList> fontFamilyList = CSSValueList::createCommaSeparated();
     fontFamilyList->append(CSSValuePool::singleton().createFontFamilyValue(fontDescription.familyAt(0), FromSystemFontID::Yes));
-    addProperty(CSSPropertyFontFamily, WTF::move(fontFamilyList), important);
+    addProperty(CSSPropertyFontFamily, WTFMove(fontFamilyList), important);
     addProperty(CSSPropertyFontVariantCaps, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important);
     addProperty(CSSPropertyLineHeight, CSSValuePool::singleton().createIdentifierValue(CSSValueNormal), important);
 }
@@ -7115,7 +7094,7 @@ bool CSSParser::parseFontFaceSrcURI(CSSValueList& valueList)
         return true;
     }
 
-    if (value->unit != CSSParserValue::Function || !equalIgnoringCase(value->function->name, "format("))
+    if (value->unit != CSSParserValue::Function || !equalLettersIgnoringASCIICase(value->function->name, "format("))
         return false;
 
     // FIXME: http://www.w3.org/TR/2011/WD-css3-fonts-20111004/ says that format() contains a comma-separated list of strings,
@@ -7167,7 +7146,7 @@ bool CSSParser::parseFontFaceSrc()
         if (value->unit == CSSPrimitiveValue::CSS_URI) {
             if (!parseFontFaceSrcURI(*values))
                 return false;
-        } else if (value->unit == CSSParserValue::Function && equalIgnoringCase(value->function->name, "local(")) {
+        } else if (value->unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(value->function->name, "local(")) {
             if (!parseFontFaceSrcLocal(*values))
                 return false;
         } else
@@ -7593,9 +7572,9 @@ inline double CSSParser::parsedDouble(ValueWithCalculation& valueWithCalculation
 
 bool CSSParser::isCalculation(CSSParserValue& value)
 {
-    return (value.unit == CSSParserValue::Function)
-        && (equalIgnoringCase(value.function->name, "calc(")
-            || equalIgnoringCase(value.function->name, "-webkit-calc("));
+    return value.unit == CSSParserValue::Function
+        && (equalLettersIgnoringASCIICase(value.function->name, "calc(")
+            || equalLettersIgnoringASCIICase(value.function->name, "-webkit-calc("));
 }
 
 inline int CSSParser::colorIntFromValue(ValueWithCalculation& valueWithCalculation)
@@ -7721,7 +7700,7 @@ bool CSSParser::parseColorFromValue(CSSParserValue& value, RGBA32& c)
     } else if (value.unit == CSSParserValue::Function
         && value.function->args
         && value.function->args->size() == 5 /* rgb + two commas */
-        && equalIgnoringCase(value.function->name, "rgb(")) {
+        && equalLettersIgnoringASCIICase(value.function->name, "rgb(")) {
         int colorValues[3];
         if (!parseColorParameters(value, colorValues, false))
             return false;
@@ -7730,7 +7709,7 @@ bool CSSParser::parseColorFromValue(CSSParserValue& value, RGBA32& c)
         if (value.unit == CSSParserValue::Function
             && value.function->args
             && value.function->args->size() == 7 /* rgba + three commas */
-            && equalIgnoringCase(value.function->name, "rgba(")) {
+            && equalLettersIgnoringASCIICase(value.function->name, "rgba(")) {
             int colorValues[4];
             if (!parseColorParameters(value, colorValues, true))
                 return false;
@@ -7738,7 +7717,7 @@ bool CSSParser::parseColorFromValue(CSSParserValue& value, RGBA32& c)
         } else if (value.unit == CSSParserValue::Function
             && value.function->args
             && value.function->args->size() == 5 /* hsl + two commas */
-            && equalIgnoringCase(value.function->name, "hsl(")) {
+            && equalLettersIgnoringASCIICase(value.function->name, "hsl(")) {
             double colorValues[3];
             if (!parseHSLParameters(value, colorValues, false))
                 return false;
@@ -7746,7 +7725,7 @@ bool CSSParser::parseColorFromValue(CSSParserValue& value, RGBA32& c)
         } else if (value.unit == CSSParserValue::Function
             && value.function->args
             && value.function->args->size() == 7 /* hsla + three commas */
-            && equalIgnoringCase(value.function->name, "hsla(")) {
+            && equalLettersIgnoringASCIICase(value.function->name, "hsla(")) {
             double colorValues[4];
             if (!parseHSLParameters(value, colorValues, true))
                 return false;
@@ -8179,7 +8158,7 @@ bool CSSParser::parseBorderImage(CSSPropertyID propId, RefPtr<CSSValue>& result,
                 else
                     return false;
 #if ENABLE(CSS_IMAGE_SET)
-            } else if (currentValue->unit == CSSParserValue::Function && equalIgnoringCase(currentValue->function->name, "-webkit-image-set(")) {
+            } else if (currentValue->unit == CSSParserValue::Function && equalLettersIgnoringASCIICase(currentValue->function->name, "-webkit-image-set(")) {
                 RefPtr<CSSValue> value = parseImageSet();
                 if (value)
                     context.commitImage(value.release());
@@ -8265,7 +8244,7 @@ bool CSSParser::parseBorderImageRepeat(RefPtr<CSSValue>& result)
     } else
         secondValue = firstValue;
 
-    result = createPrimitiveValuePair(WTF::move(firstValue), WTF::move(secondValue));
+    result = createPrimitiveValuePair(WTFMove(firstValue), WTFMove(secondValue));
     return true;
 }
 
@@ -8328,7 +8307,7 @@ public:
         quad->setLeft(m_left);
 
         // Make our new border image value now.
-        return CSSBorderImageSliceValue::create(CSSValuePool::singleton().createValue(WTF::move(quad)), m_fill);
+        return CSSBorderImageSliceValue::create(CSSValuePool::singleton().createValue(WTFMove(quad)), m_fill);
     }
 
 private:
@@ -8446,7 +8425,7 @@ public:
         quad->setLeft(m_left);
 
         // Make our new value now.
-        return CSSValuePool::singleton().createValue(WTF::move(quad));
+        return CSSValuePool::singleton().createValue(WTFMove(quad));
     }
 
 private:
@@ -8638,13 +8617,13 @@ static PassRefPtr<CSSPrimitiveValue> parseDeprecatedGradientPoint(CSSParserValue
 {
     RefPtr<CSSPrimitiveValue> result;
     if (value.unit == CSSPrimitiveValue::CSS_IDENT) {
-        if ((equalIgnoringCase(value, "left") && horizontal)
-            || (equalIgnoringCase(value, "top") && !horizontal))
+        if ((equalLettersIgnoringASCIICase(value, "left") && horizontal)
+            || (equalLettersIgnoringASCIICase(value, "top") && !horizontal))
             result = CSSValuePool::singleton().createValue(0., CSSPrimitiveValue::CSS_PERCENTAGE);
-        else if ((equalIgnoringCase(value, "right") && horizontal)
-            || (equalIgnoringCase(value, "bottom") && !horizontal))
+        else if ((equalLettersIgnoringASCIICase(value, "right") && horizontal)
+            || (equalLettersIgnoringASCIICase(value, "bottom") && !horizontal))
             result = CSSValuePool::singleton().createValue(100., CSSPrimitiveValue::CSS_PERCENTAGE);
-        else if (equalIgnoringCase(value, "center"))
+        else if (equalLettersIgnoringASCIICase(value, "center"))
             result = CSSValuePool::singleton().createValue(50., CSSPrimitiveValue::CSS_PERCENTAGE);
     } else if (value.unit == CSSPrimitiveValue::CSS_NUMBER || value.unit == CSSPrimitiveValue::CSS_PERCENTAGE)
         result = CSSValuePool::singleton().createValue(value.fValue, static_cast<CSSPrimitiveValue::UnitTypes>(value.unit));
@@ -8656,22 +8635,22 @@ static bool parseDeprecatedGradientColorStop(CSSParser& parser, CSSParserValue& 
     if (value.unit != CSSParserValue::Function)
         return false;
 
-    if (!equalIgnoringCase(value.function->name, "from(")
-        && !equalIgnoringCase(value.function->name, "to(")
-        && !equalIgnoringCase(value.function->name, "color-stop("))
+    if (!equalLettersIgnoringASCIICase(value.function->name, "from(")
+        && !equalLettersIgnoringASCIICase(value.function->name, "to(")
+        && !equalLettersIgnoringASCIICase(value.function->name, "color-stop("))
         return false;
 
     CSSParserValueList* args = value.function->args.get();
     if (!args)
         return false;
 
-    if (equalIgnoringCase(value.function->name, "from(")
-        || equalIgnoringCase(value.function->name, "to(")) {
+    if (equalLettersIgnoringASCIICase(value.function->name, "from(")
+        || equalLettersIgnoringASCIICase(value.function->name, "to(")) {
         // The "from" and "to" stops expect 1 argument.
         if (args->size() != 1)
             return false;
 
-        if (equalIgnoringCase(value.function->name, "from("))
+        if (equalLettersIgnoringASCIICase(value.function->name, "from("))
             stop.m_position = CSSValuePool::singleton().createValue(0, CSSPrimitiveValue::CSS_NUMBER);
         else
             stop.m_position = CSSValuePool::singleton().createValue(1, CSSPrimitiveValue::CSS_NUMBER);
@@ -8686,7 +8665,7 @@ static bool parseDeprecatedGradientColorStop(CSSParser& parser, CSSParserValue& 
     }
 
     // The "color-stop" function expects 3 arguments.
-    if (equalIgnoringCase(value.function->name, "color-stop(")) {
+    if (equalLettersIgnoringASCIICase(value.function->name, "color-stop(")) {
         if (args->size() != 3)
             return false;
 
@@ -8727,9 +8706,9 @@ bool CSSParser::parseDeprecatedGradient(CSSParserValueList& valueList, RefPtr<CS
     CSSParserValue* argument = args->current();
     if (!argument || argument->unit != CSSPrimitiveValue::CSS_IDENT)
         return false;
-    if (equalIgnoringCase(*argument, "linear"))
+    if (equalLettersIgnoringASCIICase(*argument, "linear"))
         gradientType = CSSDeprecatedLinearGradient;
-    else if (equalIgnoringCase(*argument, "radial"))
+    else if (equalLettersIgnoringASCIICase(*argument, "radial"))
         gradientType = CSSDeprecatedRadialGradient;
     else
         return false;
@@ -9090,7 +9069,7 @@ bool CSSParser::parseLinearGradient(CSSParserValueList& valueList, RefPtr<CSSVal
 
         args->next();
         expectComma = true;
-    } else if (firstArgumentWithCalculation.value().unit == CSSPrimitiveValue::CSS_IDENT && equalIgnoringCase(firstArgumentWithCalculation, "to")) {
+    } else if (firstArgumentWithCalculation.value().unit == CSSPrimitiveValue::CSS_IDENT && equalLettersIgnoringASCIICase(firstArgumentWithCalculation, "to")) {
         // to [ [left | right] || [top | bottom] ]
         CSSParserValue* nextArgument = args->next();
         if (!nextArgument)
@@ -9239,7 +9218,7 @@ bool CSSParser::parseRadialGradient(CSSParserValueList& valueList, RefPtr<CSSVal
     // at <position>
     RefPtr<CSSValue> centerX;
     RefPtr<CSSValue> centerY;
-    if (argument->unit == CSSPrimitiveValue::CSS_IDENT && equalIgnoringCase(*argument, "at")) {
+    if (argument->unit == CSSPrimitiveValue::CSS_IDENT && equalLettersIgnoringASCIICase(*argument, "at")) {
         argument = args->next();
         if (!argument)
             return false;
@@ -9325,20 +9304,20 @@ bool CSSParser::isGeneratedImageValue(CSSParserValue& value) const
     if (value.unit != CSSParserValue::Function)
         return false;
 
-    return equalIgnoringCase(value.function->name, "-webkit-gradient(")
-        || equalIgnoringCase(value.function->name, "-webkit-linear-gradient(")
-        || equalIgnoringCase(value.function->name, "linear-gradient(")
-        || equalIgnoringCase(value.function->name, "-webkit-repeating-linear-gradient(")
-        || equalIgnoringCase(value.function->name, "repeating-linear-gradient(")
-        || equalIgnoringCase(value.function->name, "-webkit-radial-gradient(")
-        || equalIgnoringCase(value.function->name, "radial-gradient(")
-        || equalIgnoringCase(value.function->name, "-webkit-repeating-radial-gradient(")
-        || equalIgnoringCase(value.function->name, "repeating-radial-gradient(")
-        || equalIgnoringCase(value.function->name, "-webkit-canvas(")
-        || equalIgnoringCase(value.function->name, "-webkit-cross-fade(")
-        || equalIgnoringCase(value.function->name, "filter(")
-        || equalIgnoringCase(value.function->name, "-webkit-filter(")
-        || equalIgnoringCase(value.function->name, "-webkit-named-image(");
+    return equalLettersIgnoringASCIICase(value.function->name, "-webkit-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-linear-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "linear-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-repeating-linear-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "repeating-linear-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-radial-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "radial-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-repeating-radial-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "repeating-radial-gradient(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-canvas(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-cross-fade(")
+        || equalLettersIgnoringASCIICase(value.function->name, "filter(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-filter(")
+        || equalLettersIgnoringASCIICase(value.function->name, "-webkit-named-image(");
 }
 
 bool CSSParser::parseGeneratedImage(CSSParserValueList& valueList, RefPtr<CSSValue>& value)
@@ -9348,43 +9327,43 @@ bool CSSParser::parseGeneratedImage(CSSParserValueList& valueList, RefPtr<CSSVal
     if (parserValue.unit != CSSParserValue::Function)
         return false;
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-gradient("))
         return parseDeprecatedGradient(valueList, value);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-linear-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-linear-gradient("))
         return parseDeprecatedLinearGradient(valueList, value, NonRepeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "linear-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "linear-gradient("))
         return parseLinearGradient(valueList, value, NonRepeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-repeating-linear-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-repeating-linear-gradient("))
         return parseDeprecatedLinearGradient(valueList, value, Repeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "repeating-linear-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "repeating-linear-gradient("))
         return parseLinearGradient(valueList, value, Repeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-radial-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-radial-gradient("))
         return parseDeprecatedRadialGradient(valueList, value, NonRepeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "radial-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "radial-gradient("))
         return parseRadialGradient(valueList, value, NonRepeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-repeating-radial-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-repeating-radial-gradient("))
         return parseDeprecatedRadialGradient(valueList, value, Repeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "repeating-radial-gradient("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "repeating-radial-gradient("))
         return parseRadialGradient(valueList, value, Repeating);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-canvas("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-canvas("))
         return parseCanvas(valueList, value);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-cross-fade("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-cross-fade("))
         return parseCrossfade(valueList, value);
 
-    if (equalIgnoringCase(parserValue.function->name, "filter(") || equalIgnoringCase(parserValue.function->name, "-webkit-filter("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "filter(") || equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-filter("))
         return parseFilterImage(valueList, value);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-named-image("))
+    if (equalLettersIgnoringASCIICase(parserValue.function->name, "-webkit-named-image("))
         return parseNamedImage(valueList, value);
 
     return false;
@@ -9957,25 +9936,25 @@ bool CSSParser::isCompositeOperator(CSSValueID valueID)
 
 static void filterInfoForName(const CSSParserString& name, WebKitCSSFilterValue::FilterOperationType& filterType, unsigned& maximumArgumentCount)
 {
-    if (equalIgnoringCase(name, "grayscale("))
+    if (equalLettersIgnoringASCIICase(name, "grayscale("))
         filterType = WebKitCSSFilterValue::GrayscaleFilterOperation;
-    else if (equalIgnoringCase(name, "sepia("))
+    else if (equalLettersIgnoringASCIICase(name, "sepia("))
         filterType = WebKitCSSFilterValue::SepiaFilterOperation;
-    else if (equalIgnoringCase(name, "saturate("))
+    else if (equalLettersIgnoringASCIICase(name, "saturate("))
         filterType = WebKitCSSFilterValue::SaturateFilterOperation;
-    else if (equalIgnoringCase(name, "hue-rotate("))
+    else if (equalLettersIgnoringASCIICase(name, "hue-rotate("))
         filterType = WebKitCSSFilterValue::HueRotateFilterOperation;
-    else if (equalIgnoringCase(name, "invert("))
+    else if (equalLettersIgnoringASCIICase(name, "invert("))
         filterType = WebKitCSSFilterValue::InvertFilterOperation;
-    else if (equalIgnoringCase(name, "opacity("))
+    else if (equalLettersIgnoringASCIICase(name, "opacity("))
         filterType = WebKitCSSFilterValue::OpacityFilterOperation;
-    else if (equalIgnoringCase(name, "brightness("))
+    else if (equalLettersIgnoringASCIICase(name, "brightness("))
         filterType = WebKitCSSFilterValue::BrightnessFilterOperation;
-    else if (equalIgnoringCase(name, "contrast("))
+    else if (equalLettersIgnoringASCIICase(name, "contrast("))
         filterType = WebKitCSSFilterValue::ContrastFilterOperation;
-    else if (equalIgnoringCase(name, "blur("))
+    else if (equalLettersIgnoringASCIICase(name, "blur("))
         filterType = WebKitCSSFilterValue::BlurFilterOperation;
-    else if (equalIgnoringCase(name, "drop-shadow(")) {
+    else if (equalLettersIgnoringASCIICase(name, "drop-shadow(")) {
         filterType = WebKitCSSFilterValue::DropShadowFilterOperation;
         maximumArgumentCount = 4;  // x-offset, y-offset, blur-radius, color -- spread and inset style not allowed.
     }
@@ -10011,7 +9990,7 @@ RefPtr<WebKitCSSFilterValue> CSSParser::parseBuiltinFilterArguments(CSSParserVal
                     return nullptr;
             }
 
-            filterValue->append(WTF::move(primitiveValue));
+            filterValue->append(WTFMove(primitiveValue));
         }
         break;
     }
@@ -10116,11 +10095,11 @@ bool CSSParser::parseFilter(CSSParserValueList& valueList, RefPtr<CSSValue>& res
 #if ENABLE(CSS_REGIONS)
 static bool validFlowName(const String& flowName)
 {
-    return !(equalIgnoringCase(flowName, "auto")
-            || equalIgnoringCase(flowName, "default")
-            || equalIgnoringCase(flowName, "inherit")
-            || equalIgnoringCase(flowName, "initial")
-            || equalIgnoringCase(flowName, "none"));
+    return !(equalLettersIgnoringASCIICase(flowName, "auto")
+        || equalLettersIgnoringASCIICase(flowName, "default")
+        || equalLettersIgnoringASCIICase(flowName, "inherit")
+        || equalLettersIgnoringASCIICase(flowName, "initial")
+        || equalLettersIgnoringASCIICase(flowName, "none"));
 }
 #endif
 
@@ -10589,7 +10568,7 @@ bool CSSParser::parseFontFeatureTag(CSSValueList& settings)
             m_valueList->next();
         }
     }
-    settings.append(CSSFontFeatureValue::create(WTF::move(tag), tagValue));
+    settings.append(CSSFontFeatureValue::create(WTFMove(tag), tagValue));
     return true;
 }
 
@@ -10710,7 +10689,7 @@ bool CSSParser::parseFontVariantLigatures(bool important, bool unknownIsFailure,
     if (!values->length())
         return !unknownIsFailure;
 
-    addProperty(CSSPropertyFontVariantLigatures, WTF::move(values), important, implicit);
+    addProperty(CSSPropertyFontVariantLigatures, WTFMove(values), important, implicit);
     return true;
 }
 
@@ -10811,7 +10790,7 @@ bool CSSParser::parseFontVariantNumeric(bool important, bool unknownIsFailure, b
     if (!values->length())
         return !unknownIsFailure;
 
-    addProperty(CSSPropertyFontVariantNumeric, WTF::move(values), important, implicit);
+    addProperty(CSSPropertyFontVariantNumeric, WTFMove(values), important, implicit);
     return true;
 }
 
@@ -10905,7 +10884,7 @@ bool CSSParser::parseFontVariantEastAsian(bool important, bool unknownIsFailure,
     if (!values->length())
         return !unknownIsFailure;
 
-    addProperty(CSSPropertyFontVariantEastAsian, WTF::move(values), important, implicit);
+    addProperty(CSSPropertyFontVariantEastAsian, WTFMove(values), important, implicit);
     return true;
 }
 
@@ -12364,7 +12343,7 @@ restartAfterComment:
                 }
             }
         }
-        if (m_parsingMode == NthChildMode && m_token == IDENT && yylval->string.length() == 2 && yylval->string.equalIgnoringCase("of")) {
+        if (m_parsingMode == NthChildMode && m_token == IDENT && yylval->string.length() == 2 && equalLettersIgnoringASCIICase(yylval->string, "of")) {
             m_parsingMode = NormalMode;
             m_token = NTHCHILDSELECTORSEPARATOR;
         }
@@ -12647,7 +12626,7 @@ restartAfterComment:
             parseIdentifier(result, yylval->string, hasEscape);
             m_token = IDENT;
         }
-        if (m_parsingMode == NthChildMode && m_token == IDENT && yylval->string.length() == 2 && yylval->string.equalIgnoringCase("of")) {
+        if (m_parsingMode == NthChildMode && m_token == IDENT && yylval->string.length() == 2 && equalLettersIgnoringASCIICase(yylval->string, "of")) {
             m_parsingMode = NormalMode;
             m_token = NTHCHILDSELECTORSEPARATOR;
         }
@@ -12839,7 +12818,7 @@ void CSSParser::logError(const String& message, int lineNumber, int columnNumber
 
 RefPtr<StyleRuleKeyframes> CSSParser::createKeyframesRule(const String& name, std::unique_ptr<Vector<RefPtr<StyleKeyframe>>> popKeyframes)
 {
-    std::unique_ptr<Vector<RefPtr<StyleKeyframe>>> keyframes = WTF::move(popKeyframes);
+    std::unique_ptr<Vector<RefPtr<StyleKeyframe>>> keyframes = WTFMove(popKeyframes);
     m_allowImportRules = m_allowNamespaceDeclarations = false;
     RefPtr<StyleRuleKeyframes> rule = StyleRuleKeyframes::create();
     for (size_t i = 0; i < keyframes->size(); ++i)
@@ -12945,15 +12924,15 @@ std::unique_ptr<CSSParserSelector> CSSParser::rewriteSpecifiers(std::unique_ptr<
 {
     if (newSpecifier->isCustomPseudoElement() || newSpecifier->isPseudoElementCueFunction()) {
         // Unknown pseudo element always goes at the top of selector chain.
-        newSpecifier->appendTagHistory(CSSSelector::ShadowDescendant, WTF::move(specifiers));
+        newSpecifier->appendTagHistory(CSSSelector::ShadowDescendant, WTFMove(specifiers));
         return newSpecifier;
     }
     if (specifiers->isCustomPseudoElement()) {
         // Specifiers for unknown pseudo element go right behind it in the chain.
-        specifiers->insertTagHistory(CSSSelector::SubSelector, WTF::move(newSpecifier), CSSSelector::ShadowDescendant);
+        specifiers->insertTagHistory(CSSSelector::SubSelector, WTFMove(newSpecifier), CSSSelector::ShadowDescendant);
         return specifiers;
     }
-    specifiers->appendTagHistory(CSSSelector::SubSelector, WTF::move(newSpecifier));
+    specifiers->appendTagHistory(CSSSelector::SubSelector, WTFMove(newSpecifier));
     return specifiers;
 }
 
@@ -12965,7 +12944,7 @@ RefPtr<StyleRuleBase> CSSParser::createPageRule(std::unique_ptr<CSSParserSelecto
     if (pageSelector) {
         rule = StyleRulePage::create(createStyleProperties());
         Vector<std::unique_ptr<CSSParserSelector>> selectorVector;
-        selectorVector.append(WTF::move(pageSelector));
+        selectorVector.append(WTFMove(pageSelector));
         rule->parserAdoptSelectorVector(selectorVector);
         processAndAddNewRuleToSourceTreeIfNeeded();
     } else
@@ -12978,7 +12957,7 @@ std::unique_ptr<Vector<std::unique_ptr<CSSParserSelector>>> CSSParser::createSel
 {
     if (m_recycledSelectorVector) {
         m_recycledSelectorVector->shrink(0);
-        return WTF::move(m_recycledSelectorVector);
+        return WTFMove(m_recycledSelectorVector);
     }
     return std::make_unique<Vector<std::unique_ptr<CSSParserSelector>>>();
 }
@@ -12986,7 +12965,7 @@ std::unique_ptr<Vector<std::unique_ptr<CSSParserSelector>>> CSSParser::createSel
 void CSSParser::recycleSelectorVector(std::unique_ptr<Vector<std::unique_ptr<CSSParserSelector>>> vector)
 {
     if (vector && !m_recycledSelectorVector)
-        m_recycledSelectorVector = WTF::move(vector);
+        m_recycledSelectorVector = WTFMove(vector);
 }
 
 RefPtr<StyleRuleBase> CSSParser::createRegionRule(Vector<std::unique_ptr<CSSParserSelector>>* regionSelector, RuleList* rules)
@@ -13642,8 +13621,10 @@ bool isValidNthToken(const CSSParserString& token)
     // However, since the {ident} rule precedes the {nth} rule, some of those
     // tokens are identified as string literal. Furthermore we need to accept
     // "odd" and "even" which does not match to an+b.
-    return equalIgnoringCase(token, "odd") || equalIgnoringCase(token, "even")
-        || equalIgnoringCase(token, "n") || equalIgnoringCase(token, "-n");
+    return equalLettersIgnoringASCIICase(token, "odd")
+        || equalLettersIgnoringASCIICase(token, "even")
+        || equalLettersIgnoringASCIICase(token, "n")
+        || equalLettersIgnoringASCIICase(token, "-n");
 }
 
 }

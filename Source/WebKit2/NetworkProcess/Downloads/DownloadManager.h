@@ -26,7 +26,8 @@
 #ifndef DownloadManager_h
 #define DownloadManager_h
 
-#include "Download.h"
+#include "DownloadID.h"
+#include "PendingDownload.h"
 #include "SandboxExtension.h"
 #include <WebCore/NotImplemented.h>
 #include <wtf/Forward.h>
@@ -51,8 +52,7 @@ namespace WebKit {
 
 class AuthenticationManager;
 class Download;
-class NetworkDataTask;
-class WebPage;
+class PendingDownload;
 
 class DownloadManager {
     WTF_MAKE_NONCOPYABLE(DownloadManager);
@@ -68,16 +68,22 @@ public:
         virtual AuthenticationManager& downloadsAuthenticationManager() = 0;
     };
 
-    explicit DownloadManager(Client*);
+    explicit DownloadManager(Client&);
 
     void startDownload(WebCore::SessionID, DownloadID, const WebCore::ResourceRequest&);
-#if !USE(NETWORK_SESSION)
+#if USE(NETWORK_SESSION)
+    std::unique_ptr<PendingDownload> dataTaskBecameDownloadTask(DownloadID, std::unique_ptr<Download>&&);
+    void continueCanAuthenticateAgainstProtectionSpace(DownloadID, bool canAuthenticate);
+    void continueWillSendRequest(DownloadID, const WebCore::ResourceRequest&);
+#else
     void convertHandleToDownload(DownloadID, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 #endif
 
     void resumeDownload(WebCore::SessionID, DownloadID, const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
 
     void cancelDownload(DownloadID);
+    
+    Download* download(DownloadID downloadID) { return m_downloads.get(downloadID); }
 
     void downloadFinished(Download*);
     bool isDownloading() const { return !m_downloads.isEmpty(); }
@@ -90,7 +96,10 @@ public:
     AuthenticationManager& downloadsAuthenticationManager();
 
 private:
-    Client* m_client;
+    Client& m_client;
+#if USE(NETWORK_SESSION)
+    HashMap<DownloadID, std::unique_ptr<PendingDownload>> m_pendingDownloads;
+#endif
     HashMap<DownloadID, std::unique_ptr<Download>> m_downloads;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2012, 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012, 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -655,6 +655,16 @@ public:
         return DataLabel32(this);
     }
 
+    void swap64(RegisterID src, RegisterID dest)
+    {
+        m_assembler.xchgq_rr(src, dest);
+    }
+
+    void swap64(RegisterID src, Address dest)
+    {
+        m_assembler.xchgq_rm(src, dest.offset, dest.base);
+    }
+
     void move64ToDouble(RegisterID src, FPRegisterID dest)
     {
         m_assembler.movq_rr(src, dest);
@@ -722,6 +732,16 @@ public:
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
+    Jump branch64(RelationalCondition cond, RegisterID left, TrustedImm32 right)
+    {
+        if (((cond == Equal) || (cond == NotEqual)) && !right.m_value) {
+            m_assembler.testq_rr(left, left);
+            return Jump(m_assembler.jCC(x86Condition(cond)));
+        }
+        m_assembler.cmpq_ir(right.m_value, left);
+        return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
     Jump branch64(RelationalCondition cond, RegisterID left, TrustedImm64 right)
     {
         if (((cond == Equal) || (cond == NotEqual)) && !right.m_value) {
@@ -747,6 +767,12 @@ public:
     Jump branch64(RelationalCondition cond, Address left, RegisterID right)
     {
         m_assembler.cmpq_rm(right, left.offset, left.base);
+        return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
+    Jump branch64(RelationalCondition cond, Address left, TrustedImm32 right)
+    {
+        m_assembler.cmpq_im(right.m_value, left.offset, left.base);
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 

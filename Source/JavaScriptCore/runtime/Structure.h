@@ -238,7 +238,7 @@ public:
         return !!(indexingTypeIncludingHistory() & MayHaveIndexedAccessors);
     }
         
-    bool anyObjectInChainMayInterceptIndexedAccesses() const;
+    JS_EXPORT_PRIVATE bool anyObjectInChainMayInterceptIndexedAccesses() const;
     bool holesMustForwardToPrototype(VM&) const;
         
     bool needsSlowPutIndexing() const;

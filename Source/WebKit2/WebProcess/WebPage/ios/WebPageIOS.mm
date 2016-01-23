@@ -2585,7 +2585,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize, cons
     IntSize oldContentSize = frameView.contentsSize();
     float oldPageScaleFactor = m_page->pageScaleFactor();
 
-    m_dynamicSizeUpdateHistory.add(std::make_pair(oldContentSize, oldPageScaleFactor), IntPoint(frameView.scrollOffset()));
+    m_dynamicSizeUpdateHistory.add(std::make_pair(oldContentSize, oldPageScaleFactor), frameView.scrollPosition());
 
     RefPtr<Node> oldNodeAtCenter;
     double visibleHorizontalFraction = 1;
@@ -2954,7 +2954,7 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
         frameView.setCustomSizeForResizeEvent(expandedIntSize(visibleContentRectUpdateInfo.unobscuredRectInScrollViewCoordinates().size()));
 
     frameView.setConstrainsScrollingToContentEdge(false);
-    frameView.setScrollOffset(scrollPosition);
+    frameView.setScrollOffset(frameView.scrollOffsetFromPosition(scrollPosition));
     frameView.setConstrainsScrollingToContentEdge(true);
 }
 
@@ -2996,7 +2996,7 @@ void WebPage::computePagesForPrintingAndStartDrawingToPDF(uint64_t frameID, cons
     double totalScaleFactor = 1;
     computePagesForPrintingImpl(frameID, printInfo, pageRects, totalScaleFactor);
     std::size_t pageCount = pageRects.size();
-    reply->send(WTF::move(pageRects), totalScaleFactor);
+    reply->send(WTFMove(pageRects), totalScaleFactor);
 
     RetainPtr<CFMutableDataRef> pdfPageData;
     drawPagesToPDFImpl(frameID, printInfo, firstPage, pageCount - firstPage, pdfPageData);

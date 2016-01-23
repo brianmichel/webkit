@@ -54,6 +54,10 @@ class TiledBacking;
 class TimingFunction;
 class TransformationMatrix;
 
+namespace DisplayList {
+typedef unsigned AsTextFlags;
+}
+
 // Base class for animation values (also used for transitions). Here to
 // represent values for properties being animated via the GraphicsLayer,
 // without pulling in style-related data from outside of the platform directory.
@@ -345,6 +349,9 @@ public:
     bool acceleratesDrawing() const { return m_acceleratesDrawing; }
     virtual void setAcceleratesDrawing(bool b) { m_acceleratesDrawing = b; }
 
+    bool usesDisplayListDrawing() const { return m_usesDisplayListDrawing; }
+    virtual void setUsesDisplayListDrawing(bool b) { m_usesDisplayListDrawing = b; }
+
     bool needsBackdrop() const { return !m_backdropFilters.isEmpty(); }
 
     // The color used to paint the layer background. Pass an invalid color to remove it.
@@ -514,6 +521,9 @@ public:
     // pointers for the layers and timing data will be included in the returned string.
     WEBCORE_EXPORT String layerTreeAsText(LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
+    // For testing.
+    WEBCORE_EXPORT virtual String displayListAsText(DisplayList::AsTextFlags) const { return String(); }
+
     // Return an estimate of the backing store memory cost (in bytes). May be incorrect for tiled layers.
     WEBCORE_EXPORT virtual double backingStoreMemoryEstimate() const;
 
@@ -606,6 +616,7 @@ protected:
     bool m_drawsContent : 1;
     bool m_contentsVisible : 1;
     bool m_acceleratesDrawing : 1;
+    bool m_usesDisplayListDrawing : 1;
     bool m_appliesPageScale : 1; // Set for the layer which has the page scale applied to it.
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;

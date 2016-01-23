@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #if ENABLE(ASSEMBLER) && (CPU(X86) || CPU(X86_64))
 
 #include "AssemblerBuffer.h"
+#include "AssemblerCommon.h"
 #include "JITCompilationEffort.h"
 #include <limits.h>
 #include <stdint.h>
@@ -1430,6 +1431,11 @@ public:
             m_formatter.oneByteOp(OP_XCHG_EvGv, src, dst);
     }
 
+    void xchgl_rm(RegisterID src, int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp(OP_XCHG_EvGv, src, base, offset);
+    }
+
 #if CPU(X86_64)
     void xchgq_rr(RegisterID src, RegisterID dst)
     {
@@ -1439,6 +1445,11 @@ public:
             m_formatter.oneByteOp64(OP_XCHG_EAX, src);
         else
             m_formatter.oneByteOp64(OP_XCHG_EvGv, src, dst);
+    }
+
+    void xchgq_rm(RegisterID src, int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp64(OP_XCHG_EvGv, src, base, offset);
     }
 #endif
 

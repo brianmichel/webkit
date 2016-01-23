@@ -78,13 +78,16 @@ public:
     void setMediaKeysStorageDirectory(const WTF::String& mediaKeysStorageDirectory) { m_mediaKeysStorageDirectory = mediaKeysStorageDirectory; }
 
     const Vector<WTF::String>& cachePartitionedURLSchemes() { return m_cachePartitionedURLSchemes; }
-    void setCachePartitionedURLSchemes(Vector<WTF::String>&& cachePartitionedURLSchemes) { m_cachePartitionedURLSchemes = WTF::move(cachePartitionedURLSchemes); }
+    void setCachePartitionedURLSchemes(Vector<WTF::String>&& cachePartitionedURLSchemes) { m_cachePartitionedURLSchemes = WTFMove(cachePartitionedURLSchemes); }
+
+    const Vector<WTF::String>& alwaysRevalidatedURLSchemes() { return m_alwaysRevalidatedURLSchemes; }
+    void setAlwaysRevalidatedURLSchemes(Vector<WTF::String>&& alwaysRevalidatedURLSchemes) { m_alwaysRevalidatedURLSchemes = WTFMove(alwaysRevalidatedURLSchemes); }
 
     bool fullySynchronousModeIsAllowedForTesting() const { return m_fullySynchronousModeIsAllowedForTesting; }
     void setFullySynchronousModeIsAllowedForTesting(bool allowed) { m_fullySynchronousModeIsAllowedForTesting = allowed; }
 
     const Vector<WTF::String>& overrideLanguages() const { return m_overrideLanguages; }
-    void setOverrideLanguages(Vector<WTF::String>&& languages) { m_overrideLanguages = WTF::move(languages); }
+    void setOverrideLanguages(Vector<WTF::String>&& languages) { m_overrideLanguages = WTFMove(languages); }
 
 private:
     bool m_shouldHaveLegacyDataStore { false };
@@ -101,6 +104,7 @@ private:
     WTF::String m_webSQLDatabaseDirectory;
     WTF::String m_mediaKeysStorageDirectory;
     Vector<WTF::String> m_cachePartitionedURLSchemes;
+    Vector<WTF::String> m_alwaysRevalidatedURLSchemes;
     bool m_fullySynchronousModeIsAllowedForTesting { false };
     Vector<WTF::String> m_overrideLanguages;
 };

@@ -103,13 +103,20 @@ public:
     void abortTransaction(IDBTransaction&);
     void didAbortTransaction(const IDBResourceIdentifier& transactionIdentifier, const IDBError&);
 
-    void fireVersionChangeEvent(uint64_t databaseConnectionIdentifier, uint64_t requestedVersion);
+    void fireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier, uint64_t requestedVersion);
+    void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier);
+
     void didStartTransaction(const IDBResourceIdentifier& transactionIdentifier, const IDBError&);
     void notifyOpenDBRequestBlocked(const IDBResourceIdentifier& requestIdentifier, uint64_t oldVersion, uint64_t newVersion);
 
     void establishTransaction(IDBTransaction&);
 
     void databaseConnectionClosed(IDBDatabase&);
+
+    // To be used when an IDBOpenDBRequest gets a new database connection, optionally with a
+    // versionchange transaction, but the page is already torn down.
+    void abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& transactionIdentifier);
+    
     void registerDatabaseConnection(IDBDatabase&);
     void unregisterDatabaseConnection(IDBDatabase&);
 

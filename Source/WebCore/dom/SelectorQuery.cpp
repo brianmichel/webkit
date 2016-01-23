@@ -118,7 +118,7 @@ inline bool SelectorDataList::selectorMatches(const SelectorData& selectorData, 
     SelectorChecker::CheckingContext selectorCheckingContext(SelectorChecker::Mode::QueryingRules);
     selectorCheckingContext.scope = rootNode.isDocumentNode() ? nullptr : &rootNode;
     unsigned ignoredSpecificity;
-    return selectorChecker.match(selectorData.selector, &element, selectorCheckingContext, ignoredSpecificity);
+    return selectorChecker.match(*selectorData.selector, element, selectorCheckingContext, ignoredSpecificity);
 }
 
 inline Element* SelectorDataList::selectorClosest(const SelectorData& selectorData, Element& element, const ContainerNode& rootNode) const
@@ -126,11 +126,10 @@ inline Element* SelectorDataList::selectorClosest(const SelectorData& selectorDa
     SelectorChecker selectorChecker(element.document());
     SelectorChecker::CheckingContext selectorCheckingContext(SelectorChecker::Mode::QueryingRules);
     selectorCheckingContext.scope = rootNode.isDocumentNode() ? nullptr : &rootNode;
-    Element* currentNode = &element;
     unsigned ignoredSpecificity;
-    if (!selectorChecker.match(selectorData.selector, currentNode, selectorCheckingContext, ignoredSpecificity))
+    if (!selectorChecker.match(*selectorData.selector, element, selectorCheckingContext, ignoredSpecificity))
         return nullptr;
-    return currentNode;
+    return &element;
 }
 
 bool SelectorDataList::matches(Element& targetElement) const
@@ -604,7 +603,7 @@ ALWAYS_INLINE void SelectorDataList::execute(ContainerNode& rootNode, typename S
 }
 
 SelectorQuery::SelectorQuery(CSSSelectorList&& selectorList)
-    : m_selectorList(WTF::move(selectorList))
+    : m_selectorList(WTFMove(selectorList))
     , m_selectors(m_selectorList)
 {
 }
@@ -634,7 +633,7 @@ SelectorQuery* SelectorQueryCache::add(const String& selectors, Document& docume
     if (m_entries.size() == maximumSelectorQueryCacheSize)
         m_entries.remove(m_entries.begin());
 
-    return m_entries.add(selectors, std::make_unique<SelectorQuery>(WTF::move(selectorList))).iterator->value.get();
+    return m_entries.add(selectors, std::make_unique<SelectorQuery>(WTFMove(selectorList))).iterator->value.get();
 }
 
 }

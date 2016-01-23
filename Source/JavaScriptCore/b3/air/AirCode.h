@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if ENABLE(B3_JIT)
 
+#include "AirArg.h"
 #include "AirBasicBlock.h"
 #include "AirSpecial.h"
 #include "AirStackSlot.h"
@@ -39,8 +40,14 @@ namespace JSC { namespace B3 {
 
 class Procedure;
 
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
+
 namespace Air {
 
+class BlockInsertionSet;
 class CCallSpecial;
 
 // This is an IR that is very close to the bare metal. It requires about 40x more bytes than the
@@ -55,12 +62,13 @@ public:
 
     Procedure& proc() { return m_proc; }
 
-    BasicBlock* addBlock(double frequency = 1);
+    JS_EXPORT_PRIVATE BasicBlock* addBlock(double frequency = 1);
 
     // Note that you can rely on stack slots always getting indices that are larger than the index
     // of any prior stack slot. In fact, all stack slots you create in the future will have an index
     // that is >= stackSlots().size().
-    StackSlot* addStackSlot(unsigned byteSize, StackSlotKind, StackSlotValue* = nullptr);
+    JS_EXPORT_PRIVATE StackSlot* addStackSlot(
+        unsigned byteSize, StackSlotKind, StackSlotValue* = nullptr);
     StackSlot* addStackSlot(StackSlotValue*);
 
     Special* addSpecial(std::unique_ptr<Special>);
@@ -76,6 +84,7 @@ public:
         case Arg::FP:
             return Tmp::fpTmpForIndex(m_numFPTmps++);
         }
+        ASSERT_NOT_REACHED();
     }
 
     unsigned numTmps(Arg::Type type)
@@ -86,6 +95,7 @@ public:
         case Arg::FP:
             return m_numFPTmps;
         }
+        ASSERT_NOT_REACHED();
     }
 
     unsigned callArgAreaSize() const { return m_callArgAreaSize; }
@@ -316,6 +326,7 @@ public:
 
 private:
     friend class ::JSC::B3::Procedure;
+    friend class BlockInsertionSet;
     
     Code(Procedure&);
 
@@ -334,6 +345,10 @@ private:
 };
 
 } } } // namespace JSC::B3::Air
+
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(B3_JIT)
 

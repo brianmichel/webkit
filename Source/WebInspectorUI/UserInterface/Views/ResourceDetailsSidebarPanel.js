@@ -48,17 +48,18 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
         this._locationFragmentRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Fragment"));
         this._locationFilenameRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Filename"));
         this._initiatorRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Initiator"));
+        this._initiatedRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Initiated"));
 
         var firstGroup = [this._locationFullURLRow];
         var secondGroup = [this._locationSchemeRow, this._locationHostRow, this._locationPortRow, this._locationPathRow,
             this._locationQueryStringRow, this._locationFragmentRow, this._locationFilenameRow];
-        var thirdGroup = [this._initiatorRow];
+        var thirdGroup = [this._initiatorRow, this._initiatedRow];
 
         this._fullURLGroup = new WebInspector.DetailsSectionGroup(firstGroup);
         this._locationURLComponentsGroup = new WebInspector.DetailsSectionGroup(secondGroup);
-        this._initiatorGroup = new WebInspector.DetailsSectionGroup(thirdGroup);
+        this._relatedResourcesGroup = new WebInspector.DetailsSectionGroup(thirdGroup);
 
-        this._locationSection = new WebInspector.DetailsSection("resource-location", WebInspector.UIString("Location"), [this._fullURLGroup, this._locationURLComponentsGroup, this._initiatorGroup]);
+        this._locationSection = new WebInspector.DetailsSection("resource-location", WebInspector.UIString("Location"), [this._fullURLGroup, this._locationURLComponentsGroup, this._relatedResourcesGroup]);
 
         this._queryParametersRow = new WebInspector.DetailsSectionDataGridRow(null, WebInspector.UIString("No Query Parameters"));
         this._queryParametersSection = new WebInspector.DetailsSection("resource-query-parameters", WebInspector.UIString("Query Parameters"));
@@ -74,7 +75,7 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
 
         this._encodedSizeRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Encoded"));
         this._decodedSizeRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Decoded"));
-        this._transferSizeRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Transfered"));
+        this._transferSizeRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Transferred"));
 
         this._compressedRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Compressed"));
         this._compressionRow = new WebInspector.DetailsSectionSimpleRow(WebInspector.UIString("Compression"));
@@ -156,6 +157,7 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
             this._resource.removeEventListener(WebInspector.Resource.Event.CacheStatusDidChange, this._refreshRequestAndResponse, this);
             this._resource.removeEventListener(WebInspector.Resource.Event.SizeDidChange, this._refreshDecodedSize, this);
             this._resource.removeEventListener(WebInspector.Resource.Event.TransferSizeDidChange, this._refreshTransferSize, this);
+            this._resource.removeEventListener(WebInspector.Resource.Event.InitiatedResourcesDidChange, this._refreshRelatedResourcesSection, this);
         }
 
         this._resource = resource;
@@ -169,6 +171,7 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
             this._resource.addEventListener(WebInspector.Resource.Event.CacheStatusDidChange, this._refreshRequestAndResponse, this);
             this._resource.addEventListener(WebInspector.Resource.Event.SizeDidChange, this._refreshDecodedSize, this);
             this._resource.addEventListener(WebInspector.Resource.Event.TransferSizeDidChange, this._refreshTransferSize, this);
+            this._resource.addEventListener(WebInspector.Resource.Event.InitiatedResourcesDidChange, this._refreshRelatedResourcesSection, this);
         }
 
         this.needsRefresh();
@@ -188,6 +191,7 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
         this._refreshRequestHeaders();
         this._refreshImageSizeSection();
         this._refreshRequestDataSection();
+        this._refreshRelatedResourcesSection();
     }
 
     // Private
@@ -201,10 +205,7 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
 
         var urlComponents = this._resource.urlComponents;
         if (urlComponents.scheme) {
-            if (this._resource.initiatorSourceCodeLocation)
-                this._locationSection.groups = [this._fullURLGroup, this._locationURLComponentsGroup, this._initiatorGroup];
-            else
-                this._locationSection.groups = [this._fullURLGroup, this._locationURLComponentsGroup];
+            this._locationSection.groups = [this._fullURLGroup, this._locationURLComponentsGroup, this._relatedResourcesGroup];
 
             this._locationSchemeRow.value = urlComponents.scheme ? urlComponents.scheme : null;
             this._locationHostRow.value = urlComponents.host ? urlComponents.host : null;
@@ -214,14 +215,8 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
             this._locationFragmentRow.value = urlComponents.fragment ? urlComponents.fragment.insertWordBreakCharacters() : null;
             this._locationFilenameRow.value = urlComponents.lastPathComponent ? urlComponents.lastPathComponent.insertWordBreakCharacters() : null;
         } else {
-            if (this._resource.initiatorSourceCodeLocation)
-                this._locationSection.groups = [this._fullURLGroup, this._initiatorGroup];
-            else
-                this._locationSection.groups = [this._fullURLGroup];
+            this._locationSection.groups = [this._fullURLGroup, this._relatedResourcesGroup];
         }
-
-        if (this._resource.initiatorSourceCodeLocation)
-            this._initiatorRow.value = WebInspector.createSourceCodeLocationLink(this._resource.initiatorSourceCodeLocation, true);
 
         if (urlComponents.queryString) {
             // Ensure the "Query Parameters" section is displayed, right after the "Request & Response" section.
@@ -234,6 +229,38 @@ WebInspector.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel ext
             if (queryParametersSectionElement.parentNode)
                 queryParametersSectionElement.parentNode.removeChild(queryParametersSectionElement);
         }
+    }
+
+    _refreshRelatedResourcesSection()
+    {
+        // Hide the section if we don't have anything to show.
+        let groups = this._locationSection.groups;
+        let isSectionVisible = groups.includes(this._relatedResourcesGroup);
+        if (!this._resource.initiatorSourceCodeLocation && !this._resource.initiatedResources.length) {
+            if (isSectionVisible) {
+                groups.remove(this._relatedResourcesGroup);
+                this._locationSection.groups = groups;
+            }
+            return;
+        }
+
+        if (!isSectionVisible) {
+            groups.push(this._relatedResourcesGroup);
+            this._locationSection.groups = groups;
+        }
+
+        let initiatorLocation = this._resource.initiatorSourceCodeLocation;
+        this._initiatorRow.value = initiatorLocation ? WebInspector.createSourceCodeLocationLink(initiatorLocation, true) : null;
+
+        let initiatedResources = this._resource.initiatedResources;
+        if (initiatedResources.length) {
+            let resourceLinkContainer = document.createElement("div");
+            for (let resource of initiatedResources)
+                resourceLinkContainer.appendChild(WebInspector.createResourceLink(resource));
+
+            this._initiatedRow.value = resourceLinkContainer;
+        } else
+            this._initiatedRow.value = null;
     }
 
     _refreshResourceType()

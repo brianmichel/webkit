@@ -54,6 +54,7 @@
 #import <WebKitSystemInterface.h>
 #import <runtime/JSLock.h>
 #import <wtf/HashMap.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/StdLibExtras.h>
 
 using namespace WebCore;
@@ -83,7 +84,7 @@ private:
 typedef HashMap<NPStream*, NPP> StreamMap;
 static StreamMap& streams()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(StreamMap, staticStreams, ());
+    static NeverDestroyed<StreamMap> staticStreams;
     return staticStreams;
 }
 
@@ -303,7 +304,7 @@ void WebNetscapePluginStream::stop()
 void WebNetscapePluginStream::willSendRequest(NetscapePlugInStreamLoader*, ResourceRequest&& request, const ResourceResponse&, std::function<void (WebCore::ResourceRequest&&)>&& callback)
 {
     // FIXME: We should notify the plug-in with NPP_URLRedirectNotify here.
-    callback(WTF::move(request));
+    callback(WTFMove(request));
 }
 
 void WebNetscapePluginStream::didReceiveResponse(NetscapePlugInStreamLoader*, const ResourceResponse& response)

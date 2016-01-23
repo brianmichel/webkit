@@ -56,10 +56,6 @@
 #include "RenderLayerCompositor.h"
 #endif
 
-#if PLATFORM(IOS)
-#include "Device.h"
-#endif
-
 namespace WebCore {
 
 using namespace MediaFeatureNames;
@@ -108,7 +104,7 @@ MediaQueryEvaluator::~MediaQueryEvaluator()
 bool MediaQueryEvaluator::mediaTypeMatch(const String& mediaTypeToMatch) const
 {
     return mediaTypeToMatch.isEmpty()
-        || equalIgnoringCase(mediaTypeToMatch, "all")
+        || equalLettersIgnoringASCIICase(mediaTypeToMatch, "all")
         || equalIgnoringCase(mediaTypeToMatch, m_mediaType);
 }
 
@@ -117,7 +113,7 @@ bool MediaQueryEvaluator::mediaTypeMatchSpecific(const char* mediaTypeToMatch) c
     // Like mediaTypeMatch, but without the special cases for "" and "all".
     ASSERT(mediaTypeToMatch);
     ASSERT(mediaTypeToMatch[0] != '\0');
-    ASSERT(!equalIgnoringCase(mediaTypeToMatch, String("all")));
+    ASSERT(!equalLettersIgnoringASCIICase(StringView(mediaTypeToMatch), "all"));
     return equalIgnoringCase(mediaTypeToMatch, m_mediaType);
 }
 
@@ -336,9 +332,9 @@ static bool evalResolution(CSSValue* value, Frame* frame, MediaFeaturePrefix op)
     // in the query. Thus, if if the document's media type is "print", the
     // media type of the query will either be "print" or "all".
     String mediaType = view->mediaType();
-    if (equalIgnoringCase(mediaType, "screen"))
+    if (equalLettersIgnoringASCIICase(mediaType, "screen"))
         deviceScaleFactor = frame->page()->deviceScaleFactor();
-    else if (equalIgnoringCase(mediaType, "print")) {
+    else if (equalLettersIgnoringASCIICase(mediaType, "print")) {
         // The resolution of images while printing should not depend on the dpi
         // of the screen. Until we support proper ways of querying this info
         // we use 300px which is considered minimum for current printers.
@@ -661,20 +657,9 @@ static bool view_modeMediaFeatureEval(CSSValue* value, const CSSToLengthConversi
 }
 #endif // ENABLE(VIEW_MODE_CSS_MEDIA)
 
-// FIXME: Find a better place for this function. Maybe ChromeClient?
-static inline bool isRunningOnIPhoneOrIPod()
-{
-#if PLATFORM(IOS)
-    static bool runningOnIPhoneOrIPod = deviceClass() == MGDeviceClassiPhone || deviceClass() == MGDeviceClassiPod;
-    return runningOnIPhoneOrIPod;
-#else
-    return false;
-#endif
-}
-
 static bool video_playable_inlineMediaFeatureEval(CSSValue*, const CSSToLengthConversionData&, Frame* frame, MediaFeaturePrefix)
 {
-    return !isRunningOnIPhoneOrIPod() || frame->settings().allowsInlineMediaPlayback();
+    return frame->settings().allowsInlineMediaPlayback();
 }
 
 static bool hoverMediaFeatureEval(CSSValue* value, const CSSToLengthConversionData&, Frame*, MediaFeaturePrefix)

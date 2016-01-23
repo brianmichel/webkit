@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #if ENABLE(B3_JIT)
 
 #include "AirCode.h"
-#include "AirFixSpillSlotZDef.h"
 #include "AirInsertionSet.h"
 #include "AirInstInlines.h"
 #include "AirLiveness.h"
@@ -54,9 +53,10 @@ bool reportStats = false;
 template<typename IndexType>
 class AbstractColoringAllocator {
 public:
-    AbstractColoringAllocator(const Vector<Reg>& regsInPriorityOrder, IndexType lastPrecoloredRegisterIndex, unsigned tmpArraySize)
+    AbstractColoringAllocator(const Vector<Reg>& regsInPriorityOrder, IndexType lastPrecoloredRegisterIndex, unsigned tmpArraySize, const HashSet<unsigned>& unspillableTmp)
         : m_regsInPriorityOrder(regsInPriorityOrder)
         , m_lastPrecoloredRegisterIndex(lastPrecoloredRegisterIndex)
+        , m_unspillableTmps(unspillableTmp)
     {
         initializeDegrees(tmpArraySize);
 
@@ -91,12 +91,20 @@ protected:
                 continue;
 
             if (degree >= m_regsInPriorityOrder.size())
-                m_spillWorklist.add(i);
+                addToSpill(i);
             else if (!m_moveList[i].isEmpty())
                 m_freezeWorklist.add(i);
             else
                 m_simplifyWorklist.append(i);
         }
+    }
+
+    void addToSpill(unsigned toSpill)
+    {
+        if (m_unspillableTmps.contains(toSpill))
+            return;
+
+        m_spillWorklist.add(toSpill);
     }
 
     // Low-degree vertex can always be colored: just pick any of the color taken by any
@@ -247,7 +255,7 @@ private:
         for (unsigned i = 0; i < firstNonRegIndex; ++i)
             m_degrees[i] = std::numeric_limits<unsigned>::max();
 
-        bzero(m_degrees.data() + firstNonRegIndex, (tmpArraySize - firstNonRegIndex) * sizeof(unsigned));
+        memset(m_degrees.data() + firstNonRegIndex, 0, (tmpArraySize - firstNonRegIndex) * sizeof(unsigned));
     }
 
     void addEdgeDistinct(IndexType a, IndexType b)
@@ -281,6 +289,25 @@ private:
             else
                 m_simplifyWorklist.append(tmpIndex);
         }
+    }
+
+
+    bool addEdgeDistinctWithoutDegreeChange(IndexType a, IndexType b)
+    {
+        ASSERT(a != b);
+        if (m_interferenceEdges.add(InterferenceEdge(a, b)).isNewEntry) {
+            if (!isPrecolored(a)) {
+                ASSERT(!m_adjacencyList[a].contains(b));
+                m_adjacencyList[a].append(b);
+            }
+
+            if (!isPrecolored(b)) {
+                ASSERT(!m_adjacencyList[b].contains(a));
+                m_adjacencyList[b].append(a);
+            }
+            return true;
+        }
+        return false;
     }
 
     bool isMoveRelated(IndexType tmpIndex)
@@ -357,12 +384,23 @@ private:
         m_moveList[u].add(vMoves.begin(), vMoves.end());
 
         forEachAdjacent(v, [this, u] (IndexType adjacentTmpIndex) {
-            addEdgeDistinct(adjacentTmpIndex, u);
-            decrementDegree(adjacentTmpIndex);
+            if (addEdgeDistinctWithoutDegreeChange(adjacentTmpIndex, u)) {
+                // If we added a new edge between the adjacentTmp and u, it replaces the edge
+                // that existed with v.
+                // The degree of adjacentTmp remains the same since the edge just changed from u to v.
+                // All we need to do is update the degree of u.
+                if (!isPrecolored(u))
+                    m_degrees[u]++;
+            } else {
+                // If we already had an edge between the adjacentTmp and u, the degree of u
+                // is already correct. The degree of the adjacentTmp decreases since the edge
+                // with v is no longer relevant (we can think of it as merged with the edge with u).
+                decrementDegree(adjacentTmpIndex);
+            }
         });
 
         if (m_degrees[u] >= m_regsInPriorityOrder.size() && m_freezeWorklist.remove(u))
-            m_spillWorklist.add(u);
+            addToSpill(u);
     }
 
     bool canBeSafelyCoalesced(IndexType u, IndexType v)
@@ -626,6 +664,8 @@ protected:
 
     // The mapping of Tmp to their alias for Moves that are always coalescing regardless of spilling.
     Vector<IndexType, 0, UnsafeVectorOverflow> m_coalescedTmpsAtSpill;
+    
+    const HashSet<unsigned>& m_unspillableTmps;
 };
 
 // This perform all the tasks that are specific to certain register type.
@@ -633,11 +673,10 @@ template<Arg::Type type>
 class ColoringAllocator : public AbstractColoringAllocator<unsigned> {
 public:
     ColoringAllocator(Code& code, TmpWidth& tmpWidth, const UseCounts<Tmp>& useCounts, const HashSet<unsigned>& unspillableTmp)
-        : AbstractColoringAllocator<unsigned>(regsInPriorityOrder(type), AbsoluteTmpMapper<type>::lastMachineRegisterIndex(), tmpArraySize(code))
+        : AbstractColoringAllocator<unsigned>(regsInPriorityOrder(type), AbsoluteTmpMapper<type>::lastMachineRegisterIndex(), tmpArraySize(code), unspillableTmp)
         , m_code(code)
         , m_tmpWidth(tmpWidth)
         , m_useCounts(useCounts)
-        , m_unspillableTmps(unspillableTmp)
     {
         initializePrecoloredTmp();
         build();
@@ -684,7 +723,7 @@ public:
     class IndexToTmpIteratorAdaptor {
     public:
         IndexToTmpIteratorAdaptor(IndexIterator&& indexIterator)
-            : m_indexIterator(WTF::move(indexIterator))
+            : m_indexIterator(WTFMove(indexIterator))
         {
         }
 
@@ -770,40 +809,43 @@ private:
             typename TmpLiveness<type>::LocalCalc localCalc(liveness, block);
             for (unsigned instIndex = block->size(); instIndex--;) {
                 Inst& inst = block->at(instIndex);
-                Inst* nextInst = instIndex + 1 < block->size() ? &block->at(instIndex + 1) : nullptr;
-                build(inst, nextInst, localCalc);
+                Inst* nextInst = block->get(instIndex + 1);
+                build(&inst, nextInst, localCalc);
                 localCalc.execute(instIndex);
             }
+            build(nullptr, &block->at(0), localCalc);
         }
     }
 
-    void build(Inst& inst, Inst* nextInst, const typename TmpLiveness<type>::LocalCalc& localCalc)
+    void build(Inst* prevInst, Inst* nextInst, const typename TmpLiveness<type>::LocalCalc& localCalc)
     {
-        inst.forEachTmpWithExtraClobberedRegs(
-            nextInst,
-            [&] (const Tmp& arg, Arg::Role role, Arg::Type argType, Arg::Width) {
-                if (!Arg::isDef(role) || argType != type)
+        Inst::forEachDefWithExtraClobberedRegs<Tmp>(
+            prevInst, nextInst,
+            [&] (const Tmp& arg, Arg::Role, Arg::Type argType, Arg::Width) {
+                if (argType != type)
                     return;
                 
                 // All the Def()s interfere with each other and with all the extra clobbered Tmps.
-                // We should not use forEachDefAndExtraClobberedTmp() here since colored Tmps
+                // We should not use forEachDefWithExtraClobberedRegs() here since colored Tmps
                 // do not need interference edges in our implementation.
-                inst.forEachTmp([&] (Tmp& otherArg, Arg::Role role, Arg::Type argType, Arg::Width) {
-                    if (!Arg::isDef(role) || argType != type)
-                        return;
-
-                    addEdge(arg, otherArg);
-                });
+                Inst::forEachDef<Tmp>(
+                    prevInst, nextInst,
+                    [&] (Tmp& otherArg, Arg::Role, Arg::Type argType, Arg::Width) {
+                        if (argType != type)
+                            return;
+                        
+                        addEdge(arg, otherArg);
+                    });
             });
 
-        if (mayBeCoalescable(inst)) {
+        if (prevInst && mayBeCoalescable(*prevInst)) {
             // We do not want the Use() of this move to interfere with the Def(), even if it is live
             // after the Move. If we were to add the interference edge, it would be impossible to
             // coalesce the Move even if the two Tmp never interfere anywhere.
             Tmp defTmp;
             Tmp useTmp;
-            inst.forEachTmp([&defTmp, &useTmp] (Tmp& argTmp, Arg::Role role, Arg::Type, Arg::Width) {
-                if (Arg::isDef(role))
+            prevInst->forEachTmp([&defTmp, &useTmp] (Tmp& argTmp, Arg::Role role, Arg::Type, Arg::Width) {
+                if (Arg::isLateDef(role))
                     defTmp = argTmp;
                 else {
                     ASSERT(Arg::isEarlyUse(role));
@@ -822,7 +864,7 @@ private:
             ASSERT(nextMoveIndex <= m_activeMoves.size());
             m_activeMoves.ensureSize(nextMoveIndex + 1);
 
-            for (const Arg& arg : inst.args) {
+            for (const Arg& arg : prevInst->args) {
                 auto& list = m_moveList[AbsoluteTmpMapper<type>::absoluteIndex(arg.tmp())];
                 list.add(nextMoveIndex);
             }
@@ -832,26 +874,20 @@ private:
                     addEdge(defTmp, liveTmp);
             }
 
-            // The next instruction could have early clobbers. We need to consider those now.
-            if (nextInst && nextInst->hasSpecial()) {
-                nextInst->extraEarlyClobberedRegs().forEach([&] (Reg reg) {
-                    if (reg.isGPR() == (type == Arg::GP)) {
-                        for (const Tmp& liveTmp : localCalc.live())
-                            addEdge(Tmp(reg), liveTmp);
-                    }
-                });
-            }
+            // The next instruction could have early clobbers or early def's. We need to consider
+            // those now.
+            addEdges(nullptr, nextInst, localCalc.live());
         } else
-            addEdges(inst, nextInst, localCalc.live());
+            addEdges(prevInst, nextInst, localCalc.live());
     }
 
-    void addEdges(Inst& inst, Inst* nextInst, typename TmpLiveness<type>::LocalCalc::Iterable liveTmps)
+    void addEdges(Inst* prevInst, Inst* nextInst, typename TmpLiveness<type>::LocalCalc::Iterable liveTmps)
     {
         // All the Def()s interfere with everthing live.
-        inst.forEachTmpWithExtraClobberedRegs(
-            nextInst,
-            [&] (const Tmp& arg, Arg::Role role, Arg::Type argType, Arg::Width) {
-                if (!Arg::isDef(role) || argType != type)
+        Inst::forEachDefWithExtraClobberedRegs<Tmp>(
+            prevInst, nextInst,
+            [&] (const Tmp& arg, Arg::Role, Arg::Type argType, Arg::Width) {
+                if (argType != type)
                     return;
                 
                 for (const Tmp& liveTmp : liveTmps) {
@@ -931,10 +967,8 @@ private:
 
         auto iterator = m_spillWorklist.begin();
 
-        while (iterator != m_spillWorklist.end() && m_unspillableTmps.contains(*iterator))
-            ++iterator;
-
-        RELEASE_ASSERT_WITH_MESSAGE(iterator != m_spillWorklist.end(), "It is not possible to color the Air graph with the number of available registers.");
+        RELEASE_ASSERT_WITH_MESSAGE(iterator != m_spillWorklist.end(), "selectSpill() called when there was no spill.");
+        RELEASE_ASSERT_WITH_MESSAGE(!m_unspillableTmps.contains(*iterator), "trying to spill unspillable tmp");
 
         // Higher score means more desirable to spill. Lower scores maximize the likelihood that a tmp
         // gets a register.
@@ -949,8 +983,16 @@ private:
 
             // All else being equal, the score should be inversely related to the number of warm uses and
             // defs.
-            const UseCounts<Tmp>::Counts& counts = m_useCounts[tmp];
-            double uses = counts.numWarmUses + counts.numDefs;
+            const UseCounts<Tmp>::Counts* counts = m_useCounts[tmp];
+            if (!counts)
+                return std::numeric_limits<double>::infinity();
+            
+            double uses = counts->numWarmUses + counts->numDefs;
+
+            // If it's a constant, then it's not as bad to spill. We can rematerialize it in many
+            // cases.
+            if (counts->numConstDefs == counts->numDefs)
+                uses /= 2;
 
             return degree / uses;
         };
@@ -962,9 +1004,7 @@ private:
         for (;iterator != m_spillWorklist.end(); ++iterator) {
             double tmpScore = score(AbsoluteTmpMapper<type>::tmpFromAbsoluteIndex(*iterator));
             if (tmpScore > maxScore) {
-                if (m_unspillableTmps.contains(*iterator))
-                    continue;
-
+                ASSERT(!m_unspillableTmps.contains(*iterator));
                 victimIterator = iterator;
                 maxScore = tmpScore;
             }
@@ -1057,7 +1097,6 @@ private:
     TmpWidth& m_tmpWidth;
     // FIXME: spilling should not type specific. It is only a side effect of using UseCounts.
     const UseCounts<Tmp>& m_useCounts;
-    const HashSet<unsigned>& m_unspillableTmps;
 };
 
 class IteratedRegisterCoalescing {
@@ -1082,6 +1121,12 @@ private:
     void iteratedRegisterCoalescingOnType()
     {
         HashSet<unsigned> unspillableTmps;
+
+        // FIXME: If a Tmp is used only from a Scratch role and that argument is !admitsStack, then
+        // we should add the Tmp to unspillableTmps. That will help avoid relooping only to turn the
+        // Tmp into an unspillable Tmp.
+        // https://bugs.webkit.org/show_bug.cgi?id=152699
+        
         while (true) {
             ++m_numIterations;
 
@@ -1121,11 +1166,11 @@ private:
                 // complete register allocation. So, we record this before starting.
                 bool mayBeCoalescable = allocator.mayBeCoalescable(inst);
 
-                // On X86_64, Move32 is cheaper if we know that it's equivalent to a Move. It's
+                // Move32 is cheaper if we know that it's equivalent to a Move. It's
                 // equivalent if the destination's high bits are not observable or if the source's high
                 // bits are all zero. Note that we don't have the opposite optimization for other
                 // architectures, which may prefer Move over Move32, because Move is canonical already.
-                if (type == Arg::GP && optimizeForX86_64() && inst.opcode == Move
+                if (type == Arg::GP && inst.opcode == Move
                     && inst.args[0].isTmp() && inst.args[1].isTmp()) {
                     if (m_tmpWidth.useWidth(inst.args[1].tmp()) <= Arg::Width32
                         || m_tmpWidth.defWidth(inst.args[0].tmp()) <= Arg::Width32)
@@ -1165,7 +1210,6 @@ private:
     void addSpillAndFill(const ColoringAllocator<type>& allocator, HashSet<unsigned>& unspillableTmps)
     {
         HashMap<Tmp, StackSlot*> stackSlots;
-        unsigned newStackSlotThreshold = m_code.stackSlots().size();
         for (Tmp tmp : allocator.spilledTmps()) {
             // All the spilled values become unspillable.
             unspillableTmps.add(AbsoluteTmpMapper<type>::absoluteIndex(tmp));
@@ -1193,22 +1237,25 @@ private:
                 bool forceMove32IfDidSpill = false;
                 bool didSpill = false;
                 if (type == Arg::GP && inst.opcode == Move) {
-                    if ((inst.args[0].isTmp() && m_tmpWidth.defWidth(inst.args[0].tmp()) <= Arg::Width32)
-                        || (inst.args[1].isTmp() && m_tmpWidth.useWidth(inst.args[1].tmp()) <= Arg::Width32))
+                    if ((inst.args[0].isTmp() && m_tmpWidth.width(inst.args[0].tmp()) <= Arg::Width32)
+                        || (inst.args[1].isTmp() && m_tmpWidth.width(inst.args[1].tmp()) <= Arg::Width32))
                         forceMove32IfDidSpill = true;
                 }
 
                 // Try to replace the register use by memory use when possible.
-                for (unsigned i = 0; i < inst.args.size(); ++i) {
-                    Arg& arg = inst.args[i];
-                    if (arg.isTmp() && arg.type() == type && !arg.isReg()) {
-                        auto stackSlotEntry = stackSlots.find(arg.tmp());
-                        if (stackSlotEntry != stackSlots.end() && inst.admitsStack(i)) {
-                            arg = Arg::stack(stackSlotEntry->value);
-                            didSpill = true;
+                inst.forEachArg(
+                    [&] (Arg& arg, Arg::Role, Arg::Type argType, Arg::Width width) {
+                        if (arg.isTmp() && argType == type && !arg.isReg()) {
+                            auto stackSlotEntry = stackSlots.find(arg.tmp());
+                            if (stackSlotEntry != stackSlots.end()
+                                && inst.admitsStack(arg)) {
+                                stackSlotEntry->value->ensureSize(
+                                    forceMove32IfDidSpill ? 4 : Arg::bytes(width));
+                                arg = Arg::stack(stackSlotEntry->value);
+                                didSpill = true;
+                            }
                         }
-                    }
-                }
+                    });
 
                 if (didSpill && forceMove32IfDidSpill)
                     inst.opcode = Move32;
@@ -1242,15 +1289,12 @@ private:
                         break;
                     }
 
-                    if (Arg::isAnyUse(role)) {
-                        Tmp newTmp = m_code.newTmp(type);
-                        insertionSet.insert(instIndex, move, inst.origin, arg, newTmp);
-                        tmp = newTmp;
+                    tmp = m_code.newTmp(type);
+                    unspillableTmps.add(AbsoluteTmpMapper<type>::absoluteIndex(tmp));
 
-                        // Any new Fill() should never be spilled.
-                        unspillableTmps.add(AbsoluteTmpMapper<type>::absoluteIndex(tmp));
-                    }
-                    if (Arg::isDef(role))
+                    if (Arg::isAnyUse(role) && role != Arg::Scratch)
+                        insertionSet.insert(instIndex, move, inst.origin, arg, tmp);
+                    if (Arg::isAnyDef(role))
                         insertionSet.insert(instIndex + 1, move, inst.origin, tmp, arg);
                 });
             }
@@ -1262,12 +1306,6 @@ private:
                 });
             }
         }
-
-        fixSpillSlotZDef(
-            m_code,
-            [&] (StackSlot* stackSlot) -> bool {
-                return stackSlot->index() >= newStackSlotThreshold;
-            });
     }
 
     Code& m_code;

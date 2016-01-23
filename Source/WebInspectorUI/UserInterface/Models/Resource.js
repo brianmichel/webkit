@@ -47,6 +47,7 @@ WebInspector.Resource = class Resource extends WebInspector.SourceCode
         this._responseHeaders = {};
         this._parentFrame = null;
         this._initiatorSourceCodeLocation = initiatorSourceCodeLocation || null;
+        this._initiatedResources = [];
         this._originalRequestWillBeSentTimestamp = originalRequestWillBeSentTimestamp || null;
         this._requestSentTimestamp = requestSentTimestamp || NaN;
         this._responseReceivedTimestamp = NaN;
@@ -57,6 +58,9 @@ WebInspector.Resource = class Resource extends WebInspector.SourceCode
         this._size = NaN;
         this._transferSize = NaN;
         this._cached = false;
+
+        if (this._initiatorSourceCodeLocation && this._initiatorSourceCodeLocation.sourceCode instanceof WebInspector.Resource)
+            this._initiatorSourceCodeLocation.sourceCode.addInitiatedResource(this);
     }
 
     // Static
@@ -150,6 +154,11 @@ WebInspector.Resource = class Resource extends WebInspector.SourceCode
         return this._initiatorSourceCodeLocation;
     }
 
+    get initiatedResources()
+    {
+        return this._initiatedResources;
+    }
+
     get originalRequestWillBeSentTimestamp()
     {
         return this._originalRequestWillBeSentTimestamp;
@@ -213,6 +222,16 @@ WebInspector.Resource = class Resource extends WebInspector.SourceCode
     isMainResource()
     {
         return this._parentFrame ? this._parentFrame.mainResource === this : false;
+    }
+
+    addInitiatedResource(resource)
+    {
+        if (!(resource instanceof WebInspector.Resource))
+            return;
+
+        this._initiatedResources.push(resource);
+
+        this.dispatchEventToListeners(WebInspector.Resource.Event.InitiatedResourcesDidChange);
     }
 
     get parentFrame()
@@ -676,7 +695,8 @@ WebInspector.Resource.Event = {
     TimestampsDidChange: "resource-timestamps-did-change",
     SizeDidChange: "resource-size-did-change",
     TransferSizeDidChange: "resource-transfer-size-did-change",
-    CacheStatusDidChange: "resource-cached-did-change"
+    CacheStatusDidChange: "resource-cached-did-change",
+    InitiatedResourcesDidChange: "resource-initiated-resources-did-change",
 };
 
 // Keep these in sync with the "ResourceType" enum defined by the "Page" domain.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2010, 2016 Apple Inc. All rights reserved.
  *           (C) 2006, 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1675,7 +1675,7 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
         if (Frame* coreFrame = core([self _frame])) {
             if (FrameView* coreView = coreFrame->view()) {
                 _private->inScrollPositionChanged = YES;
-                coreView->scrollPositionChangedViaPlatformWidget(IntPoint(_private->lastScrollPosition), IntPoint(origin));
+                coreView->scrollOffsetChangedViaPlatformWidget(IntPoint(_private->lastScrollPosition), IntPoint(origin));
                 _private->inScrollPositionChanged = NO;
             }
         }
@@ -2136,8 +2136,10 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
 #endif
                 ) {
                 coreFrame->eventHandler().mouseMoved(event, [[self _webView] _pressureEvent]);
-            } else
+            } else {
+                [self removeAllToolTips];
                 coreFrame->eventHandler().passMouseMovedEventToScrollbars(event, [[self _webView] _pressureEvent]);
+            }
         }
 
         [view release];
@@ -5439,7 +5441,7 @@ static PassRefPtr<KeyboardEvent> currentKeyboardEvent(Frame* coreFrame)
 - (void)_applyEditingStyleToSelection:(Ref<EditingStyle>&&)editingStyle withUndoAction:(EditAction)undoAction
 {
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->editor().applyStyleToSelection(WTF::move(editingStyle), undoAction);
+        coreFrame->editor().applyStyleToSelection(WTFMove(editingStyle), undoAction);
 }
 
 #if !PLATFORM(IOS)

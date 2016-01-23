@@ -189,6 +189,7 @@ list(APPEND WebKit2_SOURCES
 
     UIProcess/API/mac/WKView.mm
 
+    UIProcess/Cocoa/AutomationClient.mm
     UIProcess/Cocoa/DiagnosticLoggingClient.mm
     UIProcess/Cocoa/DownloadClient.mm
     UIProcess/Cocoa/FindClient.mm
@@ -330,6 +331,8 @@ file(MAKE_DIRECTORY ${DERIVED_SOURCES_WEBKIT2_DIR})
 
 list(APPEND WebKit2_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/icu"
+    "${WEBCORE_DIR}/editing/cocoa"
+    "${WEBCORE_DIR}/editing/mac"
     "${WEBCORE_DIR}/platform/cf"
     "${WEBCORE_DIR}/platform/cocoa"
     "${WEBCORE_DIR}/platform/graphics/cocoa"

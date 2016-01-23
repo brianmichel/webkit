@@ -70,6 +70,7 @@ set(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics"
     "${WEBCORE_DIR}/platform/graphics/cpu/arm"
     "${WEBCORE_DIR}/platform/graphics/cpu/arm/filters"
+    "${WEBCORE_DIR}/platform/graphics/displaylists"
     "${WEBCORE_DIR}/platform/graphics/filters"
     "${WEBCORE_DIR}/platform/graphics/filters/texmap"
     "${WEBCORE_DIR}/platform/graphics/harfbuzz"
@@ -794,11 +795,6 @@ set(WebCore_SVG_IDL_FILES
     svg/SVGZoomEvent.idl
 )
 
-set(WebCore_IDL_FILES
-    ${WebCore_NON_SVG_IDL_FILES}
-    ${WebCore_SVG_IDL_FILES}
-)
-
 if (WIN32 AND INTERNAL_BUILD)
     set(JavaScriptCore_SCRIPTS_DIR "${CMAKE_BINARY_DIR}/../include/private/JavaScriptCore/Scripts")
 else ()
@@ -878,8 +874,8 @@ set(WebCore_SOURCES
     Modules/indexeddb/legacy/LegacyVersionChangeEvent.cpp
 
     Modules/indexeddb/server/IDBConnectionToClient.cpp
+    Modules/indexeddb/server/IDBSerialization.cpp
     Modules/indexeddb/server/IDBServer.cpp
-    Modules/indexeddb/server/IDBServerOperation.cpp
     Modules/indexeddb/server/IndexValueEntry.cpp
     Modules/indexeddb/server/IndexValueStore.cpp
     Modules/indexeddb/server/MemoryBackingStoreTransaction.cpp
@@ -889,6 +885,10 @@ set(WebCore_SOURCES
     Modules/indexeddb/server/MemoryIndexCursor.cpp
     Modules/indexeddb/server/MemoryObjectStore.cpp
     Modules/indexeddb/server/MemoryObjectStoreCursor.cpp
+    Modules/indexeddb/server/SQLiteIDBBackingStore.cpp
+    Modules/indexeddb/server/SQLiteIDBCursor.cpp
+    Modules/indexeddb/server/SQLiteIDBTransaction.cpp
+    Modules/indexeddb/server/ServerOpenDBRequest.cpp
     Modules/indexeddb/server/UniqueIDBDatabase.cpp
     Modules/indexeddb/server/UniqueIDBDatabaseConnection.cpp
     Modules/indexeddb/server/UniqueIDBDatabaseTransaction.cpp
@@ -1117,6 +1117,7 @@ set(WebCore_SOURCES
     bindings/js/JSCryptoKeyPairCustom.cpp
     bindings/js/JSCryptoKeySerializationJWK.cpp
     bindings/js/JSCryptoOperationData.cpp
+    bindings/js/JSCustomElementInterface.cpp
     bindings/js/JSCustomEventCustom.cpp
     bindings/js/JSCustomSQLStatementErrorCallback.cpp
     bindings/js/JSCustomXPathNSResolver.cpp
@@ -1172,6 +1173,7 @@ set(WebCore_SOURCES
     bindings/js/JSHTMLTemplateElementCustom.cpp
     bindings/js/JSHistoryCustom.cpp
     bindings/js/JSIDBAnyCustom.cpp
+    bindings/js/JSIDBCursorCustom.cpp
     bindings/js/JSIDBDatabaseCustom.cpp
     bindings/js/JSIDBObjectStoreCustom.cpp
     bindings/js/JSImageConstructor.cpp
@@ -1236,6 +1238,7 @@ set(WebCore_SOURCES
     bindings/js/ScriptGlobalObject.cpp
     bindings/js/ScriptState.cpp
     bindings/js/SerializedScriptValue.cpp
+    bindings/js/WebCoreJSBuiltinInternals.cpp
     bindings/js/WebCoreJSBuiltins.cpp
     bindings/js/WebCoreTypedArrayController.cpp
     bindings/js/WorkerScriptController.cpp
@@ -1408,6 +1411,7 @@ set(WebCore_SOURCES
     dom/ContainerNode.cpp
     dom/ContainerNodeAlgorithms.cpp
     dom/ContextDestructionObserver.cpp
+    dom/CustomElementDefinitions.cpp
     dom/CustomEvent.cpp
     dom/DOMCoreException.cpp
     dom/DOMError.cpp
@@ -2220,6 +2224,11 @@ set(WebCore_SOURCES
 
     platform/graphics/cpu/arm/filters/FELightingNEON.cpp
 
+    platform/graphics/displaylists/DisplayList.cpp
+    platform/graphics/displaylists/DisplayListItems.cpp
+    platform/graphics/displaylists/DisplayListRecorder.cpp
+    platform/graphics/displaylists/DisplayListReplayer.cpp
+
     platform/graphics/filters/DistantLightSource.cpp
     platform/graphics/filters/FEBlend.cpp
     platform/graphics/filters/FEColorMatrix.cpp
@@ -2477,6 +2486,7 @@ set(WebCore_SOURCES
     rendering/SimpleLineLayoutResolver.cpp
     rendering/SimpleLineLayoutTextFragmentIterator.cpp
     rendering/TextAutosizer.cpp
+    rendering/TextDecorationPainter.cpp
     rendering/TextPaintStyle.cpp
     rendering/TextPainter.cpp
     rendering/break_lines.cpp
@@ -2606,9 +2616,10 @@ set(WebCore_SOURCES
 
     style/InlineTextBoxStyle.cpp
     style/RenderTreePosition.cpp
+    style/StyleChange.cpp
     style/StyleFontSizeFunctions.cpp
     style/StyleResolveForDocument.cpp
-    style/StyleResolveTree.cpp
+    style/StyleTreeResolver.cpp
 
     svg/SVGAElement.cpp
     svg/SVGAltGlyphDefElement.cpp
@@ -2825,6 +2836,58 @@ set(WebCore_SOURCES
     xml/parser/XMLDocumentParser.cpp
     xml/parser/XMLDocumentParserLibxml2.cpp
     xml/parser/XMLDocumentParserScope.cpp
+)
+
+if (ENABLE_GAMEPAD)
+    list(APPEND WebCore_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/Modules/gamepad"
+    )
+
+    list(APPEND WebCore_IDL_INCLUDES
+        Modules/gamepad
+    )
+
+    list(APPEND WebCore_NON_SVG_IDL_FILES
+        Modules/gamepad/Gamepad.idl
+        Modules/gamepad/GamepadButton.idl
+        Modules/gamepad/GamepadEvent.idl
+        Modules/gamepad/NavigatorGamepad.idl
+    )
+
+    list(APPEND WebCore_SOURCES
+        Modules/gamepad/Gamepad.cpp
+        Modules/gamepad/GamepadButton.cpp
+        Modules/gamepad/GamepadEvent.cpp
+        Modules/gamepad/GamepadManager.cpp
+        Modules/gamepad/NavigatorGamepad.cpp
+
+        platform/GamepadProvider.cpp
+    )
+elseif (ENABLE_GAMEPAD_DEPRECATED)
+    list(APPEND WebCore_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/Modules/gamepad/deprecated"
+    )
+
+    list(APPEND WebCore_IDL_INCLUDES
+        Modules/gamepad/deprecated
+    )
+
+    list(APPEND WebCore_NON_SVG_IDL_FILES
+        Modules/gamepad/deprecated/Gamepad.idl
+        Modules/gamepad/deprecated/GamepadList.idl
+        Modules/gamepad/deprecated/NavigatorGamepad.idl
+    )
+
+    list(APPEND WebCore_SOURCES
+        Modules/gamepad/deprecated/Gamepad.cpp
+        Modules/gamepad/deprecated/GamepadList.cpp
+        Modules/gamepad/deprecated/NavigatorGamepad.cpp
+    )
+endif ()
+
+set(WebCore_IDL_FILES
+    ${WebCore_NON_SVG_IDL_FILES}
+    ${WebCore_SVG_IDL_FILES}
 )
 
 if (ENABLE_ALLINONE_BUILD)
@@ -3222,6 +3285,8 @@ if (ENABLE_GRAPHICS_CONTEXT_3D)
         ${THIRDPARTY_DIR}/ANGLE/src/compiler/translator/timing/RestrictFragmentShaderTiming.cpp
         ${THIRDPARTY_DIR}/ANGLE/src/compiler/translator/timing/RestrictVertexShaderTiming.cpp
 
+        ${THIRDPARTY_DIR}/ANGLE/src/libANGLE/Platform.cpp
+
         ${THIRDPARTY_DIR}/ANGLE/src/third_party/compiler/ArrayBoundsClamper.cpp
     )
 
@@ -3229,43 +3294,6 @@ if (ENABLE_GRAPHICS_CONTEXT_3D)
         platform/graphics/ANGLEWebKitBridge.cpp
         platform/graphics/FormatConverter.cpp
         platform/graphics/GraphicsContext3D.cpp
-    )
-endif ()
-
-if (ENABLE_GAMEPAD)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/Modules/gamepad"
-    )
-
-    list(APPEND WebCore_IDL_INCLUDES
-        Modules/gamepad
-    )
-
-    list(APPEND WebCore_NON_SVG_IDL_FILES
-        Modules/gamepad/Gamepad.idl
-        Modules/gamepad/GamepadButton.idl
-        Modules/gamepad/GamepadEvent.idl
-        Modules/gamepad/NavigatorGamepad.idl
-    )
-elseif (ENABLE_GAMEPAD_DEPRECATED)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/Modules/gamepad/deprecated"
-    )
-
-    list(APPEND WebCore_IDL_INCLUDES
-        Modules/gamepad/deprecated
-    )
-
-    list(APPEND WebCore_NON_SVG_IDL_FILES
-        Modules/gamepad/deprecated/Gamepad.idl
-        Modules/gamepad/deprecated/GamepadList.idl
-        Modules/gamepad/deprecated/NavigatorGamepad.idl
-    )
-
-    list(APPEND WebCore_SOURCES
-        Modules/gamepad/deprecated/Gamepad.cpp
-        Modules/gamepad/deprecated/GamepadList.cpp
-        Modules/gamepad/deprecated/NavigatorGamepad.cpp
     )
 endif ()
 
@@ -3720,10 +3748,6 @@ include_directories(SYSTEM ${WebCore_SYSTEM_INCLUDE_DIRECTORIES})
 
 if (MSVC)
     ADD_PRECOMPILED_HEADER("WebCorePrefix.h" "WebCorePrefix.cpp" WebCore_SOURCES)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        list(APPEND WebCore_SOURCES platform/win/makesafeseh.asm)
-        set_source_files_properties(platform/win/makesafeseh.asm PROPERTIES COMPILE_FLAGS "/safeseh")
-    endif ()
 endif ()
 
 add_library(WebCore ${WebCore_LIBRARY_TYPE} ${WebCore_SOURCES})

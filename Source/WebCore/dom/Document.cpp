@@ -44,6 +44,7 @@
 #include "CompositionEvent.h"
 #include "ContentSecurityPolicy.h"
 #include "CookieJar.h"
+#include "CustomElementDefinitions.h"
 #include "CustomEvent.h"
 #include "DOMImplementation.h"
 #include "DOMNamedFlowCollection.h"
@@ -154,9 +155,11 @@
 #include "ShadowRoot.h"
 #include "StorageEvent.h"
 #include "StyleProperties.h"
+#include "StyleResolveForDocument.h"
 #include "StyleResolver.h"
 #include "StyleSheetContents.h"
 #include "StyleSheetList.h"
+#include "StyleTreeResolver.h"
 #include "SubresourceLoader.h"
 #include "TextEvent.h"
 #include "TextNodeTraversal.h"
@@ -176,6 +179,8 @@
 #include <ctime>
 #include <inspector/ScriptCallStack.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/TemporaryChange.h>
 #include <wtf/text/StringBuffer.h>
 #include <yarr/RegularExpression.h>
@@ -470,7 +475,6 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
     , m_gotoAnchorNeededAfterStylesheetsLoad(false)
     , m_frameElementsShouldIgnoreScrolling(false)
     , m_updateFocusAppearanceRestoresSelection(SelectionRestorationMode::SetDefault)
-    , m_ignoreDestructiveWriteCount(0)
     , m_markers(std::make_unique<DocumentMarkerController>(*this))
     , m_updateFocusAppearanceTimer(*this, &Document::updateFocusAppearanceTimerFired)
     , m_cssTarget(nullptr)
@@ -884,6 +888,9 @@ RefPtr<Element> Document::createElement(const AtomicString& name, ExceptionCode&
         return nullptr;
     }
 
+    if (isHTMLDocument())
+        return HTMLElementFactory::createElement(QualifiedName(nullAtom, name.convertToASCIILowercase(), xhtmlNamespaceURI), *this);
+
     if (isXHTMLDocument())
         return HTMLElementFactory::createElement(QualifiedName(nullAtom, name, xhtmlNamespaceURI), *this);
 
@@ -1117,9 +1124,9 @@ RefPtr<Element> Document::createElementNS(const String& namespaceURI, const Stri
 
 String Document::readyState() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, loading, (ASCIILiteral("loading")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, interactive, (ASCIILiteral("interactive")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, complete, (ASCIILiteral("complete")));
+    static NeverDestroyed<const String> loading(ASCIILiteral("loading"));
+    static NeverDestroyed<const String> interactive(ASCIILiteral("interactive"));
+    static NeverDestroyed<const String> complete(ASCIILiteral("complete"));
 
     switch (m_readyState) {
     case Loading:
@@ -1715,7 +1722,7 @@ Ref<Range> Document::createRange()
 
 RefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned long whatToShow, RefPtr<NodeFilter>&& filter, bool, ExceptionCode& ec)
 {
-    return createNodeIterator(root, whatToShow, WTF::move(filter), ec);
+    return createNodeIterator(root, whatToShow, WTFMove(filter), ec);
 }
 
 RefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned long whatToShow, RefPtr<NodeFilter>&& filter, ExceptionCode& ec)
@@ -1724,7 +1731,7 @@ RefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned long what
         ec = TypeError;
         return nullptr;
     }
-    return NodeIterator::create(root, whatToShow, WTF::move(filter));
+    return NodeIterator::create(root, whatToShow, WTFMove(filter));
 }
 
 RefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned long whatToShow, ExceptionCode& ec)
@@ -1739,7 +1746,7 @@ RefPtr<NodeIterator> Document::createNodeIterator(Node* root, ExceptionCode& ec)
 
 RefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned long whatToShow, RefPtr<NodeFilter>&& filter, bool, ExceptionCode& ec)
 {
-    return createTreeWalker(root, whatToShow, WTF::move(filter), ec);
+    return createTreeWalker(root, whatToShow, WTFMove(filter), ec);
 }
 
 RefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned long whatToShow, RefPtr<NodeFilter>&& filter, ExceptionCode& ec)
@@ -1748,7 +1755,7 @@ RefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned long whatToSh
         ec = TypeError;
         return nullptr;
     }
-    return TreeWalker::create(*root, whatToShow, WTF::move(filter));
+    return TreeWalker::create(*root, whatToShow, WTFMove(filter));
 }
 
 RefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned long whatToShow, ExceptionCode& ec)
@@ -1816,6 +1823,8 @@ void Document::recalcStyle(Style::Change change)
     if (m_inStyleRecalc)
         return; // Guard against re-entrancy. -dwh
 
+    TraceScope tracingScope(StyleRecalcStart, StyleRecalcEnd);
+
     RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
     AnimationUpdateBlock animationUpdateBlock(&m_frame->animation());
 
@@ -1850,9 +1859,23 @@ void Document::recalcStyle(Style::Change change)
         if (change == Style::Force) {
             // This may get set again during style resolve.
             m_hasNodesWithPlaceholderStyle = false;
+
+            auto documentStyle = Style::resolveForDocument(*this);
+
+            // Inserting the pictograph font at the end of the font fallback list is done by the
+            // font selector, so set a font selector if needed.
+            if (Settings* settings = this->settings()) {
+                if (settings->fontFallbackPrefersPictographs())
+                    documentStyle.get().fontCascade().update(&fontSelector());
+            }
+
+            auto documentChange = Style::determineChange(documentStyle.get(), m_renderView->style());
+            if (documentChange != Style::NoChange)
+                renderView()->setStyle(WTFMove(documentStyle));
         }
 
-        Style::resolveTree(*this, change);
+        Style::TreeResolver resolver(*this);
+        resolver.resolve(change);
 
         updatedCompositingLayers = frameView.updateCompositingLayersAfterStyleChange();
 
@@ -2473,6 +2496,9 @@ ScriptableDocumentParser* Document::scriptableDocumentParser() const
 
 void Document::open(Document* ownerDocument)
 {
+    if (m_ignoreOpensDuringUnloadCount)
+        return;
+
     if (ownerDocument) {
         setURL(ownerDocument->url());
         setCookieURL(ownerDocument->cookieURL());
@@ -2821,7 +2847,7 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
 #endif
 
     bool hasInsertionPoint = m_parser && m_parser->hasInsertionPoint();
-    if (!hasInsertionPoint && m_ignoreDestructiveWriteCount)
+    if (!hasInsertionPoint && (m_ignoreOpensDuringUnloadCount || m_ignoreDestructiveWriteCount))
         return;
 
     if (!hasInsertionPoint)
@@ -2883,7 +2909,7 @@ EventTarget* Document::errorEventTarget()
 
 void Document::logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, RefPtr<Inspector::ScriptCallStack>&& callStack)
 {
-    addMessage(MessageSource::JS, MessageLevel::Error, errorMessage, sourceURL, lineNumber, columnNumber, WTF::move(callStack));
+    addMessage(MessageSource::JS, MessageLevel::Error, errorMessage, sourceURL, lineNumber, columnNumber, WTFMove(callStack));
 }
 
 void Document::setURL(const URL& url)
@@ -3318,7 +3344,7 @@ void Document::updateViewportArguments()
 // FIXME: Find a better place for this functionality.
 void setParserFeature(const String& key, const String& value, Document* document, void*)
 {
-    if (key == "telephone" && equalIgnoringCase(value, "no"))
+    if (key == "telephone" && equalLettersIgnoringASCIICase(value, "no"))
         document->setIsTelephoneNumberParsingAllowed(false);
 }
 
@@ -3346,13 +3372,13 @@ void Document::processReferrerPolicy(const String& policy)
 
     // Note that we're supporting both the standard and legacy keywords for referrer
     // policies, as defined by http://www.w3.org/TR/referrer-policy/#referrer-policy-delivery-meta
-    if (equalIgnoringCase(policy, "no-referrer") || equalIgnoringCase(policy, "never"))
+    if (equalLettersIgnoringASCIICase(policy, "no-referrer") || equalLettersIgnoringASCIICase(policy, "never"))
         setReferrerPolicy(ReferrerPolicyNever);
-    else if (equalIgnoringCase(policy, "unsafe-url") || equalIgnoringCase(policy, "always"))
+    else if (equalLettersIgnoringASCIICase(policy, "unsafe-url") || equalLettersIgnoringASCIICase(policy, "always"))
         setReferrerPolicy(ReferrerPolicyAlways);
-    else if (equalIgnoringCase(policy, "origin"))
+    else if (equalLettersIgnoringASCIICase(policy, "origin"))
         setReferrerPolicy(ReferrerPolicyOrigin);
-    else if (equalIgnoringCase(policy, "no-referrer-when-downgrade") || equalIgnoringCase(policy, "default"))
+    else if (equalLettersIgnoringASCIICase(policy, "no-referrer-when-downgrade") || equalLettersIgnoringASCIICase(policy, "default"))
         setReferrerPolicy(ReferrerPolicyDefault);
     else {
         addConsoleMessage(MessageSource::Rendering, MessageLevel::Error, "Failed to set referrer policy: The value '" + policy + "' is not one of 'no-referrer', 'origin', 'no-referrer-when-downgrade', or 'unsafe-url'. Defaulting to 'no-referrer'.");
@@ -3479,7 +3505,7 @@ Ref<Node> Document::cloneNodeInternal(Document&, CloningOperation type)
         cloneChildNodes(clone);
         break;
     }
-    return WTF::move(clone);
+    return WTFMove(clone);
 }
 
 Ref<Document> Document::cloneDocumentWithoutChildren() const
@@ -4112,18 +4138,18 @@ void Document::dispatchWindowLoadEvent()
 void Document::enqueueWindowEvent(Ref<Event>&& event)
 {
     event->setTarget(m_domWindow.get());
-    m_eventQueue.enqueueEvent(WTF::move(event));
+    m_eventQueue.enqueueEvent(WTFMove(event));
 }
 
 void Document::enqueueDocumentEvent(Ref<Event>&& event)
 {
     event->setTarget(this);
-    m_eventQueue.enqueueEvent(WTF::move(event));
+    m_eventQueue.enqueueEvent(WTFMove(event));
 }
 
 void Document::enqueueOverflowEvent(Ref<Event>&& event)
 {
-    m_eventQueue.enqueueEvent(WTF::move(event));
+    m_eventQueue.enqueueEvent(WTFMove(event));
 }
 
 RefPtr<Event> Document::createEvent(const String& type, ExceptionCode& ec)
@@ -4137,21 +4163,21 @@ RefPtr<Event> Document::createEvent(const String& type, ExceptionCode& ec)
     // The following strings are the ones from the DOM specification
     // <https://dom.spec.whatwg.org/#dom-document-createevent>.
 
-    if (equalIgnoringASCIICase(type, "customevent"))
+    if (equalLettersIgnoringASCIICase(type, "customevent"))
         return CustomEvent::create();
-    if (equalIgnoringASCIICase(type, "event") || equalIgnoringASCIICase(type, "events") || equalIgnoringASCIICase(type, "htmlevents"))
+    if (equalLettersIgnoringASCIICase(type, "event") || equalLettersIgnoringASCIICase(type, "events") || equalLettersIgnoringASCIICase(type, "htmlevents"))
         return Event::create();
-    if (equalIgnoringASCIICase(type, "keyboardevent") || equalIgnoringASCIICase(type, "keyboardevents"))
+    if (equalLettersIgnoringASCIICase(type, "keyboardevent") || equalLettersIgnoringASCIICase(type, "keyboardevents"))
         return KeyboardEvent::create();
-    if (equalIgnoringASCIICase(type, "messageevent"))
+    if (equalLettersIgnoringASCIICase(type, "messageevent"))
         return MessageEvent::create();
-    if (equalIgnoringASCIICase(type, "mouseevent") || equalIgnoringASCIICase(type, "mouseevents"))
+    if (equalLettersIgnoringASCIICase(type, "mouseevent") || equalLettersIgnoringASCIICase(type, "mouseevents"))
         return MouseEvent::create();
-    if (equalIgnoringASCIICase(type, "uievent") || equalIgnoringASCIICase(type, "uievents"))
+    if (equalLettersIgnoringASCIICase(type, "uievent") || equalLettersIgnoringASCIICase(type, "uievents"))
         return UIEvent::create();
 
 #if ENABLE(TOUCH_EVENTS)
-    if (equalIgnoringASCIICase(type, "touchevent"))
+    if (equalLettersIgnoringASCIICase(type, "touchevent"))
         return TouchEvent::create();
 #endif
 
@@ -4161,7 +4187,7 @@ RefPtr<Event> Document::createEvent(const String& type, ExceptionCode& ec)
     // However, since there is no provision for initializing the event once it is created,
     // there is no practical value in this feature.
 
-    if (equalIgnoringASCIICase(type, "svgzoomevents"))
+    if (equalLettersIgnoringASCIICase(type, "svgzoomevents"))
         return SVGZoomEvent::create();
 
     // The following strings are for event classes where WebKit supplies an init function.
@@ -4171,25 +4197,25 @@ RefPtr<Event> Document::createEvent(const String& type, ExceptionCode& ec)
     // FIXME: For each of the strings below, prove there is no content depending on it and remove
     // both the string and the corresponding init function for that class.
 
-    if (equalIgnoringASCIICase(type, "compositionevent"))
+    if (equalLettersIgnoringASCIICase(type, "compositionevent"))
         return CompositionEvent::create();
-    if (equalIgnoringASCIICase(type, "hashchangeevent"))
+    if (equalLettersIgnoringASCIICase(type, "hashchangeevent"))
         return HashChangeEvent::create();
-    if (equalIgnoringASCIICase(type, "mutationevent") || equalIgnoringASCIICase(type, "mutationevents"))
+    if (equalLettersIgnoringASCIICase(type, "mutationevent") || equalLettersIgnoringASCIICase(type, "mutationevents"))
         return MutationEvent::create();
-    if (equalIgnoringASCIICase(type, "overflowevent"))
+    if (equalLettersIgnoringASCIICase(type, "overflowevent"))
         return OverflowEvent::create();
-    if (equalIgnoringASCIICase(type, "storageevent"))
+    if (equalLettersIgnoringASCIICase(type, "storageevent"))
         return StorageEvent::create();
-    if (equalIgnoringASCIICase(type, "textevent"))
+    if (equalLettersIgnoringASCIICase(type, "textevent"))
         return TextEvent::create();
-    if (equalIgnoringASCIICase(type, "wheelevent"))
+    if (equalLettersIgnoringASCIICase(type, "wheelevent"))
         return WheelEvent::create();
 
 #if ENABLE(DEVICE_ORIENTATION)
-    if (equalIgnoringASCIICase(type, "devicemotionevent"))
+    if (equalLettersIgnoringASCIICase(type, "devicemotionevent"))
         return DeviceMotionEvent::create();
-    if (equalIgnoringASCIICase(type, "deviceorientationevent"))
+    if (equalLettersIgnoringASCIICase(type, "deviceorientationevent"))
         return DeviceOrientationEvent::create();
 #endif
 
@@ -4839,7 +4865,7 @@ void Document::applyXSLTransform(ProcessingInstruction* pi)
 
 void Document::setTransformSource(std::unique_ptr<TransformSource> source)
 {
-    m_transformSource = WTF::move(source);
+    m_transformSource = WTFMove(source);
 }
 
 #endif
@@ -4895,7 +4921,7 @@ Document& Document::topDocument() const
 
 RefPtr<Attr> Document::createAttribute(const String& name, ExceptionCode& ec)
 {
-    return createAttributeNS(String(), name, ec, true);
+    return createAttributeNS(String(), isHTMLDocument() ? name.convertToASCIILowercase() : name, ec, true);
 }
 
 RefPtr<Attr> Document::createAttributeNS(const String& namespaceURI, const String& qualifiedName, ExceptionCode& ec, bool shouldIgnoreNamespaceChecks)
@@ -5314,7 +5340,7 @@ void Document::initDNSPrefetch()
 
 void Document::parseDNSPrefetchControlHeader(const String& dnsPrefetchControl)
 {
-    if (equalIgnoringCase(dnsPrefetchControl, "on") && !m_haveExplicitlyDisabledDNSPrefetch) {
+    if (equalLettersIgnoringASCIICase(dnsPrefetchControl, "on") && !m_haveExplicitlyDisabledDNSPrefetch) {
         m_isDNSPrefetchEnabled = true;
         return;
     }
@@ -5342,7 +5368,7 @@ void Document::addMessage(MessageSource source, MessageLevel level, const String
     }
 
     if (Page* page = this->page())
-        page->console().addMessage(source, level, message, sourceURL, lineNumber, columnNumber, WTF::move(callStack), state, requestIdentifier);
+        page->console().addMessage(source, level, message, sourceURL, lineNumber, columnNumber, WTFMove(callStack), state, requestIdentifier);
 }
 
 SecurityOrigin* Document::topOrigin() const
@@ -5352,7 +5378,7 @@ SecurityOrigin* Document::topOrigin() const
 
 void Document::postTask(Task task)
 {
-    Task* taskPtr = std::make_unique<Task>(WTF::move(task)).release();
+    Task* taskPtr = std::make_unique<Task>(WTFMove(task)).release();
     WeakPtr<Document> documentReference(m_weakFactory.createWeakPtr());
 
     callOnMainThread([=] {
@@ -5365,7 +5391,7 @@ void Document::postTask(Task task)
 
         Page* page = document->page();
         if ((page && page->defersLoading() && document->activeDOMObjectsAreSuspended()) || !document->m_pendingTasks.isEmpty())
-            document->m_pendingTasks.append(WTF::move(*task.release()));
+            document->m_pendingTasks.append(WTFMove(*task.release()));
         else
             task->performTask(*document);
     });
@@ -5373,7 +5399,7 @@ void Document::postTask(Task task)
 
 void Document::pendingTasksTimerFired()
 {
-    Vector<Task> pendingTasks = WTF::move(m_pendingTasks);
+    Vector<Task> pendingTasks = WTFMove(m_pendingTasks);
     for (auto& task : pendingTasks)
         task.performTask(*this);
 }
@@ -6098,7 +6124,7 @@ void Document::sendWillRevealEdgeEventsIfNeeded(const IntPoint& oldPosition, con
     // that this is the first moment that we know we crossed the magic line).
     
 #if ENABLE(WILL_REVEAL_EDGE_EVENTS)
-    
+    // FIXME: broken in RTL documents.
     int willRevealBottomNotificationPoint = std::max(0, contentsSize.height() - 2 *  visibleRect.height());
     int willRevealTopNotificationPoint = visibleRect.height();
 
@@ -6107,10 +6133,10 @@ void Document::sendWillRevealEdgeEventsIfNeeded(const IntPoint& oldPosition, con
         && willRevealBottomNotificationPoint >= oldPosition.y()) {
         Ref<Event> willRevealEvent = Event::create(eventNames().webkitwillrevealbottomEvent, false, false);
         if (!target)
-            enqueueWindowEvent(WTF::move(willRevealEvent));
+            enqueueWindowEvent(WTFMove(willRevealEvent));
         else {
             willRevealEvent->setTarget(target);
-            m_eventQueue.enqueueEvent(WTF::move(willRevealEvent));
+            m_eventQueue.enqueueEvent(WTFMove(willRevealEvent));
         }
     }
 
@@ -6119,10 +6145,10 @@ void Document::sendWillRevealEdgeEventsIfNeeded(const IntPoint& oldPosition, con
         && willRevealTopNotificationPoint <= oldPosition.y()) {
         Ref<Event> willRevealEvent = Event::create(eventNames().webkitwillrevealtopEvent, false, false);
         if (!target)
-            enqueueWindowEvent(WTF::move(willRevealEvent));
+            enqueueWindowEvent(WTFMove(willRevealEvent));
         else {
             willRevealEvent->setTarget(target);
-            m_eventQueue.enqueueEvent(WTF::move(willRevealEvent));
+            m_eventQueue.enqueueEvent(WTFMove(willRevealEvent));
         }
     }
 
@@ -6134,10 +6160,10 @@ void Document::sendWillRevealEdgeEventsIfNeeded(const IntPoint& oldPosition, con
         && willRevealRightNotificationPoint >= oldPosition.x()) {
         Ref<Event> willRevealEvent = Event::create(eventNames().webkitwillrevealrightEvent, false, false);
         if (!target)
-            enqueueWindowEvent(WTF::move(willRevealEvent));
+            enqueueWindowEvent(WTFMove(willRevealEvent));
         else {
             willRevealEvent->setTarget(target);
-            m_eventQueue.enqueueEvent(WTF::move(willRevealEvent));
+            m_eventQueue.enqueueEvent(WTFMove(willRevealEvent));
         }
     }
 
@@ -6146,10 +6172,10 @@ void Document::sendWillRevealEdgeEventsIfNeeded(const IntPoint& oldPosition, con
         && willRevealLeftNotificationPoint <= oldPosition.x()) {
         Ref<Event> willRevealEvent = Event::create(eventNames().webkitwillrevealleftEvent, false, false);
         if (!target)
-            enqueueWindowEvent(WTF::move(willRevealEvent));
+            enqueueWindowEvent(WTFMove(willRevealEvent));
         else {
             willRevealEvent->setTarget(target);
-            m_eventQueue.enqueueEvent(WTF::move(willRevealEvent));
+            m_eventQueue.enqueueEvent(WTFMove(willRevealEvent));
         }
     }
 #else
@@ -6334,6 +6360,15 @@ unsigned Document::touchEventHandlerCount() const
     return 0;
 #endif
 }
+
+#if ENABLE(CUSTOM_ELEMENTS)
+CustomElementDefinitions& Document::ensureCustomElementDefinitions()
+{
+    if (!m_customElementDefinitions)
+        m_customElementDefinitions = std::make_unique<CustomElementDefinitions>();
+    return *m_customElementDefinitions;
+}
+#endif
 
 LayoutRect Document::absoluteEventHandlerBounds(bool& includesFixedPositionElements)
 {

@@ -1026,14 +1026,16 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
     [WebFrame _createMainFrameWithPage:_private->page frameName:frameName frameView:frameView];
 
-#if !PLATFORM(IOS)
+#if PLATFORM(IOS)
+    NSRunLoop *runLoop = WebThreadNSRunLoop();
+#else
     NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
+#endif
 
     if (WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOADING_DURING_COMMON_RUNLOOP_MODES))
         [self scheduleInRunLoop:runLoop forMode:(NSString *)kCFRunLoopCommonModes];
     else
         [self scheduleInRunLoop:runLoop forMode:NSDefaultRunLoopMode];
-#endif
 
     [self _addToAllWebViewsSet];
     
@@ -1227,6 +1229,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     _private->page->settings().setDefaultFixedFontSize(13);
     _private->page->settings().setDownloadableBinaryFontsEnabled(false);
     _private->page->settings().setAcceleratedDrawingEnabled([preferences acceleratedDrawingEnabled]);
+    _private->page->settings().setDisplayListDrawingEnabled([preferences displayListDrawingEnabled]);
     
     _private->page->settings().setFontFallbackPrefersPictographs(true);
     _private->page->settings().setPictographFontFamily("AppleColorEmoji");
@@ -1491,16 +1494,6 @@ static NSMutableSet *knownPluginMIMETypes()
     FontCascade::setCodePath(f ? FontCascade::Complex : FontCascade::Auto);
 }
 
-+ (void)_setAllowsRoundingHacks:(BOOL)allowsRoundingHacks
-{
-    TextRun::setAllowsRoundingHacks(allowsRoundingHacks);
-}
-
-+ (BOOL)_allowsRoundingHacks
-{
-    return TextRun::allowsRoundingHacks();
-}
-
 + (BOOL)canCloseAllWebViews
 {
     return DOMWindow::dispatchAllPendingBeforeUnloadEvents();
@@ -1565,11 +1558,9 @@ static NSMutableSet *knownPluginMIMETypes()
     return _private->page->renderTreeSize();
 }
 
+// FIXME: This is incorrectly named, and should be removed <rdar://problem/22242515>.
 - (NSSize)_contentsSizeRespectingOverflow
 {
-    if (FrameView* view = [self _mainCoreFrame]->view())
-        return view->contentsSizeRespectingOverflow();
-    
     return [[[[self mainFrame] frameView] documentView] bounds].size;
 }
 
@@ -2036,7 +2027,7 @@ static bool fastDocumentTeardownEnabled()
         Ref<HistoryItem> newItem = otherBackForward.itemAtIndex(i)->copy();
         if (i == 0) 
             newItemToGoTo = newItem.ptr();
-        backForward.client()->addItem(WTF::move(newItem));
+        backForward.client()->addItem(WTFMove(newItem));
     }
 
     ASSERT(newItemToGoTo);
@@ -2281,7 +2272,8 @@ static bool needsSelfRetainWhileLoadingQuirk()
     
     settings.setAcceleratedCompositingEnabled([preferences acceleratedCompositingEnabled]);
     settings.setAcceleratedDrawingEnabled([preferences acceleratedDrawingEnabled]);
-    settings.setCanvasUsesAcceleratedDrawing([preferences canvasUsesAcceleratedDrawing]);    
+    settings.setDisplayListDrawingEnabled([preferences displayListDrawingEnabled]);
+    settings.setCanvasUsesAcceleratedDrawing([preferences canvasUsesAcceleratedDrawing]);
     settings.setShowDebugBorders([preferences showDebugBorders]);
     settings.setSimpleLineLayoutDebugBordersEnabled([preferences simpleLineLayoutDebugBordersEnabled]);
     settings.setShowRepaintCounter([preferences showRepaintCounter]);
@@ -4057,7 +4049,7 @@ static Vector<String> toStringVector(NSArray* patterns)
         return;
 
     auto userScript = std::make_unique<UserScript>(source, url, toStringVector(whitelist), toStringVector(blacklist), injectionTime == WebInjectAtDocumentStart ? InjectAtDocumentStart : InjectAtDocumentEnd, injectedFrames == WebInjectInAllFrames ? InjectInAllFrames : InjectInTopFrameOnly);
-    viewGroup->userContentController().addUserScript(*core(world), WTF::move(userScript));
+    viewGroup->userContentController().addUserScript(*core(world), WTFMove(userScript));
 }
 
 + (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url
@@ -4082,7 +4074,7 @@ static Vector<String> toStringVector(NSArray* patterns)
         return;
 
     auto styleSheet = std::make_unique<UserStyleSheet>(source, url, toStringVector(whitelist), toStringVector(blacklist), injectedFrames == WebInjectInAllFrames ? InjectInAllFrames : InjectInTopFrameOnly, UserStyleUserLevel);
-    viewGroup->userContentController().addUserStyleSheet(*core(world), WTF::move(styleSheet), InjectInExistingDocuments);
+    viewGroup->userContentController().addUserStyleSheet(*core(world), WTFMove(styleSheet), InjectInExistingDocuments);
 }
 
 + (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url
@@ -6613,12 +6605,15 @@ static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
 {
 }
 
+- (void)showCandidates:(NSArray *)candidates forString:(NSString *)string inRect:(NSRect)rectOfTypedString view:(NSView *)view completionHandler:(void (^)(NSTextCheckingResult *acceptedCandidate))completionBlock
+{
+}
+
 @end
 #endif // PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200 && USE(APPLE_INTERNAL_SDK)
 
 @implementation WebView (WebPendingPublic)
 
-#if !PLATFORM(IOS)
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
 #if USE(CFNETWORK)
@@ -6640,7 +6635,6 @@ static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
     if (runLoop && mode)
         core(self)->removeSchedulePair(SchedulePair::create(schedulePairRunLoop, (CFStringRef)mode));
 }
-#endif
 
 static BOOL findString(NSView <WebDocumentSearching> *searchView, NSString *string, WebFindOptions options)
 {
@@ -6806,9 +6800,9 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
             }
         }
         else if (object->inherits(JSArray::info())) {
-            DEPRECATED_DEFINE_STATIC_LOCAL(HashSet<JSObject*>, visitedElems, ());
-            if (!visitedElems.contains(object)) {
-                visitedElems.add(object);
+            static NeverDestroyed<HashSet<JSObject*>> visitedElems;
+            if (!visitedElems.get().contains(object)) {
+                visitedElems.get().add(object);
                 
                 JSArray* array = static_cast<JSArray*>(object);
                 aeDesc = [NSAppleEventDescriptor listDescriptor];
@@ -6816,7 +6810,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
                 for (unsigned i = 0; i < numItems; ++i)
                     [aeDesc insertDescriptor:aeDescFromJSValue(exec, array->get(exec, i)) atIndex:0];
                 
-                visitedElems.remove(object);
+                visitedElems.get().remove(object);
                 return aeDesc;
             }
         }
@@ -8568,11 +8562,10 @@ bool LayerFlushController::flushLayers()
 
     [self _prepareForDictionaryLookup];
 
-    DictionaryPopupInfo adjustedPopupInfo = dictionaryPopupInfo;
-    adjustedPopupInfo.textIndicator.textBoundingRectInRootViewCoordinates = [self _convertRectFromRootView:adjustedPopupInfo.textIndicator.textBoundingRectInRootViewCoordinates];
-
-    return DictionaryLookup::animationControllerForPopup(adjustedPopupInfo, self, [self](TextIndicator& textIndicator) {
+    return DictionaryLookup::animationControllerForPopup(dictionaryPopupInfo, self, [self](TextIndicator& textIndicator) {
         [self _setTextIndicator:textIndicator withLifetime:TextIndicatorWindowLifetime::Permanent];
+    }, [self](FloatRect rectInRootViewCoordinates) {
+        return [self _convertRectFromRootView:rectInRootViewCoordinates];
     });
 }
 #endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
@@ -8597,7 +8590,7 @@ bool LayerFlushController::flushLayers()
     if (!_private->textIndicatorWindow)
         _private->textIndicatorWindow = std::make_unique<TextIndicatorWindow>(self);
 
-    NSRect textBoundingRectInWindowCoordinates = [self convertRect:textIndicator.textBoundingRectInRootViewCoordinates() toView:nil];
+    NSRect textBoundingRectInWindowCoordinates = [self convertRect:[self _convertRectFromRootView:textIndicator.textBoundingRectInRootViewCoordinates()] toView:nil];
     NSRect textBoundingRectInScreenCoordinates = [self.window convertRectToScreen:textBoundingRectInWindowCoordinates];
     _private->textIndicatorWindow->setTextIndicator(textIndicator, NSRectToCGRect(textBoundingRectInScreenCoordinates), lifetime);
 }
@@ -8633,11 +8626,10 @@ bool LayerFlushController::flushLayers()
 
     [self _prepareForDictionaryLookup];
 
-    DictionaryPopupInfo adjustedPopupInfo = dictionaryPopupInfo;
-    adjustedPopupInfo.textIndicator.textBoundingRectInRootViewCoordinates = [self _convertRectFromRootView:adjustedPopupInfo.textIndicator.textBoundingRectInRootViewCoordinates];
-
-    DictionaryLookup::showPopup(adjustedPopupInfo, self, [self](TextIndicator& textIndicator) {
+    DictionaryLookup::showPopup(dictionaryPopupInfo, self, [self](TextIndicator& textIndicator) {
         [self _setTextIndicator:textIndicator withLifetime:TextIndicatorWindowLifetime::Permanent];
+    }, [self](FloatRect rectInRootViewCoordinates) {
+        return [self _convertRectFromRootView:rectInRootViewCoordinates];
     });
 }
 

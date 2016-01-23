@@ -248,7 +248,7 @@ struct AccessibilityText {
     AccessibilityText(const String& t, const AccessibilityTextSource& s, Vector<RefPtr<AccessibilityObject>> elements)
     : text(t)
     , textSource(s)
-    , textElements(WTF::move(elements))
+    , textElements(WTFMove(elements))
     { }
 
     AccessibilityText(const String& t, const AccessibilityTextSource& s, const RefPtr<AccessibilityObject> element)
@@ -540,7 +540,8 @@ public:
     bool isMeter() const;
     bool isSplitter() const { return roleValue() == SplitterRole; }
     bool isToolbar() const { return roleValue() == ToolbarRole; }
-
+    bool isStyleFormatGroup() const;
+    
     virtual bool isChecked() const { return false; }
     virtual bool isEnabled() const { return false; }
     virtual bool isSelected() const { return false; }
@@ -817,6 +818,9 @@ public:
     virtual VisiblePositionRange visiblePositionRange() const { return VisiblePositionRange(); }
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const { return VisiblePositionRange(); }
     
+    RefPtr<Range> elementRange() const;
+    static bool replacedNodeNeedsCharacter(Node* replacedNode);
+    
     VisiblePositionRange visiblePositionRangeForUnorderedPositions(const VisiblePosition&, const VisiblePosition&) const;
     VisiblePositionRange positionOfLeftWord(const VisiblePosition&) const;
     VisiblePositionRange positionOfRightWord(const VisiblePosition&) const;
@@ -829,6 +833,7 @@ public:
     VisiblePositionRange lineRangeForPosition(const VisiblePosition&) const;
 
     String stringForVisiblePositionRange(const VisiblePositionRange&) const;
+    String stringForRange(RefPtr<Range>) const;
     virtual IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const { return IntRect(); }
     int lengthForVisiblePositionRange(const VisiblePositionRange&) const;
     virtual void setSelectedVisiblePositionRange(const VisiblePositionRange&) const { }

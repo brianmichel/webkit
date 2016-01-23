@@ -38,6 +38,7 @@
 #include "HTMLTextAreaElement.h"
 #include "RenderBox.h"
 #include "RenderTheme.h"
+#include "StyleTreeResolver.h"
 #include "ValidationMessage.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
@@ -101,6 +102,19 @@ void HTMLFormControlElement::setFormMethod(const String& value)
 bool HTMLFormControlElement::formNoValidate() const
 {
     return fastHasAttribute(formnovalidateAttr);
+}
+
+String HTMLFormControlElement::formAction() const
+{
+    const AtomicString& value = fastGetAttribute(formactionAttr);
+    if (value.isEmpty())
+        return document().url();
+    return getURLAttribute(formactionAttr);
+}
+
+void HTMLFormControlElement::setFormAction(const AtomicString& value)
+{
+    setAttributeWithoutSynchronization(formactionAttr, value);
 }
 
 bool HTMLFormControlElement::computeIsDisabledByFieldsetAncestor() const
@@ -533,7 +547,7 @@ bool HTMLFormControlElement::validationMessageShadowTreeContains(const Node& nod
 
 void HTMLFormControlElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
 {
-    HTMLElement::dispatchBlurEvent(WTF::move(newFocusedElement));
+    HTMLElement::dispatchBlurEvent(WTFMove(newFocusedElement));
     hideVisibleValidationMessage();
 }
 
@@ -548,13 +562,14 @@ bool HTMLFormControlElement::isDefaultButtonForForm() const
 }
 
 #if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
-// FIXME: We should look to share these methods with class HTMLFormElement instead of duplicating them.
+
+// FIXME: We should look to share this code with class HTMLFormElement instead of duplicating the logic.
 
 bool HTMLFormControlElement::autocorrect() const
 {
     const AtomicString& autocorrectValue = fastGetAttribute(autocorrectAttr);
     if (!autocorrectValue.isEmpty())
-        return !equalIgnoringCase(autocorrectValue, "off");
+        return !equalLettersIgnoringASCIICase(autocorrectValue, "off");
     if (HTMLFormElement* form = this->form())
         return form->autocorrect();
     return true;
@@ -584,6 +599,7 @@ void HTMLFormControlElement::setAutocapitalize(const AtomicString& value)
 {
     setAttribute(autocapitalizeAttr, value);
 }
+
 #endif
 
 HTMLFormControlElement* HTMLFormControlElement::enclosingFormControlElement(Node* node)

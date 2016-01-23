@@ -48,6 +48,7 @@
 #include "JSString.h"
 #include "JSWASMModule.h"
 #include "ProfilerDatabase.h"
+#include "SamplingProfiler.h"
 #include "SamplingTool.h"
 #include "StackVisitor.h"
 #include "StructureInlines.h"
@@ -553,6 +554,11 @@ static EncodedJSValue JSC_HOST_CALL functionLoadWebAssembly(ExecState*);
 #endif
 static EncodedJSValue JSC_HOST_CALL functionLoadModule(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionCheckModuleSyntax(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionPlatformSupportsSamplingProfiler(ExecState*);
+#if ENABLE(SAMPLING_PROFILER)
+static EncodedJSValue JSC_HOST_CALL functionStartSamplingProfiler(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionSamplingProfilerStackTraces(ExecState*);
+#endif
 
 #if ENABLE(SAMPLING_FLAGS)
 static EncodedJSValue JSC_HOST_CALL functionSetSamplingFlags(ExecState*);
@@ -739,6 +745,12 @@ protected:
 #endif
         addFunction(vm, "loadModule", functionLoadModule, 1);
         addFunction(vm, "checkModuleSyntax", functionCheckModuleSyntax, 1);
+
+        addFunction(vm, "platformSupportsSamplingProfiler", functionPlatformSupportsSamplingProfiler, 0);
+#if ENABLE(SAMPLING_PROFILER)
+        addFunction(vm, "startSamplingProfiler", functionStartSamplingProfiler, 0);
+        addFunction(vm, "samplingProfilerStackTraces", functionSamplingProfilerStackTraces, 0);
+#endif
 
         JSArray* array = constructEmptyArray(globalExec(), 0);
         for (size_t i = 0; i < arguments.size(); ++i)
@@ -1609,6 +1621,35 @@ EncodedJSValue JSC_HOST_CALL functionCheckModuleSyntax(ExecState* exec)
     return JSValue::encode(jsNumber(stopWatch.getElapsedMS()));
 }
 
+EncodedJSValue JSC_HOST_CALL functionPlatformSupportsSamplingProfiler(ExecState*)
+{
+#if ENABLE(SAMPLING_PROFILER)
+    return JSValue::encode(JSValue(JSC::JSValue::JSTrue));
+#else
+    return JSValue::encode(JSValue(JSC::JSValue::JSFalse));
+#endif
+}
+
+#if ENABLE(SAMPLING_PROFILER)
+EncodedJSValue JSC_HOST_CALL functionStartSamplingProfiler(ExecState* exec)
+{
+    exec->vm().ensureSamplingProfiler(WTF::Stopwatch::create());
+    exec->vm().samplingProfiler()->noticeCurrentThreadAsJSCExecutionThread();
+    exec->vm().samplingProfiler()->start();
+    return JSValue::encode(jsUndefined());
+}
+
+EncodedJSValue JSC_HOST_CALL functionSamplingProfilerStackTraces(ExecState* exec)
+{
+    RELEASE_ASSERT(exec->vm().samplingProfiler());
+    String jsonString = exec->vm().samplingProfiler()->stackTracesAsJSON();
+    exec->vm().samplingProfiler()->clearData();
+    EncodedJSValue result = JSValue::encode(JSONParse(exec, jsonString));
+    RELEASE_ASSERT(!exec->hadException());
+    return result;
+}
+#endif // ENABLE(SAMPLING_PROFILER)
+
 // Use SEH for Release builds only to get rid of the crash report dialog
 // (luckily the same tests fail in Release and Debug builds so far). Need to
 // be in a separate main function because the jscmain function requires object
@@ -1679,7 +1720,7 @@ int main(int argc, char** argv)
     // have a chance to parse options.
     WTF::initializeThreading();
 
-    if (char* timeoutString = getenv("JSC_timeout")) {
+    if (char* timeoutString = getenv("JSCTEST_timeout")) {
         if (sscanf(timeoutString, "%lf", &s_desiredTimeout) != 1) {
             dataLog(
                 "WARNING: timeout string is malformed, got ", timeoutString,
@@ -1889,6 +1930,7 @@ void CommandLine::parseArguments(int argc, char** argv)
     bool needToDumpOptions = false;
     bool needToExit = false;
 
+    bool hasBadJSCOptions = false;
     for (; i < argc; ++i) {
         const char* arg = argv[i];
         if (!strcmp(arg, "-f")) {
@@ -1953,15 +1995,21 @@ void CommandLine::parseArguments(int argc, char** argv)
         }
 
         // See if the -- option is a JSC VM option.
-        if (strstr(arg, "--") == arg && JSC::Options::setOption(&arg[2])) {
-            // The arg was recognized as a VM option and has been parsed.
-            continue; // Just continue with the next arg. 
+        if (strstr(arg, "--") == arg) {
+            if (!JSC::Options::setOption(&arg[2])) {
+                hasBadJSCOptions = true;
+                dataLog("ERROR: invalid option: ", arg, "\n");
+            }
+            continue;
         }
 
         // This arg is not recognized by the VM nor by jsc. Pass it on to the
         // script.
         m_scripts.append(Script(true, argv[i]));
     }
+
+    if (hasBadJSCOptions && JSC::Options::validateOptions())
+        CRASH();
 
     if (m_scripts.isEmpty())
         m_interactive = true;
@@ -1970,7 +2018,7 @@ void CommandLine::parseArguments(int argc, char** argv)
         m_arguments.append(argv[i]);
 
     if (needToDumpOptions)
-        JSC::Options::dumpAllOptions(stderr, JSC::Options::DumpLevel::Verbose, "All JSC runtime options:");
+        JSC::Options::dumpAllOptions(stderr, JSC::Options::DumpLevel::Overridden, "All JSC runtime options:");
     JSC::Options::ensureOptionsAreCoherent();
     if (needToExit)
         jscExit(EXIT_SUCCESS);

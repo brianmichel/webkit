@@ -66,7 +66,8 @@ Point.pointOnEllipse = function(angle, radiuses)
 
 Point.elementClientSize = function(element)
 {
-    return new Point(element.clientWidth, element.clientHeight);
+    var rect = element.getBoundingClientRect();
+    return new Point(rect.width, rect.height);
 }
 
 Point.prototype =
@@ -76,39 +77,56 @@ Point.prototype =
     {
         return this.x;
     },
-    
+
     // Used when the point object is used as a size object.
     get height()
     {
         return this.y;
     },
-    
+
     // Used when the point object is used as a size object.
     get center()
     {
         return new Point(this.x / 2, this.y / 2);
     },
-    
+
     add: function(other)
     {
+        if(isNaN(other.x))
+            return new Point(this.x + other, this.y + other);
         return new Point(this.x + other.x, this.y + other.y);
     },
-    
+
     subtract: function(other)
     {
+        if(isNaN(other.x))
+            return new Point(this.x - other, this.y - other);
         return new Point(this.x - other.x, this.y - other.y);
     },
-    
+
     multiply: function(other)
     {
+        if(isNaN(other.x))
+            return new Point(this.x * other, this.y * other);
         return new Point(this.x * other.x, this.y * other.y);
     },
-    
+
     move: function(angle, velocity, timeDelta)
     {
         return this.add(Point.pointOnCircle(angle, velocity * (timeDelta / 1000)));
+    },
+
+    length: function() {
+        return Math.sqrt( this.x * this.x + this.y * this.y );
+    },
+
+    normalize: function() {
+        var l = Math.sqrt( this.x * this.x + this.y * this.y );
+        this.x /= l;
+        this.y /= l;
+        return this;
     }
-}
+};
 
 function Insets(top, right, bottom, left)
 {
@@ -139,7 +157,7 @@ Insets.prototype =
     {
         return this.top + this.bottom;
     },
-    
+
     get size()
     {
         return new Point(this.width, this.height);
@@ -156,10 +174,10 @@ SimplePromise.prototype.then = function (callback)
 {
     if (this._callback)
         throw "SimplePromise doesn't support multiple calls to then";
-        
+
     this._callback = callback;
     this._chainedPromise = new SimplePromise;
-    
+
     if (this._resolved)
         this.resolve(this._resolvedValue);
 
@@ -182,6 +200,33 @@ SimplePromise.prototype.resolve = function (value)
         this._chainedPromise.resolve(result);
 }
 
+var Statistics =
+{
+    sampleMean: function(numberOfSamples, sum)
+    {
+        if (numberOfSamples < 1)
+            return 0;
+        return sum / numberOfSamples;
+    },
+
+    // With sum and sum of squares, we can compute the sample standard deviation in O(1).
+    // See https://rniwa.com/2012-11-10/sample-standard-deviation-in-terms-of-sum-and-square-sum-of-samples/
+    unbiasedSampleStandardDeviation: function(numberOfSamples, sum, squareSum)
+    {
+        if (numberOfSamples < 2)
+            return 0;
+        return Math.sqrt((squareSum - sum * sum / numberOfSamples) / (numberOfSamples - 1));
+    },
+
+    geometricMean: function(values)
+    {
+        if (!values.length)
+            return 0;
+        var roots = values.map(function(value) { return  Math.pow(value, 1 / values.length); })
+        return roots.reduce(function(a, b) { return a * b; });
+    }
+};
+
 window.DocumentExtension =
 {
     createElement: function(name, attrs, parentElement)
@@ -201,13 +246,13 @@ window.DocumentExtension =
         const xlinkNamespace = "http://www.w3.org/1999/xlink";
 
         var element = document.createElementNS(svgNamespace, name);
-        
+
         for (var key in attrs)
             element.setAttribute(key, attrs[key]);
-            
+
         for (var key in xlinkAttrs)
             element.setAttributeNS(xlinkNamespace, key, xlinkAttrs[key]);
-            
+
         parentElement.appendChild(element);
         return element;
     }
@@ -215,26 +260,23 @@ window.DocumentExtension =
 
 function ProgressBar(element, ranges)
 {
-    this.element = element;
-    this.ranges = ranges;
-    this.currentRange = 0;
+    this._element = element;
+    this._ranges = ranges;
+    this._currentRange = 0;
+    this._updateElement();
 }
 
 ProgressBar.prototype =
 {
-    _progressToPercent: function(progress)
+    _updateElement: function()
     {
-        return progress * (100 / this.ranges);
+        this._element.style.width = (this._currentRange * (100 / this._ranges)) + "%";
     },
-    
-    incRange: function()
+
+    incrementRange: function()
     {
-        ++this.currentRange;
-    },
-    
-    setPos: function(progress)
-    {
-        this.element.style.width = this._progressToPercent(this.currentRange + progress) + "%";
+        ++this._currentRange;
+        this._updateElement();
     }
 }
 
@@ -248,25 +290,25 @@ ResultsDashboard.prototype =
 {
     push: function(suitesSamplers)
     {
-        this._iterationsSamplers.push(suitesSamplers);        
+        this._iterationsSamplers.push(suitesSamplers);
     },
-    
-    _processData: function(statistics, graph)
+
+    _processData: function()
     {
         var iterationsResults = [];
         var iterationsScores = [];
-        
+
         this._iterationsSamplers.forEach(function(iterationSamplers, index) {
             var suitesResults = {};
             var suitesScores = [];
-        
+
             for (var suiteName in iterationSamplers) {
                 var suite = suiteFromName(suiteName);
                 var suiteSamplerData = iterationSamplers[suiteName];
 
                 var testsResults = {};
                 var testsScores = [];
-                
+
                 for (var testName in suiteSamplerData) {
                     testsResults[testName] = suiteSamplerData[testName];
                     testsScores.push(testsResults[testName][Strings.json.score]);
@@ -277,7 +319,7 @@ ResultsDashboard.prototype =
                 suitesResults[suiteName][Strings.json.results.tests] = testsResults;
                 suitesScores.push(suitesResults[suiteName][Strings.json.score]);
             }
-            
+
             iterationsResults[index] = {};
             iterationsResults[index][Strings.json.score] = Statistics.geometricMean(suitesScores);
             iterationsResults[index][Strings.json.results.suites] = suitesResults;
@@ -293,7 +335,7 @@ ResultsDashboard.prototype =
     {
         if (this._processedData)
             return this._processedData;
-        this._processData(true, true);
+        this._processData();
         return this._processedData;
     },
 
@@ -345,13 +387,10 @@ ResultsTable.prototype =
         var data = testResults[Strings.json.samples];
         if (!data)
             return;
-        
+
         var button = DocumentExtension.createElement("button", { class: "small-button" }, td);
 
         button.addEventListener("click", function() {
-            var samples = data[Strings.json.graph.points];
-            var samplingTimeOffset = data[Strings.json.graph.samplingTimeOffset];
-            var axes = [Strings.text.experiments.complexity, Strings.text.experiments.frameRate];
             var score = testResults[Strings.json.score].toFixed(2);
             var complexity = testResults[Strings.json.experiments.complexity];
             var mean = [
@@ -363,9 +402,21 @@ ResultsTable.prototype =
                 complexity[Strings.json.measurements.percent].toFixed(2),
                 "%), worst 5%: ",
                 complexity[Strings.json.measurements.concern].toFixed(2)].join("");
-            benchmarkController.showTestGraph(testName, score, mean, axes, samples, samplingTimeOffset);
+
+            var graphData = {
+                axes: [Strings.text.experiments.complexity, Strings.text.experiments.frameRate],
+                mean: [
+                    testResults[Strings.json.experiments.complexity][Strings.json.measurements.average],
+                    testResults[Strings.json.experiments.frameRate][Strings.json.measurements.average]
+                ],
+                samples: data,
+                samplingTimeOffset: testResults[Strings.json.samplingTimeOffset]
+            }
+            if (testResults[Strings.json.targetFPS])
+                graphData.targetFPS = testResults[Strings.json.targetFPS];
+            benchmarkController.showTestGraph(testName, score, mean, graphData);
         });
-            
+
         button.textContent = Strings.text.results.graph + "...";
     },
 
@@ -373,10 +424,10 @@ ResultsTable.prototype =
     {
         const percentThreshold = 10;
         const averageThreshold = 2;
-         
+
         if (measurement == Strings.json.measurements.percent)
             return data[Strings.json.measurements.percent] >= percentThreshold;
-            
+
         if (jsonExperiment == Strings.json.experiments.frameRate && measurement == Strings.json.measurements.average)
             return Math.abs(data[Strings.json.measurements.average] - options["frame-rate"]) >= averageThreshold;
 
@@ -445,7 +496,7 @@ ResultsTable.prototype =
             this._addTest(testName, testResults, options);
         }
     },
-    
+
     _addIteration: function(iterationResult, options)
     {
         for (var suiteName in iterationResult[Strings.json.results.suites]) {
@@ -458,7 +509,7 @@ ResultsTable.prototype =
     {
         this.clear();
         this._addHeader();
-        
+
         iterationsResults.forEach(function(iterationResult) {
             this._addIteration(iterationResult, options);
         }, this);
@@ -506,5 +557,14 @@ window.Utilities =
     mergeObjects: function(obj1, obj2)
     {
         return this.extendObject(this.copyObject(obj1), obj2);
+    },
+
+    createSubclass: function(superclass, classConstructor, extend)
+    {
+        classConstructor.prototype = Object.create(superclass.prototype);
+        classConstructor.prototype.constructor = classConstructor;
+        if (extend)
+            Utilities.extendObject(classConstructor.prototype, extend);
+        return classConstructor;
     }
 }

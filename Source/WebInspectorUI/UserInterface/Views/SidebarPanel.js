@@ -33,6 +33,7 @@ WebInspector.SidebarPanel = class SidebarPanel extends WebInspector.View
         this._displayName = displayName;
         this._selected = false;
 
+        this._widthSetting = new WebInspector.Setting(identifier + "-sidebar-panel-width", 0);
         this._savedScrollPosition = 0;
 
         this.element.classList.add("panel", identifier);
@@ -79,6 +80,17 @@ WebInspector.SidebarPanel = class SidebarPanel extends WebInspector.View
     get parentSidebar()
     {
         return this.parentView;
+    }
+
+    get minimumWidth()
+    {
+        // Implemented by subclasses.
+        return 0;
+    }
+
+    get savedWidth()
+    {
+        return this._widthSetting.value;
     }
 
     show()
@@ -142,6 +154,10 @@ WebInspector.SidebarPanel = class SidebarPanel extends WebInspector.View
 
     widthDidChange()
     {
+        let width = this.element.realOffsetWidth;
+        if (width && width !== this._widthSetting.value)
+            this._widthSetting.value = width;
+
         // Implemented by subclasses.
     }
 

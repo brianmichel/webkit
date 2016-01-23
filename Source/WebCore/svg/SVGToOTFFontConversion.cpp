@@ -51,11 +51,16 @@ static inline void append32(V& result, uint32_t value)
 class SVGToOTFFontConverter {
 public:
     SVGToOTFFontConverter(const SVGFontElement&);
-    void convertSVGToOTFFont();
+    bool convertSVGToOTFFont();
 
     Vector<char> releaseResult()
     {
-        return WTF::move(m_result);
+        return WTFMove(m_result);
+    }
+
+    bool error() const
+    {
+        return m_error;
     }
 
 private:
@@ -257,6 +262,7 @@ private:
     unsigned m_tablesAppendedCount;
     char m_weight;
     bool m_italic;
+    bool m_error { false };
 };
 
 static uint16_t roundDownToPowerOfTwo(uint16_t x)
@@ -1064,7 +1070,7 @@ template<typename T> inline size_t SVGToOTFFontConverter::appendKERNSubtable(boo
         if ((element.*buildKerningPair)(kerningPair))
             addKerningPair(kerningData, kerningPair);
     }
-    return finishAppendingKERNSubtable(WTF::move(kerningData), coverage);
+    return finishAppendingKERNSubtable(WTFMove(kerningData), coverage);
 }
 
 size_t SVGToOTFFontConverter::finishAppendingKERNSubtable(Vector<KerningData> kerningData, uint16_t coverage)
@@ -1269,7 +1275,7 @@ Vector<char> SVGToOTFFontConverter::transcodeGlyphPaths(float width, const SVGEl
 
     ok = SVGPathParser::parse(source, builder);
     if (!ok)
-        result.clear();
+        return { };
 
     boundingBox = builder.boundingBox();
 
@@ -1291,6 +1297,10 @@ void SVGToOTFFontConverter::processGlyphElement(const SVGElement& glyphOrMissing
 
     Optional<FloatRect> glyphBoundingBox;
     auto path = transcodeGlyphPaths(horizontalAdvance, glyphOrMissingGlyphElement, glyphBoundingBox);
+    if (!path.size()) {
+        // It's better to use a fallback font rather than use a font without all its glyphs.
+        m_error = true;
+    }
     if (!boundingBox)
         boundingBox = glyphBoundingBox;
     else if (glyphBoundingBox)
@@ -1298,7 +1308,7 @@ void SVGToOTFFontConverter::processGlyphElement(const SVGElement& glyphOrMissing
     if (glyphBoundingBox)
         m_minRightSideBearing = std::min(m_minRightSideBearing, horizontalAdvance - glyphBoundingBox.value().maxX());
 
-    m_glyphs.append(GlyphData(WTF::move(path), glyphElement, horizontalAdvance, verticalAdvance, glyphBoundingBox.valueOr(FloatRect()), codepoints));
+    m_glyphs.append(GlyphData(WTFMove(path), glyphElement, horizontalAdvance, verticalAdvance, glyphBoundingBox.valueOr(FloatRect()), codepoints));
 }
 
 void SVGToOTFFontConverter::appendLigatureGlyphs()
@@ -1351,8 +1361,8 @@ bool SVGToOTFFontConverter::compareCodepointsLexicographically(const GlyphData& 
     }
 
     if (iterator1 == codePoints1.end() && iterator2 == codePoints2.end()) {
-        bool firstIsIsolated = data1.glyphElement && equalIgnoringCase(data1.glyphElement->fastGetAttribute(SVGNames::arabic_formAttr), "isolated");
-        bool secondIsIsolated = data2.glyphElement && equalIgnoringCase(data2.glyphElement->fastGetAttribute(SVGNames::arabic_formAttr), "isolated");
+        bool firstIsIsolated = data1.glyphElement && equalLettersIgnoringASCIICase(data1.glyphElement->fastGetAttribute(SVGNames::arabic_formAttr), "isolated");
+        bool secondIsIsolated = data2.glyphElement && equalLettersIgnoringASCIICase(data2.glyphElement->fastGetAttribute(SVGNames::arabic_formAttr), "isolated");
         return firstIsIsolated && !secondIsIsolated;
     }
     return iterator1 == codePoints1.end();
@@ -1447,7 +1457,7 @@ SVGToOTFFontConverter::SVGToOTFFontConverter(const SVGFontElement& fontElement)
         if (m_codepointsToIndicesMap.isValidKey(glyph.codepoints)) {
             auto& glyphVector = m_codepointsToIndicesMap.add(glyph.codepoints, Vector<Glyph>()).iterator->value;
             // Prefer isolated arabic forms
-            if (glyph.glyphElement && equalIgnoringCase(glyph.glyphElement->fastGetAttribute(SVGNames::arabic_formAttr), "isolated"))
+            if (glyph.glyphElement && equalLettersIgnoringASCIICase(glyph.glyphElement->fastGetAttribute(SVGNames::arabic_formAttr), "isolated"))
                 glyphVector.insert(0, i);
             else
                 glyphVector.append(i);
@@ -1459,7 +1469,7 @@ SVGToOTFFontConverter::SVGToOTFFontConverter(const SVGFontElement& fontElement)
         Vector<String> segments;
         m_fontFaceElement->fastGetAttribute(SVGNames::font_weightAttr).string().split(' ', segments);
         for (auto& segment : segments) {
-            if (equalIgnoringCase(segment, "bold")) {
+            if (equalLettersIgnoringASCIICase(segment, "bold")) {
                 m_weight = 7;
                 break;
             }
@@ -1472,7 +1482,7 @@ SVGToOTFFontConverter::SVGToOTFFontConverter(const SVGFontElement& fontElement)
         }
         m_fontFaceElement->fastGetAttribute(SVGNames::font_styleAttr).string().split(' ', segments);
         for (auto& segment : segments) {
-            if (equalIgnoringCase(segment, "italic") || equalIgnoringCase(segment, "oblique")) {
+            if (equalLettersIgnoringASCIICase(segment, "italic") || equalLettersIgnoringASCIICase(segment, "oblique")) {
                 m_italic = true;
                 break;
             }
@@ -1521,10 +1531,10 @@ void SVGToOTFFontConverter::appendTable(const char identifier[4], FontAppendingF
     ++m_tablesAppendedCount;
 }
 
-void SVGToOTFFontConverter::convertSVGToOTFFont()
+bool SVGToOTFFontConverter::convertSVGToOTFFont()
 {
     if (m_glyphs.isEmpty())
-        return;
+        return false;
 
     uint16_t numTables = 14;
     uint16_t roundedNumTables = roundDownToPowerOfTwo(numTables);
@@ -1566,12 +1576,16 @@ void SVGToOTFFontConverter::convertSVGToOTFFont()
     // checksumAdjustment: "To compute: set it to 0, calculate the checksum for the 'head' table and put it in the table directory,
     // sum the entire font as uint32, then store B1B0AFBA - sum. The checksum for the 'head' table will now be wrong. That is OK."
     overwrite32(headTableOffset + 8, 0xB1B0AFBAU - calculateChecksum(0, m_result.size()));
+    return true;
 }
 
-Vector<char> convertSVGToOTFFont(const SVGFontElement& element)
+Optional<Vector<char>> convertSVGToOTFFont(const SVGFontElement& element)
 {
     SVGToOTFFontConverter converter(element);
-    converter.convertSVGToOTFFont();
+    if (converter.error())
+        return Nullopt;
+    if (!converter.convertSVGToOTFFont())
+        return Nullopt;
     return converter.releaseResult();
 }
 

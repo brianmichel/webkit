@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,15 +118,7 @@ extern "C" inline double wtf_atan2(double x, double y)
     return result;
 }
 
-// Work around a bug in the Microsoft CRT, where fmod(x, +-infinity) yields NaN instead of x.
-extern "C" inline double wtf_fmod(double x, double y) { return (!std::isinf(x) && std::isinf(y)) ? x : fmod(x, y); }
-
-// Work around a bug in the Microsoft CRT, where pow(NaN, 0) yields NaN instead of 1.
-extern "C" inline double wtf_pow(double x, double y) { return y == 0 ? 1 : pow(x, y); }
-
 #define atan2(x, y) wtf_atan2(x, y)
-#define fmod(x, y) wtf_fmod(x, y)
-#define pow(x, y) wtf_pow(x, y)
 
 #endif // COMPILER(MSVC)
 
@@ -427,6 +419,20 @@ inline T leftShiftWithSaturation(T value, unsigned shiftAmount, T max = std::num
     return result;
 }
 
+// Check if two ranges overlap assuming that neither range is empty.
+template<typename T>
+inline bool nonEmptyRangesOverlap(T leftMin, T leftMax, T rightMin, T rightMax)
+{
+    ASSERT(leftMin < leftMax);
+    ASSERT(rightMin < rightMax);
+    
+    if (leftMin <= rightMin && leftMax > rightMin)
+        return true;
+    if (rightMin <= leftMin && rightMax > leftMin)
+        return true;
+    return false;
+}
+
 // Pass ranges with the min being inclusive and the max being exclusive. For example, this should
 // return false:
 //
@@ -442,12 +448,8 @@ inline bool rangesOverlap(T leftMin, T leftMax, T rightMin, T rightMax)
         return false;
     if (rightMin == rightMax)
         return false;
-    
-    if (leftMin <= rightMin && leftMax > rightMin)
-        return true;
-    if (rightMin <= leftMin && rightMax > leftMin)
-        return true;
-    return false;
+
+    return nonEmptyRangesOverlap(leftMin, leftMax, rightMin, rightMax);
 }
 
 } // namespace WTF

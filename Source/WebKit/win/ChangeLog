@@ -1,3 +1,88 @@
+2016-01-17  Ada Chan  <adachan@apple.com>
+
+        Add a mode parameter to MediaControllerInterface::supportsFullscreen() and ChromeClient::supportsVideoFullscreen().
+        https://bugs.webkit.org/show_bug.cgi?id=153220
+
+        Reviewed by Eric Carlson.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::supportsVideoFullscreen):
+        * WebCoreSupport/WebChromeClient.h:
+
+2016-01-22  Youenn Fablet  <youenn.fablet@crf.canon.fr>
+
+        Remove PassRefPtr from ResourceRequest and FormData
+        https://bugs.webkit.org/show_bug.cgi?id=153229
+
+        Reviewed by Chris Dumez.
+
+        * WebMutableURLRequest.cpp:
+        (WebMutableURLRequest::setHTTPBody):
+
+2016-01-15  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove GraphicsContext::drawConvexPolygon() and GraphicsContext::clipConvexPolygon()
+        https://bugs.webkit.org/show_bug.cgi?id=153174
+
+        Reviewed by Zalan Bujtas.
+
+        GraphicsContext::drawConvexPolygon() and GraphicsContext::clipConvexPolygon() were
+        poorly named (non-convex polygons are allowed), and just syntactic sugar over
+        clipPath() and drawPath().
+        
+        Remove them, but add a convenience function to create a Path from a Vector of 
+        points. For CG, we can use the more efficient CGPathAddLines().
+
+        * FullscreenVideoController.cpp:
+        (HUDSlider::draw):
+
+2016-01-05  Per Arne Vollan  <peavo@outlook.com>
+
+        [WinCairo] Download should use header values from provided request object.
+        https://bugs.webkit.org/show_bug.cgi?id=152694
+
+        Reviewed by Alex Christensen.
+
+        Copy header values from request object parameter.
+
+        * WebDownloadCurl.cpp:
+        (WebDownload::initWithRequest):
+
+2015-12-31  Andy Estes  <aestes@apple.com>
+
+        Replace WTF::move with WTFMove
+        https://bugs.webkit.org/show_bug.cgi?id=152601
+
+        Reviewed by Brady Eidson.
+
+        * Plugins/PluginStream.cpp:
+        (WebCore::PluginStream::willSendRequest):
+        * Plugins/PluginView.cpp:
+        (WebCore::PluginView::requestTimerFired):
+        (WebCore::PluginView::scheduleRequest):
+        (WebCore::PluginView::handlePost):
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::createDocumentLoader):
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::WebInspectorFrontendClient):
+        * WebHistory.cpp:
+        (createUserInfoFromArray):
+        * WebHistoryItem.cpp:
+        (WebHistoryItem::initFromDictionaryRepresentation):
+        * WebView.cpp:
+        (WebView::addToDirtyRegion):
+        (WebView::scrollBackingStore):
+        (WebView::loadBackForwardListFromOtherView):
+        (WebView::addUserScriptToGroup):
+        (WebView::addUserStyleSheetToGroup):
+
+2015-12-29  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix Windows build.
+
+        * WebView.cpp:
+        (WebView::scrollOffset):
+
 2015-12-25  David Kilzer  <ddkilzer@apple.com>
 
         ResourceError should store failingURL as URL instead of String to avoid reparsing and to address FIXME comments in ResourceErrorCF.cpp and ResourceErrorMac.mm

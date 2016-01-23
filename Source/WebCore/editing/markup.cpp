@@ -213,8 +213,8 @@ void StyledMarkupAccumulator::appendStyleNodeOpenTag(StringBuilder& out, StylePr
 
 const String& StyledMarkupAccumulator::styleNodeCloseTag(bool isBlock)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, divClose, (ASCIILiteral("</div>")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, styleSpanClose, (ASCIILiteral("</span>")));
+    static NeverDestroyed<const String> divClose(ASCIILiteral("</div>"));
+    static NeverDestroyed<const String> styleSpanClose(ASCIILiteral("</span>"));
     return isBlock ? divClose : styleSpanClose;
 }
 
@@ -577,7 +577,7 @@ static Node* highestAncestorToWrapMarkup(const Range* range, EAnnotateForInterch
 static String createMarkupInternal(Document& document, const Range& range, Vector<Node*>* nodes,
     EAnnotateForInterchange shouldAnnotate, bool convertBlocksToInlines, EAbsoluteURLs shouldResolveURLs)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, interchangeNewlineString, (ASCIILiteral("<br class=\"" AppleInterchangeNewline "\">")));
+    static NeverDestroyed<const String> interchangeNewlineString(ASCIILiteral("<br class=\"" AppleInterchangeNewline "\">"));
 
     bool collapsed = range.collapsed();
     if (collapsed)
@@ -729,7 +729,7 @@ static void fillContainerFromString(ContainerNode& paragraph, const String& stri
                 tabText = emptyString();
             }
             Ref<Node> textNode = document.createTextNode(stringWithRebalancedWhitespace(s, first, i + 1 == numEntries));
-            paragraph.appendChild(WTF::move(textNode), ASSERT_NO_EXCEPTION);
+            paragraph.appendChild(WTFMove(textNode), ASSERT_NO_EXCEPTION);
         }
 
         // there is a tab after every entry, except the last entry
@@ -794,7 +794,7 @@ Ref<DocumentFragment> createFragmentFromText(Range& context, const String& text)
         if (string.endsWith('\n')) {
             Ref<Element> element = createBreakElement(document);
             element->setAttribute(classAttr, AppleInterchangeNewline);            
-            fragment->appendChild(WTF::move(element), ASSERT_NO_EXCEPTION);
+            fragment->appendChild(WTFMove(element), ASSERT_NO_EXCEPTION);
         }
         return fragment;
     }
@@ -989,6 +989,22 @@ static inline bool hasOneTextChild(ContainerNode& node)
     return hasOneChild(node) && node.firstChild()->isTextNode();
 }
 
+static inline bool hasMutationEventListeners(const Document& document)
+{
+    return document.hasListenerType(Document::DOMSUBTREEMODIFIED_LISTENER)
+        || document.hasListenerType(Document::DOMNODEINSERTED_LISTENER)
+        || document.hasListenerType(Document::DOMNODEREMOVED_LISTENER)
+        || document.hasListenerType(Document::DOMNODEREMOVEDFROMDOCUMENT_LISTENER)
+        || document.hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER);
+}
+
+// We can use setData instead of replacing Text node as long as script can't observe the difference.
+static inline bool canUseSetDataOptimization(const Text& containerChild, const ChildListMutationScope& mutationScope)
+{
+    bool authorScriptMayHaveReference = containerChild.refCount();
+    return !authorScriptMayHaveReference && !mutationScope.canObserve() && !hasMutationEventListeners(containerChild.document());
+}
+
 void replaceChildrenWithFragment(ContainerNode& container, Ref<DocumentFragment>&& fragment, ExceptionCode& ec)
 {
     Ref<ContainerNode> containerNode(container);
@@ -999,18 +1015,20 @@ void replaceChildrenWithFragment(ContainerNode& container, Ref<DocumentFragment>
         return;
     }
 
-    if (hasOneTextChild(containerNode) && hasOneTextChild(fragment)) {
-        downcast<Text>(*containerNode->firstChild()).setData(downcast<Text>(*fragment->firstChild()).data(), ec);
-        return;
-    }
+    auto* containerChild = containerNode->firstChild();
+    if (containerChild && !containerChild->nextSibling()) {
+        if (is<Text>(*containerChild) && hasOneTextChild(fragment) && canUseSetDataOptimization(downcast<Text>(*containerChild), mutation)) {
+            ASSERT(!fragment->firstChild()->refCount());
+            downcast<Text>(*containerChild).setData(downcast<Text>(*fragment->firstChild()).data());
+            return;
+        }
 
-    if (hasOneChild(containerNode)) {
-        containerNode->replaceChild(WTF::move(fragment), *containerNode->firstChild(), ec);
+        containerNode->replaceChild(WTFMove(fragment), *containerChild, ec);
         return;
     }
 
     containerNode->removeChildren();
-    containerNode->appendChild(WTF::move(fragment), ec);
+    containerNode->appendChild(WTFMove(fragment), ec);
 }
 
 void replaceChildrenWithText(ContainerNode& container, const String& text, ExceptionCode& ec)
@@ -1019,19 +1037,19 @@ void replaceChildrenWithText(ContainerNode& container, const String& text, Excep
     ChildListMutationScope mutation(containerNode);
 
     if (hasOneTextChild(containerNode)) {
-        downcast<Text>(*containerNode->firstChild()).setData(text, ec);
+        downcast<Text>(*containerNode->firstChild()).setData(text);
         return;
     }
 
     Ref<Text> textNode = Text::create(containerNode->document(), text);
 
     if (hasOneChild(containerNode)) {
-        containerNode->replaceChild(WTF::move(textNode), *containerNode->firstChild(), ec);
+        containerNode->replaceChild(WTFMove(textNode), *containerNode->firstChild(), ec);
         return;
     }
 
     containerNode->removeChildren();
-    containerNode->appendChild(WTF::move(textNode), ec);
+    containerNode->appendChild(WTFMove(textNode), ec);
 }
 
 }

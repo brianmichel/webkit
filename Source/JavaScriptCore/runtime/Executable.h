@@ -257,11 +257,11 @@ public:
     typedef ExecutableBase Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-    static NativeExecutable* create(VM& vm, PassRefPtr<JITCode> callThunk, NativeFunction function, PassRefPtr<JITCode> constructThunk, NativeFunction constructor, Intrinsic intrinsic)
+    static NativeExecutable* create(VM& vm, PassRefPtr<JITCode> callThunk, NativeFunction function, PassRefPtr<JITCode> constructThunk, NativeFunction constructor, Intrinsic intrinsic, const String& name)
     {
         NativeExecutable* executable;
         executable = new (NotNull, allocateCell<NativeExecutable>(vm.heap)) NativeExecutable(vm, function, constructor);
-        executable->finishCreation(vm, callThunk, constructThunk, intrinsic);
+        executable->finishCreation(vm, callThunk, constructThunk, intrinsic, name);
         return executable;
     }
 
@@ -294,13 +294,16 @@ public:
 
     Intrinsic intrinsic() const;
 
+    const String& name() const { return m_name; }
+
 protected:
-    void finishCreation(VM& vm, PassRefPtr<JITCode> callThunk, PassRefPtr<JITCode> constructThunk, Intrinsic intrinsic)
+    void finishCreation(VM& vm, PassRefPtr<JITCode> callThunk, PassRefPtr<JITCode> constructThunk, Intrinsic intrinsic, const String& name)
     {
         Base::finishCreation(vm);
         m_jitCodeForCall = callThunk;
         m_jitCodeForConstruct = constructThunk;
         m_intrinsic = intrinsic;
+        m_name = name;
     }
 
 private:
@@ -317,6 +320,8 @@ private:
     NativeFunction m_constructor;
         
     Intrinsic m_intrinsic;
+
+    String m_name;
 };
 
 class ScriptExecutable : public ExecutableBase {
@@ -346,7 +351,8 @@ public:
     bool needsActivation() const { return m_hasCapturedVariables || m_features & (EvalFeature | WithFeature); }
     bool isArrowFunctionContext() const { return m_isArrowFunctionContext; }
     bool isStrictMode() const { return m_features & StrictModeFeature; }
-    bool isDerivedConstructorContext() const { return m_isDerivedConstructorContext; }
+    DerivedContextType derivedContextType() const { return m_derivedContextType; }
+
     ECMAMode ecmaMode() const { return isStrictMode() ? StrictMode : NotStrictMode; }
         
     void setNeverInline(bool value) { m_neverInline = value; }
@@ -395,7 +401,7 @@ private:
     JSObject* prepareForExecutionImpl(ExecState*, JSFunction*, JSScope*, CodeSpecializationKind);
 
 protected:
-    ScriptExecutable(Structure*, VM&, const SourceCode&, bool isInStrictContext, bool isInDerivedConstructorContext, bool isInArrowFunctionContext);
+    ScriptExecutable(Structure*, VM&, const SourceCode&, bool isInStrictContext, DerivedContextType, bool isInArrowFunctionContext);
 
     void finishCreation(VM& vm)
     {
@@ -414,7 +420,7 @@ protected:
     bool m_neverInline;
     bool m_neverOptimize { false };
     bool m_didTryToEnterInLoop;
-    bool m_isDerivedConstructorContext;
+    DerivedContextType m_derivedContextType;
     bool m_isArrowFunctionContext;
     int m_overrideLineNumber;
     int m_firstLine;
@@ -438,7 +444,7 @@ public:
         return m_evalCodeBlock.get();
     }
 
-    static EvalExecutable* create(ExecState*, const SourceCode&, bool isInStrictContext, ThisTDZMode, bool isDerivedConstructorContext, bool isArrowFunctionContext, const VariableEnvironment*);
+    static EvalExecutable* create(ExecState*, const SourceCode&, bool isInStrictContext, ThisTDZMode, DerivedContextType, bool isArrowFunctionContext, const VariableEnvironment*);
 
     PassRefPtr<JITCode> generatedJITCode()
     {
@@ -452,8 +458,7 @@ public:
         
     DECLARE_INFO;
 
-
-    ExecutableInfo executableInfo() const { return ExecutableInfo(needsActivation(), usesEval(), isStrictMode(), false, false, ConstructorKind::None, GeneratorThisMode::NonEmpty, SuperBinding::NotNeeded, SourceParseMode::ProgramMode, isDerivedConstructorContext(), isArrowFunctionContext()); }
+    ExecutableInfo executableInfo() const { return ExecutableInfo(needsActivation(), usesEval(), isStrictMode(), false, false, ConstructorKind::None, SuperBinding::NotNeeded, SourceParseMode::ProgramMode, derivedContextType(), isArrowFunctionContext() , false); }
 
     unsigned numVariables() { return m_unlinkedEvalCodeBlock->numVariables(); }
     unsigned numberOfFunctionDecls() { return m_unlinkedEvalCodeBlock->numberOfFunctionDecls(); }
@@ -461,7 +466,8 @@ public:
 private:
     friend class ExecutableBase;
     friend class ScriptExecutable;
-    EvalExecutable(ExecState*, const SourceCode&, bool inStrictContext, bool isDerivedConstructorContext, bool isArrowFunctionContext);
+
+    EvalExecutable(ExecState*, const SourceCode&, bool inStrictContext, DerivedContextType, bool isArrowFunctionContext);
 
     static void visitChildren(JSCell*, SlotVisitor&);
 
@@ -506,7 +512,7 @@ public:
         
     DECLARE_INFO;
 
-    ExecutableInfo executableInfo() const { return ExecutableInfo(needsActivation(), usesEval(), isStrictMode(), false, false, ConstructorKind::None, GeneratorThisMode::NonEmpty, SuperBinding::NotNeeded, SourceParseMode::ProgramMode, isDerivedConstructorContext(), false); }
+    ExecutableInfo executableInfo() const { return ExecutableInfo(needsActivation(), usesEval(), isStrictMode(), false, false, ConstructorKind::None, SuperBinding::NotNeeded, SourceParseMode::ProgramMode, derivedContextType(), isArrowFunctionContext(), false); }
 
 private:
     friend class ExecutableBase;
@@ -547,7 +553,7 @@ public:
 
     DECLARE_INFO;
 
-    ExecutableInfo executableInfo() const { return ExecutableInfo(needsActivation(), usesEval(), isStrictMode(), false, false, ConstructorKind::None, GeneratorThisMode::NonEmpty, SuperBinding::NotNeeded, SourceParseMode::ModuleEvaluateMode, isDerivedConstructorContext(), false); }
+    ExecutableInfo executableInfo() const { return ExecutableInfo(needsActivation(), usesEval(), isStrictMode(), false, false, ConstructorKind::None, SuperBinding::NotNeeded, SourceParseMode::ModuleEvaluateMode, derivedContextType(), isArrowFunctionContext(), false); }
 
     UnlinkedModuleProgramCodeBlock* unlinkedModuleProgramCodeBlock() { return m_unlinkedModuleProgramCodeBlock.get(); }
 
@@ -657,7 +663,7 @@ public:
     bool isBuiltinFunction() const { return m_unlinkedExecutable->isBuiltinFunction(); }
     ConstructAbility constructAbility() const { return m_unlinkedExecutable->constructAbility(); }
     bool isArrowFunction() const { return parseMode() == SourceParseMode::ArrowFunctionMode; }
-    bool isDerivedConstructorContext() const { return m_unlinkedExecutable->isDerivedConstructorContext(); }
+    DerivedContextType derivedContextType() const { return m_unlinkedExecutable->derivedContextType(); }
     bool isClassConstructorFunction() const { return m_unlinkedExecutable->isClassConstructorFunction(); }
     const Identifier& name() { return m_unlinkedExecutable->name(); }
     const Identifier& inferredName() { return m_unlinkedExecutable->inferredName(); }

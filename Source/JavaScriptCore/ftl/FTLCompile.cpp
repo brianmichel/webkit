@@ -209,7 +209,7 @@ static void generateInlineIfPossibleOutOfLineIfNot(State& state, VM& vm, CodeBlo
 
     callback(*codeLinkBuffer.get(), code, false);
 
-    state.finalizer->outOfLineCodeInfos.append(OutOfLineCodeInfo(WTF::move(codeLinkBuffer), codeDescription));
+    state.finalizer->outOfLineCodeInfos.append(OutOfLineCodeInfo(WTFMove(codeLinkBuffer), codeDescription));
 }
 
 template<typename DescriptorType>
@@ -478,7 +478,7 @@ static void fixFunctionBasedOnStackMaps(
         linkBuffer->link(callLookupExceptionHandler, FunctionPtr(lookupExceptionHandler));
         linkBuffer->link(callLookupExceptionHandlerFromCallerFrame, FunctionPtr(lookupExceptionHandlerFromCallerFrame));
 
-        state.finalizer->handleExceptionsLinkBuffer = WTF::move(linkBuffer);
+        state.finalizer->handleExceptionsLinkBuffer = WTFMove(linkBuffer);
     }
 
     RELEASE_ASSERT(state.jitCode->osrExit.size() == 0);
@@ -543,7 +543,7 @@ static void fixFunctionBasedOnStackMaps(
                     callOperationExit = &state.jitCode->osrExit.last();
                 }
 
-                // Subs and GetByIds have an interesting register preservation story,
+                // BinaryOps and GetByIds have an interesting register preservation story,
                 // see comment below at GetById to read about it.
                 //
                 // We set the registers needing spillage here because they need to be set
@@ -555,16 +555,10 @@ static void fixFunctionBasedOnStackMaps(
                     // be preserved to the stack before the call, that way the OSR exit
                     // exception handler can recover them into the proper registers.
                     exit.gatherRegistersToSpillForCallIfException(stackmaps, record);
-                } else if (exitDescriptorImpl.m_exceptionType == ExceptionType::GetById) {
+                } else if (exitDescriptorImpl.m_exceptionType == ExceptionType::GetById || exitDescriptorImpl.m_exceptionType == ExceptionType::BinaryOpGenerator) {
                     GPRReg result = record.locations[0].directGPR();
-                    GPRReg base = record.locations[1].directGPR();
-                    if (base == result)
-                        callOperationExit->registersToPreserveForCallThatMightThrow.set(base);
-                } else if (exitDescriptorImpl.m_exceptionType == ExceptionType::BinaryOpGenerator) {
-                    GPRReg result = record.locations[0].directGPR();
-                    GPRReg left = record.locations[1].directGPR();
-                    GPRReg right = record.locations[2].directGPR();
-                    if (result == left || result == right)
+                    RegisterSet registersNeededForOSRExit = record.usedRegisterSet();
+                    if (registersNeededForOSRExit.get(result))
                         callOperationExit->registersToPreserveForCallThatMightThrow.set(result);
                 }
             }
@@ -615,7 +609,7 @@ static void fixFunctionBasedOnStackMaps(
             }
         }
         
-        state.finalizer->exitThunksLinkBuffer = WTF::move(linkBuffer);
+        state.finalizer->exitThunksLinkBuffer = WTFMove(linkBuffer);
     }
 
     if (!state.getByIds.isEmpty()
@@ -664,19 +658,24 @@ static void fixFunctionBasedOnStackMaps(
                 
                 bool addedUniqueExceptionJump = addNewExceptionJumpIfNecessary(iter->value[i].index);
                 MacroAssembler::Label begin = slowPathJIT.label();
-                if (result == base) {
-                    // This situation has a really interesting story. We may have a GetById inside
-                    // a try block where LLVM assigns the result and the base to the same register.
-                    // The inline cache may miss and we may end up at this slow path callOperation. 
-                    // Then, suppose the base and the result are both the same register, so the return
-                    // value of the C call gets stored into the original base register. If the operationGetByIdOptimize
-                    // throws, it will return "undefined" and we will be stuck with "undefined" in the base
-                    // register that we would like to do value recovery on. We combat this situation from ever
-                    // taking place by ensuring we spill the original base value and then recover it from
-                    // the spill slot as the first step in OSR exit.
-                    if (OSRExit* exit = exceptionHandlerManager.callOperationOSRExit(iter->value[i].index))
-                        exit->spillRegistersToSpillSlot(slowPathJIT, osrExitFromGenericUnwindStackSpillSlot);
-                }
+                // We take care to always spill the result whenever we need to do value recovery
+                // on it in the OSR exit. This is because the callOperation(.) machinery doesn't
+                // ever spill the result value. It actually takes care to never spill the result
+                // because it overwrites it with the result of the call. But, with exceptions and
+                // OSR exits, we may need the result value prior to the call during OSR exit.
+                // We take care to mark it for spillage now.
+                //
+                // This also handles another really interesting register preservation story: 
+                // We may have a GetById/Snippet inside a try block where LLVM assigns the result
+                // and the base to the same register. The inline cache may miss and we may end up
+                // at this slow path callOperation. Then, because the base and the result are both
+                // the same register, the return value of the C call gets stored into the original
+                // base register. If the operationGetByIdOptimize throws, it will return "undefined"
+                // and we will be stuck with "undefined" in the base register that we would like to 
+                // do value recovery on. We combat this situation from ever taking place by ensuring
+                // we spill the original base value (i.e the result register).
+                if (OSRExit* exit = exceptionHandlerManager.callOperationOSRExit(iter->value[i].index))
+                    exit->spillRegistersToSpillSlot(slowPathJIT, osrExitFromGenericUnwindStackSpillSlot);
                 MacroAssembler::Call call = callOperation(
                     state, usedRegisters, slowPathJIT, codeOrigin, addedUniqueExceptionJump ? &exceptionJumpsToLink.last().first : &exceptionTarget,
                     operationGetByIdOptimize, result, CCallHelpers::TrustedImmPtr(gen.stubInfo()),
@@ -717,6 +716,9 @@ static void fixFunctionBasedOnStackMaps(
                 bool addedUniqueExceptionJump = addNewExceptionJumpIfNecessary(iter->value[i].index);
 
                 MacroAssembler::Label begin = slowPathJIT.label();
+
+                if (OSRExit* exit = exceptionHandlerManager.callOperationOSRExit(iter->value[i].index))
+                    exit->spillRegistersToSpillSlot(slowPathJIT, osrExitFromGenericUnwindStackSpillSlot);
 
                 MacroAssembler::Call call = callOperation(
                     state, usedRegisters, slowPathJIT, codeOrigin, addedUniqueExceptionJump ? &exceptionJumpsToLink.last().first : &exceptionTarget,
@@ -790,12 +792,10 @@ static void fixFunctionBasedOnStackMaps(
 
                 binaryOp.m_slowPathStarts.append(slowPathJIT.label());
                 bool addedUniqueExceptionJump = addNewExceptionJumpIfNecessary(iter->value[i].index);
-                if (result == left || result == right) {
-                    // This situation has a really interesting register preservation story.
-                    // See comment above for GetByIds.
-                    if (OSRExit* exit = exceptionHandlerManager.callOperationOSRExit(iter->value[i].index))
-                        exit->spillRegistersToSpillSlot(slowPathJIT, osrExitFromGenericUnwindStackSpillSlot);
-                }
+                // This situation has a really interesting register preservation story.
+                // See comment above for GetByIds.
+                if (OSRExit* exit = exceptionHandlerManager.callOperationOSRExit(iter->value[i].index))
+                    exit->spillRegistersToSpillSlot(slowPathJIT, osrExitFromGenericUnwindStackSpillSlot);
 
                 callOperation(state, usedRegisters, slowPathJIT, codeOrigin, addedUniqueExceptionJump ? &exceptionJumpsToLink.last().first : &exceptionTarget,
                     binaryOp.slowPathFunction(), result, left, right).call();
@@ -857,7 +857,7 @@ static void fixFunctionBasedOnStackMaps(
                 
                 descriptor.m_generators.append(std::make_tuple(lazySlowPath.get(), begin));
 
-                state.jitCode->lazySlowPaths.append(WTF::move(lazySlowPath));
+                state.jitCode->lazySlowPaths.append(WTFMove(lazySlowPath));
                 state.finalizer->lazySlowPathGeneratorJumps.append(generatorJump);
             }
         }
@@ -1157,7 +1157,7 @@ void compile(State& state, Safepoint::Result& safepointResult)
         dataLog("Unwind info for ", CodeBlockWithJITType(state.graph.m_codeBlock, JITCode::FTLJIT), ":\n");
         dataLog("    ", *registerOffsets, "\n");
     }
-    state.graph.m_codeBlock->setCalleeSaveRegisters(WTF::move(registerOffsets));
+    state.graph.m_codeBlock->setCalleeSaveRegisters(WTFMove(registerOffsets));
     
     if (state.stackmapsSection && state.stackmapsSection->size()) {
         if (shouldDumpDisassembly()) {

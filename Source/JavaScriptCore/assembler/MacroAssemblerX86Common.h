@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -731,16 +731,24 @@ public:
         m_assembler.movl_i32m(imm.m_value, address.offset, address.base, address.index, address.scale);
     }
 
+    void storeZero32(ImplicitAddress address)
+    {
+        store32(TrustedImm32(0), address);
+    }
+
+    void storeZero32(BaseIndex address)
+    {
+        store32(TrustedImm32(0), address);
+    }
+
     void store8(TrustedImm32 imm, Address address)
     {
-        ASSERT(-128 <= imm.m_value && imm.m_value < 128);
-        m_assembler.movb_i8m(imm.m_value, address.offset, address.base);
+        m_assembler.movb_i8m(static_cast<int8_t>(imm.m_value), address.offset, address.base);
     }
 
     void store8(TrustedImm32 imm, BaseIndex address)
     {
-        ASSERT(-128 <= imm.m_value && imm.m_value < 128);
-        m_assembler.movb_i8m(imm.m_value, address.offset, address.base, address.index, address.scale);
+        m_assembler.movb_i8m(static_cast<int8_t>(imm.m_value), address.offset, address.base, address.index, address.scale);
     }
 
     static ALWAYS_INLINE RegisterID getUnusedRegister(BaseIndex address)
@@ -1082,6 +1090,16 @@ public:
         m_assembler.andps_rr(src, dst);
     }
 
+    void xorDouble(FPRegisterID src, FPRegisterID dst)
+    {
+        m_assembler.xorps_rr(src, dst);
+    }
+
+    void xorFloat(FPRegisterID src, FPRegisterID dst)
+    {
+        m_assembler.xorps_rr(src, dst);
+    }
+
     void convertInt32ToDouble(RegisterID src, FPRegisterID dest)
     {
         ASSERT(isSSE2Present());
@@ -1333,6 +1351,11 @@ public:
     {
         m_assembler.movl_rr(src, dest);
     }
+
+    void zeroExtend32ToPtr(TrustedImm32 src, RegisterID dest)
+    {
+        m_assembler.movl_i32r(src.m_value, dest);
+    }
 #else
     void move(RegisterID src, RegisterID dest)
     {
@@ -1400,6 +1423,16 @@ public:
         move(src, dest);
     }
 #endif
+
+    void swap32(RegisterID src, RegisterID dest)
+    {
+        m_assembler.xchgl_rr(src, dest);
+    }
+
+    void swap32(RegisterID src, Address dest)
+    {
+        m_assembler.xchgl_rm(src, dest.offset, dest.base);
+    }
 
     void moveConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, RegisterID src, RegisterID dest)
     {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,7 +78,7 @@ private:
 
                 Value* mask = nullptr;
                 if (m_value->type() == Double)
-                    mask = m_insertionSet.insert<ConstDoubleValue>(m_index, m_origin, bitwise_cast<double>(~(1l << 63)));
+                    mask = m_insertionSet.insert<ConstDoubleValue>(m_index, m_origin, bitwise_cast<double>(~(1ll << 63)));
                 else if (m_value->type() == Float)
                     mask = m_insertionSet.insert<ConstFloatValue>(m_index, m_origin, bitwise_cast<float>(~(1 << 31)));
                 else
@@ -92,8 +92,9 @@ private:
                     break;
 
                 Value* functionAddress = nullptr;
+                double (*ceilDouble)(double) = ceil;
                 if (m_value->type() == Double)
-                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, ceil);
+                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, ceilDouble);
                 else if (m_value->type() == Float)
                     functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, ceilf);
                 else
@@ -105,6 +106,27 @@ private:
                     Effects::none(),
                     functionAddress,
                     m_value->child(0));
+                m_value->replaceWithIdentity(result);
+                break;
+            }
+            case Neg: {
+                if (!isFloat(m_value->type()))
+                    break;
+                
+                // X86 is odd in that it requires this.
+                if (!isX86())
+                    break;
+
+                Value* mask = nullptr;
+                if (m_value->type() == Double)
+                    mask = m_insertionSet.insert<ConstDoubleValue>(m_index, m_origin, -0.0);
+                else {
+                    RELEASE_ASSERT(m_value->type() == Float);
+                    mask = m_insertionSet.insert<ConstFloatValue>(m_index, m_origin, -0.0f);
+                }
+
+                Value* result = m_insertionSet.insert<Value>(
+                    m_index, BitXor, m_origin, m_value->child(0), mask);
                 m_value->replaceWithIdentity(result);
                 break;
             }

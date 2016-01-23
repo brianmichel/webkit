@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if ENABLE(FTL_JIT) && FTL_USES_B3
 
+#include "AirCode.h"
 #include "B3Generate.h"
 #include "B3ProcedureInlines.h"
 #include "B3StackSlotValue.h"
@@ -57,7 +58,7 @@ void compile(State& state, Safepoint::Result& safepointResult)
     Graph& graph = state.graph;
     CodeBlock* codeBlock = graph.m_codeBlock;
     VM& vm = graph.m_vm;
-    
+
     {
         GraphSafepoint safepoint(state.graph, safepointResult);
 
@@ -77,7 +78,7 @@ void compile(State& state, Safepoint::Result& safepointResult)
         dataLog("Unwind info for ", CodeBlockWithJITType(state.graph.m_codeBlock, JITCode::FTLJIT), ":\n");
         dataLog("    ", *registerOffsets, "\n");
     }
-    state.graph.m_codeBlock->setCalleeSaveRegisters(WTF::move(registerOffsets));
+    state.graph.m_codeBlock->setCalleeSaveRegisters(WTFMove(registerOffsets));
     ASSERT(!(state.proc->frameSize() % sizeof(EncodedJSValue)));
     state.jitCode->common.frameRegisterCount = state.proc->frameSize() / sizeof(EncodedJSValue);
 
@@ -109,8 +110,23 @@ void compile(State& state, Safepoint::Result& safepointResult)
             materialization->accountForLocalsOffset(localsOffset);
     }
 
+    // We will add exception handlers while generating.
+    codeBlock->clearExceptionHandlers();
+
     CCallHelpers jit(&vm, codeBlock);
     B3::generate(*state.proc, jit);
+
+    // Emit the exception handler.
+    *state.exceptionHandler = jit.label();
+    jit.copyCalleeSavesToVMCalleeSavesBuffer();
+    jit.move(MacroAssembler::TrustedImmPtr(jit.vm()), GPRInfo::argumentGPR0);
+    jit.move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR1);
+    CCallHelpers::Call call = jit.call();
+    jit.jumpToExceptionHandler();
+    jit.addLinkTask(
+        [=] (LinkBuffer& linkBuffer) {
+            linkBuffer.link(call, FunctionPtr(lookupExceptionHandler));
+        });
 
     state.finalizer->b3CodeLinkBuffer = std::make_unique<LinkBuffer>(
         vm, jit, codeBlock, JITCompilationCanFail);

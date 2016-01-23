@@ -44,11 +44,26 @@ Ref<InProcessIDBServer> InProcessIDBServer::create()
 {
     Ref<InProcessIDBServer> server = adoptRef(*new InProcessIDBServer);
     server->m_server->registerConnection(server->connectionToClient());
-    return WTF::move(server);
+    return server;
+}
+
+Ref<InProcessIDBServer> InProcessIDBServer::create(const String& databaseDirectoryPath)
+{
+    Ref<InProcessIDBServer> server = adoptRef(*new InProcessIDBServer(databaseDirectoryPath));
+    server->m_server->registerConnection(server->connectionToClient());
+    return server;
 }
 
 InProcessIDBServer::InProcessIDBServer()
     : m_server(IDBServer::IDBServer::create())
+{
+    relaxAdoptionRequirement();
+    m_connectionToServer = IDBClient::IDBConnectionToServer::create(*this);
+    m_connectionToClient = IDBServer::IDBConnectionToClient::create(*this);
+}
+
+InProcessIDBServer::InProcessIDBServer(const String& databaseDirectoryPath)
+    : m_server(IDBServer::IDBServer::create(databaseDirectoryPath))
 {
     relaxAdoptionRequirement();
     m_connectionToServer = IDBClient::IDBConnectionToServer::create(*this);
@@ -336,12 +351,12 @@ void InProcessIDBServer::establishTransaction(uint64_t databaseConnectionIdentif
     });
 }
 
-void InProcessIDBServer::fireVersionChangeEvent(IDBServer::UniqueIDBDatabaseConnection& connection, uint64_t requestedVersion)
+void InProcessIDBServer::fireVersionChangeEvent(IDBServer::UniqueIDBDatabaseConnection& connection, const IDBResourceIdentifier& requestIdentifier, uint64_t requestedVersion)
 {
     RefPtr<InProcessIDBServer> self(this);
     uint64_t databaseConnectionIdentifier = connection.identifier();
-    RunLoop::current().dispatch([this, self, databaseConnectionIdentifier, requestedVersion] {
-        m_connectionToServer->fireVersionChangeEvent(databaseConnectionIdentifier, requestedVersion);
+    RunLoop::current().dispatch([this, self, databaseConnectionIdentifier, requestIdentifier, requestedVersion] {
+        m_connectionToServer->fireVersionChangeEvent(databaseConnectionIdentifier, requestIdentifier, requestedVersion);
     });
 }
 
@@ -366,6 +381,22 @@ void InProcessIDBServer::databaseConnectionClosed(uint64_t databaseConnectionIde
     RefPtr<InProcessIDBServer> self(this);
     RunLoop::current().dispatch([this, self, databaseConnectionIdentifier] {
         m_server->databaseConnectionClosed(databaseConnectionIdentifier);
+    });
+}
+
+void InProcessIDBServer::abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& transactionIdentifier)
+{
+    RefPtr<InProcessIDBServer> self(this);
+    RunLoop::current().dispatch([this, self, databaseConnectionIdentifier, transactionIdentifier] {
+        m_server->abortOpenAndUpgradeNeeded(databaseConnectionIdentifier, transactionIdentifier);
+    });
+}
+
+void InProcessIDBServer::didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier)
+{
+    RefPtr<InProcessIDBServer> self(this);
+    RunLoop::current().dispatch([this, self, databaseConnectionIdentifier, requestIdentifier] {
+        m_server->didFireVersionChangeEvent(databaseConnectionIdentifier, requestIdentifier);
     });
 }
 

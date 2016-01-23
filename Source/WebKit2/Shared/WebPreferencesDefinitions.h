@@ -239,10 +239,12 @@
     macro(InspectorAttachmentSide, inspectorAttachmentSide, UInt32, uint32_t, 0) \
     macro(StorageBlockingPolicy, storageBlockingPolicy, UInt32, uint32_t, WebCore::SecurityOrigin::BlockThirdPartyStorage) \
     macro(JavaScriptRuntimeFlags, javaScriptRuntimeFlags, UInt32, uint32_t, 0) \
+    macro(DataDetectorTypes, dataDetectorTypes, UInt32, uint32_t, 0) \
     \
 
 #define FOR_EACH_WEBKIT_DEBUG_BOOL_PREFERENCE(macro) \
     macro(AcceleratedDrawingEnabled, acceleratedDrawingEnabled, Bool, bool, DEFAULT_ACCELERATED_DRAWING_ENABLED) \
+    macro(DisplayListDrawingEnabled, displayListDrawingEnabled, Bool, bool, false) \
     macro(CompositingBordersVisible, compositingBordersVisible, Bool, bool, false) \
     macro(CompositingRepaintCountersVisible, compositingRepaintCountersVisible, Bool, bool, false) \
     macro(TiledScrollingIndicatorVisible, tiledScrollingIndicatorVisible, Bool, bool, false) \

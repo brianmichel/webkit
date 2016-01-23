@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000,2003 Harri Porten (porten@kde.org)
- *  Copyright (C) 2007, 2008, 2011, 2015 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2008, 2011, 2015-2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -27,6 +27,7 @@
 #include "NumberPrototype.h"
 #include "JSCInlines.h"
 #include "JSGlobalObjectFunctions.h"
+#include "StructureInlines.h"
 
 namespace JSC {
 
@@ -79,8 +80,9 @@ void NumberConstructor::finishCreation(VM& vm, NumberPrototype* numberPrototype)
 // ECMA 15.7.1
 static EncodedJSValue JSC_HOST_CALL constructWithNumberConstructor(ExecState* exec)
 {
-    NumberObject* object = NumberObject::create(exec->vm(), asInternalFunction(exec->callee())->globalObject()->numberObjectStructure());
     double n = exec->argumentCount() ? exec->uncheckedArgument(0).toNumber(exec) : 0;
+    NumberObject* object = NumberObject::create(exec->vm(), InternalFunction::createSubclassStructure(exec, exec->newTarget(), asInternalFunction(exec->callee())->globalObject()->numberObjectStructure()));
+
     object->setInternalValue(exec->vm(), jsNumber(n));
     return JSValue::encode(object);
 }

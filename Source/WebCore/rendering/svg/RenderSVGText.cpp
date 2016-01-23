@@ -53,7 +53,7 @@
 namespace WebCore {
 
 RenderSVGText::RenderSVGText(SVGTextElement& element, Ref<RenderStyle>&& style)
-    : RenderSVGBlock(element, WTF::move(style))
+    : RenderSVGBlock(element, WTFMove(style))
     , m_needsReordering(false)
     , m_needsPositioningValuesUpdate(false)
     , m_needsTransformUpdate(true)
@@ -369,7 +369,7 @@ void RenderSVGText::layout()
         m_needsReordering = true;
         m_needsPositioningValuesUpdate = false;
         updateCachedBoundariesInParents = true;
-    } else if (m_needsTextMetricsUpdate || SVGRenderSupport::findTreeRootObject(*this).isLayoutSizeChanged()) {
+    } else if (m_needsTextMetricsUpdate || SVGRenderSupport::findTreeRootObject(*this)->isLayoutSizeChanged()) {
         // If the root layout size changed (eg. window size changes) or the transform to the root
         // context has changed then recompute the on-screen font size.
         updateFontInAllDescendants(this, &m_layoutAttributesBuilder);
@@ -426,7 +426,7 @@ std::unique_ptr<RootInlineBox> RenderSVGText::createRootInlineBox()
 {
     auto box = std::make_unique<SVGRootInlineBox>(*this);
     box->setHasVirtualLogicalHeight();
-    return WTF::move(box);
+    return WTFMove(box);
 }
 
 bool RenderSVGText::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)

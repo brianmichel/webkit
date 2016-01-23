@@ -111,15 +111,7 @@ inline bool isPointerTypeAlignmentOkay(Type*)
 
 namespace WTF {
 
-template<typename T>
-ALWAYS_INLINE typename std::remove_reference<T>::type&& move(T&& value)
-{
-    static_assert(std::is_lvalue_reference<T>::value, "T is not an lvalue reference; move() is unnecessary.");
-
-    using NonRefQualifiedType = typename std::remove_reference<T>::type;
-    static_assert(!std::is_const<NonRefQualifiedType>::value, "T is const qualified.");
-    return std::move(value);
-}
+enum CheckMoveParameterTag { CheckMoveParameter };
 
 static const size_t KB = 1024;
 static const size_t MB = 1024 * 1024;
@@ -367,19 +359,33 @@ T exchange(T& t, U&& newValue)
 // (User-literals need to have a leading underscore so we add it here - the "real" literals don't have underscores).
 namespace literals {
 namespace chrono_literals {
-    CONSTEXPR inline chrono::seconds operator"" _s(unsigned long long s)
+    constexpr inline chrono::seconds operator"" _s(unsigned long long s)
     {
         return chrono::seconds(static_cast<chrono::seconds::rep>(s));
     }
 
-    CONSTEXPR chrono::milliseconds operator"" _ms(unsigned long long ms)
+    constexpr chrono::milliseconds operator"" _ms(unsigned long long ms)
     {
         return chrono::milliseconds(static_cast<chrono::milliseconds::rep>(ms));
     }
 }
 }
 #endif
+
+template<WTF::CheckMoveParameterTag, typename T>
+ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
+{
+    static_assert(is_lvalue_reference<T>::value, "T is not an lvalue reference; move() is unnecessary.");
+
+    using NonRefQualifiedType = typename remove_reference<T>::type;
+    static_assert(!is_const<NonRefQualifiedType>::value, "T is const qualified.");
+
+    return move(forward<T>(value));
 }
+
+} // namespace std
+
+#define WTFMove(value) std::move<WTF::CheckMoveParameter>(value)
 
 using WTF::KB;
 using WTF::MB;

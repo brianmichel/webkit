@@ -258,12 +258,12 @@ void IDBRequest::enqueueEvent(Ref<Event>&& event)
         return;
 
     event->setTarget(this);
-    scriptExecutionContext()->eventQueue().enqueueEvent(WTF::move(event));
+    scriptExecutionContext()->eventQueue().enqueueEvent(WTFMove(event));
 }
 
 bool IDBRequest::dispatchEvent(Event& event)
 {
-    LOG(IndexedDB, "IDBRequest::dispatchEvent - %s (%p)", event.type().characters8(), this);
+    LOG(IndexedDB, "IDBRequest::dispatchEvent - %s (%p)", event.type().string().utf8().data(), this);
 
     ASSERT(m_hasPendingActivity);
     ASSERT(!m_contextStopped);
@@ -274,10 +274,10 @@ bool IDBRequest::dispatchEvent(Event& event)
     Vector<RefPtr<EventTarget>> targets;
     targets.append(this);
 
-    if (m_transaction) {
-        if (!m_transaction->isFinished())
+    if (&event == m_openDatabaseSuccessEvent)
+        m_openDatabaseSuccessEvent = nullptr;
+    else if (m_transaction && !m_transaction->isFinished()) {
             targets.append(m_transaction);
-        if (!m_transaction->database().isClosingOrClosed())
             targets.append(m_transaction->db());
     }
 
@@ -322,7 +322,7 @@ void IDBRequest::setResult(const IDBKeyData* keyData)
     }
 
     Deprecated::ScriptValue value = idbKeyDataToScriptValue(scriptExecutionContext(), *keyData);
-    m_result = IDBAny::create(WTF::move(value));
+    m_result = IDBAny::create(WTFMove(value));
 }
 
 void IDBRequest::setResult(uint64_t number)
@@ -340,7 +340,7 @@ void IDBRequest::setResultToStructuredClone(const ThreadSafeDataBuffer& valueDat
         return;
 
     Deprecated::ScriptValue value = deserializeIDBValueData(*context, valueData);
-    m_result = IDBAny::create(WTF::move(value));
+    m_result = IDBAny::create(WTFMove(value));
 }
 
 void IDBRequest::setResultToUndefined()

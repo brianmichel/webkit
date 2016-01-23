@@ -35,6 +35,7 @@
 #import "ScrollView.h"
 #import "WebCoreSystemInterface.h"
 #import <Carbon/Carbon.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/StdLibExtras.h>
 
 static NSRect focusRingClipRect;
@@ -132,8 +133,8 @@ enum {
 
 Theme* platformTheme()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(ThemeMac, themeMac, ());
-    return &themeMac;
+    static NeverDestroyed<ThemeMac> themeMac;
+    return &themeMac.get();
 }
 
 // Helper functions used by a bunch of different control parts.
@@ -667,7 +668,7 @@ bool ThemeMac::drawCellOrFocusRingWithViewIntoContext(NSCell *cell, GraphicsCont
             LocalCurrentGraphicsContext localContext(imageBuffer->context());
             needsRepaint = drawCellOrFocusRingIntoRectWithView(cell, imageBufferDrawRect, view, drawButtonCell, drawFocusRing);
         }
-        context.drawConsumingImageBuffer(WTF::move(imageBuffer), rect.location() - FloatSize(buttonFocusRectOutlineWidth, buttonFocusRectOutlineWidth));
+        context.drawConsumingImageBuffer(WTFMove(imageBuffer), rect.location() - FloatSize(buttonFocusRectOutlineWidth, buttonFocusRectOutlineWidth));
         return needsRepaint;
     }
     if (drawButtonCell)

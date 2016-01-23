@@ -743,6 +743,7 @@ public:
 
     void getContentsAsString(std::function<void (const String&, CallbackBase::Error)>);
     void getBytecodeProfile(std::function<void (const String&, CallbackBase::Error)>);
+    void isWebProcessResponsive(std::function<void (bool isWebProcessResponsive)>);
 
 #if ENABLE(MHTML)
     void getContentsAsMHTMLData(std::function<void (API::Data*, CallbackBase::Error)>);
@@ -1026,6 +1027,8 @@ public:
     void* immediateActionAnimationControllerForHitTestResult(RefPtr<API::HitTestResult>, uint64_t, RefPtr<API::Object>);
 
     void installViewStateChangeCompletionHandler(void(^completionHandler)());
+
+    void handleAcceptedCandidate(WebCore::TextCheckingResult);
 #endif
 
 #if PLATFORM(EFL) && HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)
@@ -1460,6 +1463,8 @@ private:
 
     void handleAutoFillButtonClick(const UserData&);
 
+    void finishInitializingWebPageAfterProcessLaunch();
+
     void handleMessage(IPC::Connection&, const String& messageName, const UserData& messageBody);
     void handleSynchronousMessage(IPC::Connection&, const String& messageName, const UserData& messageBody, UserData& returnUserData);
 
@@ -1609,6 +1614,8 @@ private:
 
     // Whether it can run modal child web pages.
     bool m_canRunModal;
+
+    bool m_needsToFinishInitializingWebPageAfterProcessLaunch { false };
 
     bool m_isInPrintingMode;
     bool m_isPerformingDOMPrintOperation;

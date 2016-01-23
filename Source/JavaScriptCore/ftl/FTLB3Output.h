@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -130,21 +130,14 @@ public:
     LValue chillDiv(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::ChillDiv, origin(), left, right); }
     LValue mod(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::Mod, origin(), left, right); }
     LValue chillMod(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::ChillMod, origin(), left, right); }
-    LValue neg(LValue value)
-    {
-        LValue zero = m_block->appendIntConstant(m_proc, origin(), value->type(), 0);
-        return sub(zero, value);
-    }
+    LValue neg(LValue);
 
     LValue doubleAdd(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::Add, origin(), left, right); }
     LValue doubleSub(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::Sub, origin(), left, right); }
     LValue doubleMul(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::Mul, origin(), left, right); }
     LValue doubleDiv(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::Div, origin(), left, right); }
     LValue doubleMod(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::Mod, origin(), left, right); }
-    LValue doubleNeg(LValue value)
-    {
-        return sub(doubleZero, value);
-    }
+    LValue doubleNeg(LValue value) { return neg(value); }
 
     LValue bitAnd(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::BitAnd, origin(), left, right); }
     LValue bitOr(LValue left, LValue right) { return m_block->appendNew<B3::Value>(m_proc, B3::BitOr, origin(), left, right); }
@@ -165,16 +158,32 @@ public:
     LValue doubleAbs(LValue value) { return m_block->appendNew<B3::Value>(m_proc, B3::Abs, origin(), value); }
     LValue doubleCeil(LValue operand) { return m_block->appendNew<B3::Value>(m_proc, B3::Ceil, origin(), operand); }
 
-    LValue doubleSin(LValue value) { return callWithoutSideEffects(B3::Double, sin, value); }
-    LValue doubleCos(LValue value) { return callWithoutSideEffects(B3::Double, cos, value); }
+    LValue doubleSin(LValue value)
+    {
+        double (*sinDouble)(double) = sin;
+        return callWithoutSideEffects(B3::Double, sinDouble, value);
+    }
+    LValue doubleCos(LValue value)
+    {
+        double (*cosDouble)(double) = cos;
+        return callWithoutSideEffects(B3::Double, cosDouble, value);
+    }
 
-    LValue doublePow(LValue xOperand, LValue yOperand) { return callWithoutSideEffects(B3::Double, pow, xOperand, yOperand); }
+    LValue doublePow(LValue xOperand, LValue yOperand)
+    {
+        double (*powDouble)(double, double) = pow;
+        return callWithoutSideEffects(B3::Double, powDouble, xOperand, yOperand);
+    }
 
     LValue doublePowi(LValue xOperand, LValue yOperand);
 
     LValue doubleSqrt(LValue value) { return m_block->appendNew<B3::Value>(m_proc, B3::Sqrt, origin(), value); }
 
-    LValue doubleLog(LValue value) { return callWithoutSideEffects(B3::Double, log, value); }
+    LValue doubleLog(LValue value)
+    {
+        double (*logDouble)(double) = log;
+        return callWithoutSideEffects(B3::Double, logDouble, value);
+    }
 
     static bool hasSensibleDoubleToInt();
     LValue doubleToInt(LValue);
@@ -189,7 +198,7 @@ public:
     }
     LValue zeroExtPtr(LValue value) { return zeroExt(value, B3::Int64); }
     LValue intToDouble(LValue value) { return m_block->appendNew<B3::Value>(m_proc, B3::IToD, origin(), value); }
-    LValue unsignedToDouble(LValue value) { CRASH(); }
+    LValue unsignedToDouble(LValue);
     LValue castToInt32(LValue value)
     {
         return value->type() == B3::Int32 ? value :
@@ -389,11 +398,11 @@ public:
 
     // Branches to an already-created handler if true, "falls through" if false. Fall-through is
     // simulated by creating a continuation for you.
-    void check(LValue condition, WeightedTarget taken, Weight notTakenWeight) { CRASH(); }
-
+    void check(LValue condition, WeightedTarget taken, Weight notTakenWeight);
+    
     // Same as check(), but uses Weight::inverse() to compute the notTakenWeight.
-    void check(LValue condition, WeightedTarget taken) { CRASH(); }
-
+    void check(LValue condition, WeightedTarget taken);
+    
     template<typename VectorType>
     void switchInstruction(LValue value, const VectorType& cases, LBasicBlock fallThrough, Weight fallThroughWeight)
     {
@@ -409,21 +418,6 @@ public:
     void ret(LValue value) { m_block->appendNew<B3::ControlValue>(m_proc, B3::Return, origin(), value); }
 
     void unreachable() { m_block->appendNew<B3::ControlValue>(m_proc, B3::Oops, origin()); }
-
-    template<typename Functor>
-    void speculate(LValue value, const StackmapArgumentList& arguments, const Functor& functor)
-    {
-        B3::CheckValue* check = speculate(value, arguments);
-        check->setGenerator(functor);
-    }
-
-    B3::CheckValue* speculate(LValue value, const StackmapArgumentList& arguments)
-    {
-        B3::CheckValue* check = speculate(value);
-        for (LValue value : arguments)
-            check->append(B3::ConstrainedValue(value));
-        return check;
-    }
 
     B3::CheckValue* speculate(LValue value)
     {

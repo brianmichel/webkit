@@ -38,6 +38,7 @@
 namespace JSC {
 
 class CallFrameShuffler {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CallFrameShuffler(CCallHelpers&, const CallFrameShuffleData&);
 
@@ -117,7 +118,7 @@ public:
             RELEASE_ASSERT_NOT_REACHED();
 #endif
         }
-        return WTF::move(data);
+        return data;
     }
 
     // Ask the shuffler to put the callee into some registers once the
@@ -141,7 +142,7 @@ public:
     void assumeCalleeIsCell()
     {
 #if USE(JSVALUE32_64)
-        CachedRecovery& calleeCachedRecovery { *getNew(VirtualRegister(JSStack::Callee)) };
+        CachedRecovery& calleeCachedRecovery = *getNew(VirtualRegister(JSStack::Callee));
         switch (calleeCachedRecovery.recovery().technique()) {
         case InPair:
             updateRecovery(

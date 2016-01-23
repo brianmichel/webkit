@@ -112,6 +112,7 @@ set(WebKit2_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/transforms"
     "${WEBCORE_DIR}/platform/mediastream"
     "${WEBCORE_DIR}/platform/network"
+    "${WEBCORE_DIR}/platform/spi/cf"
     "${WEBCORE_DIR}/platform/sql"
     "${WEBCORE_DIR}/platform/text"
     "${WEBCORE_DIR}/plugins"
@@ -230,7 +231,6 @@ set(WebKit2_SOURCES
     Shared/BlobDataFileReferenceWithSandboxExtension.cpp
     Shared/CacheModel.cpp
     Shared/ChildProcess.cpp
-    Shared/ChildProcessProxy.cpp
     Shared/ContextMenuContextData.cpp
     Shared/EditorState.cpp
     Shared/FontInfo.cpp
@@ -336,6 +336,7 @@ set(WebKit2_SOURCES
 
     Shared/WebsiteData/WebsiteData.cpp
 
+    UIProcess/ChildProcessProxy.cpp
     UIProcess/DrawingAreaProxy.cpp
     UIProcess/FrameLoadState.cpp
     UIProcess/GeolocationPermissionRequestManagerProxy.cpp
