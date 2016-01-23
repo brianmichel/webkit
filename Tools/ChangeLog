@@ -1,3 +1,19 @@
+2016-01-23  Brian Michel  <brian.michel@gmail.com>
+
+        Handle Open Panel Functions Are Unimplemented
+        https://bugs.webkit.org/show_bug.cgi?id=137759
+
+        Reviewed by NOBODY (OOPS!).
+
+        * MiniBrowser/mac/WK2BrowserWindowController.m:
+        (-[WK2BrowserWindowController webView:runOpenPanelWithResultListener:parameters:]):
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKit2/basic-input-element.html: Added.
+        * TestWebKitAPI/Tests/WebKit2ObjC/WKUIDelegateOpenPanelTest.mm: Added.
+        (-[WKOpenPanelTestDelegate webView:runOpenPanelWithResultListener:parameters:]):
+        (-[WKOpenPanelTestDelegate webView:didFinishNavigation:]):
+        (TestWebKitAPI::TEST):
+
 2016-01-22  Enrica Casucci  <enrica@apple.com>
 
         Unreviewed build fix after http://trac.webkit.org/changeset/195474.

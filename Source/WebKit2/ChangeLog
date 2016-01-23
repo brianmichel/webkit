@@ -1,3 +1,27 @@
+2016-01-23  Brian Michel  <brian.michel@gmail.com>
+
+        Handle Open Panel Functions Are Unimplemented
+        https://bugs.webkit.org/show_bug.cgi?id=137759
+
+        Reviewed by NOBODY (OOPS!).
+
+        * Shared/API/Cocoa/WebKit.h:
+        * UIProcess/API/Cocoa/WKUIDelegate.h:
+        * UIProcess/API/Cocoa/WKUIOpenPanelParameters.h: Copied from Source/WebKit2/Shared/API/Cocoa/WebKit.h.
+        * UIProcess/API/Cocoa/WKUIOpenPanelParameters.m: Copied from Source/WebKit2/Shared/API/Cocoa/WebKit.h.
+        (-[WKUIOpenPanelParameters _setAllowsMultipleFiles:]):
+        * UIProcess/API/Cocoa/WKUIOpenPanelParametersPrivate.h: Copied from Source/WebKit2/Shared/API/Cocoa/WebKit.h.
+        * UIProcess/Cocoa/UIDelegate.h:
+        * UIProcess/Cocoa/UIDelegate.mm:
+        (WebKit::UIDelegate::setDelegate):
+        (WebKit::UIDelegate::UIClient::runOpenPanel):
+        * UIProcess/Cocoa/WKConcreteOpenPanelResultListener.h: Copied from Source/WebKit2/Shared/API/Cocoa/WebKit.h.
+        * UIProcess/Cocoa/WKConcreteOpenPanelResultListener.m: Copied from Source/WebKit2/Shared/API/Cocoa/WebKit.h.
+        (-[WKConcreteOpenPanelResultListener initWithListenerProxy:]):
+        (-[WKConcreteOpenPanelResultListener chooseFiles:]):
+        (-[WKConcreteOpenPanelResultListener cancel]):
+        * WebKit2.xcodeproj/project.pbxproj:
+
 2016-01-23  Alex Christensen  <achristensen@webkit.org>
 
         CMake build fix after r195494.
