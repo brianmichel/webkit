@@ -128,7 +128,7 @@ private:
 #endif
 
 #if PLATFORM(MAC)
-        bool webViewRunOpenPanelWithResultListenerAllowsMultipleFiles : 1;
+        bool webViewRunOpenPanelWithResultListenerParameters : 1;
 #endif
         bool webViewImageOrMediaDocumentSizeChanged : 1;
 

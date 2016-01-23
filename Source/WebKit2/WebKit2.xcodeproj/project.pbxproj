@@ -1076,6 +1076,9 @@
 		6EE849C81368D9390038D481 /* WKInspectorPrivateMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EE849C61368D92D0038D481 /* WKInspectorPrivateMac.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		728E86F11795188C0087879E /* WebColorPickerMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 728E86EF1795188C0087879E /* WebColorPickerMac.h */; };
 		728E86F21795188C0087879E /* WebColorPickerMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = 728E86F01795188C0087879E /* WebColorPickerMac.mm */; };
+		72C06CFD1C531AA4001291DE /* WKUIOpenPanelParameters.m in Sources */ = {isa = PBXBuildFile; fileRef = 72C06CFB1C531AA4001291DE /* WKUIOpenPanelParameters.m */; };
+		72C06CFF1C531D1A001291DE /* WKUIOpenPanelParametersPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C06CFE1C531D1A001291DE /* WKUIOpenPanelParametersPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		72C06D001C532653001291DE /* WKUIOpenPanelParameters.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C06CFA1C531AA4001291DE /* WKUIOpenPanelParameters.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		72FCB6B41C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 72FCB6B11C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72FCB6B61C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FCB6B21C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m */; };
 		753E3E0D1887398500188496 /* SessionTracker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 753E3E0B1887397300188496 /* SessionTracker.cpp */; };
@@ -3263,6 +3266,9 @@
 		6EE849C61368D92D0038D481 /* WKInspectorPrivateMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WKInspectorPrivateMac.h; path = mac/WKInspectorPrivateMac.h; sourceTree = "<group>"; };
 		728E86EF1795188C0087879E /* WebColorPickerMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebColorPickerMac.h; sourceTree = "<group>"; };
 		728E86F01795188C0087879E /* WebColorPickerMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebColorPickerMac.mm; sourceTree = "<group>"; };
+		72C06CFA1C531AA4001291DE /* WKUIOpenPanelParameters.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKUIOpenPanelParameters.h; sourceTree = "<group>"; };
+		72C06CFB1C531AA4001291DE /* WKUIOpenPanelParameters.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = WKUIOpenPanelParameters.m; sourceTree = "<group>"; };
+		72C06CFE1C531D1A001291DE /* WKUIOpenPanelParametersPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKUIOpenPanelParametersPrivate.h; sourceTree = "<group>"; };
 		72FCB6B11C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKConcreteOpenPanelResultListener.h; sourceTree = "<group>"; };
 		72FCB6B21C307C2B00E8A012 /* WKConcreteOpenPanelResultListener.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; path = WKConcreteOpenPanelResultListener.m; sourceTree = "<group>"; };
 		753E3E091887394B00188496 /* SessionTracker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SessionTracker.h; sourceTree = "<group>"; };
@@ -5408,6 +5414,9 @@
 				1AD60F5C18E20F4C0020C034 /* WKWindowFeatures.h */,
 				1AD60F5B18E20F4C0020C034 /* WKWindowFeatures.mm */,
 				1AD60F5F18E20F740020C034 /* WKWindowFeaturesInternal.h */,
+				72C06CFA1C531AA4001291DE /* WKUIOpenPanelParameters.h */,
+				72C06CFB1C531AA4001291DE /* WKUIOpenPanelParameters.m */,
+				72C06CFE1C531D1A001291DE /* WKUIOpenPanelParametersPrivate.h */,
 			);
 			path = Cocoa;
 			sourceTree = "<group>";
@@ -7948,7 +7957,9 @@
 				CEE4AE2B1A5DCF430002F49B /* UIKitSPI.h in Headers */,
 				515E7730184015800007203F /* UniqueIDBDatabase.h in Headers */,
 				51654F00184EF34A007DC837 /* UniqueIDBDatabaseBackingStore.h in Headers */,
+				72C06D001C532653001291DE /* WKUIOpenPanelParameters.h in Headers */,
 				51654EFE184EF33F007DC837 /* UniqueIDBDatabaseBackingStoreSQLite.h in Headers */,
+				72C06CFF1C531D1A001291DE /* WKUIOpenPanelParametersPrivate.h in Headers */,
 				515E773418402D510007203F /* UniqueIDBDatabaseIdentifier.h in Headers */,
 				1A64245E12DE29A100CAAE2C /* UpdateInfo.h in Headers */,
 				1AC1336818565B5700F3EC05 /* UserData.h in Headers */,
@@ -9409,6 +9420,7 @@
 				1A2A4B0E1586A2240090C9E9 /* ColorSpaceData.mm in Sources */,
 				1A6F9FB711E1408500DB1371 /* CommandLinePOSIX.cpp in Sources */,
 				37BEC4E019491486008B4286 /* CompletionHandlerCallChecker.mm in Sources */,
+				72C06CFD1C531AA4001291DE /* WKUIOpenPanelParameters.m in Sources */,
 				BC032DAA10F437D10058C15A /* Connection.cpp in Sources */,
 				1A30EAC6115D7DA30053E937 /* ConnectionMac.mm in Sources */,
 				5106D7C218BDBE73000AB166 /* ContextMenuContextData.cpp in Sources */,

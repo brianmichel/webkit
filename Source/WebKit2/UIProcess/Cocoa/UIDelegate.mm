@@ -33,6 +33,7 @@
 #import "WKConcreteOpenPanelResultListener.h"
 #import "WKFrameInfoInternal.h"
 #import "WKNavigationActionInternal.h"
+#import "WKUIOpenPanelParametersPrivate.h"
 #import "WKSecurityOriginInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewInternal.h"
@@ -99,7 +100,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 #endif
 
 #if PLATFORM(MAC)
-    m_delegateMethods.webViewRunOpenPanelWithResultListenerAllowsMultipleFiles = [delegate respondsToSelector:@selector(webView:runOpenPanelWithResultListener:allowsMultipleFiles:)];
+    m_delegateMethods.webViewRunOpenPanelWithResultListenerParameters = [delegate respondsToSelector:@selector(webView:runOpenPanelWithResultListener:parameters:)];
 #endif
 
     m_delegateMethods.webViewImageOrMediaDocumentSizeChanged = [delegate respondsToSelector:@selector(_webView:imageOrMediaDocumentSizeChanged:)];
@@ -240,7 +241,7 @@ void UIDelegate::UIClient::runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF:
 bool UIDelegate::UIClient::runOpenPanel(WebKit::WebPageProxy *page, WebKit::WebFrameProxy *frame, WebKit::WebOpenPanelParameters *parameters, WebKit::WebOpenPanelResultListenerProxy *listener)
 {
     // If our delegate does not support this method, invalidate the listener and return false.
-    if (!m_uiDelegate.m_delegateMethods.webViewRunOpenPanelWithResultListenerAllowsMultipleFiles) {
+    if (!m_uiDelegate.m_delegateMethods.webViewRunOpenPanelWithResultListenerParameters) {
         listener->invalidate();
         return false;
     }
@@ -254,7 +255,10 @@ bool UIDelegate::UIClient::runOpenPanel(WebKit::WebPageProxy *page, WebKit::WebF
 
     auto delegate = m_uiDelegate.m_delegate.get();
 
-    [delegate webView:m_uiDelegate.m_webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)adoptNS([[WKConcreteOpenPanelResultListener alloc] initWithListenerProxy:listener]) allowsMultipleFiles:parameters->allowMultipleFiles()];
+    auto delegateParameters = adoptNS([[WKUIOpenPanelParameters alloc] init]);
+    [delegateParameters.get() _setAllowsMultipleFiles:parameters->allowMultipleFiles()];
+
+    [delegate webView:m_uiDelegate.m_webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)adoptNS([[WKConcreteOpenPanelResultListener alloc] initWithListenerProxy:listener]) parameters:(WKUIOpenPanelParameters *)delegateParameters];
 
     return true;
 }

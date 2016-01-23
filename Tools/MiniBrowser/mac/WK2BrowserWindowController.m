@@ -36,6 +36,7 @@
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WebNSURLExtras.h>
+#import <WebKit/WKUIOpenPanelParameters.h>
 
 static void* keyValueObservingContext = &keyValueObservingContext;
 
@@ -444,10 +445,10 @@ static CGFloat viewScaleForMenuItemTag(NSInteger tag)
     }];
 }
 
-- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id<WKOpenPanelResultListener>)listener allowsMultipleFiles:(BOOL)allowsMultipleFiles
+- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id<WKOpenPanelResultListener>)listener parameters:(nonnull WKUIOpenPanelParameters *)parameters
 {
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
-    [openPanel setAllowsMultipleSelection:allowsMultipleFiles];
+    [openPanel setAllowsMultipleSelection:parameters.allowsMultipleFiles];
 
     [openPanel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result)
     {

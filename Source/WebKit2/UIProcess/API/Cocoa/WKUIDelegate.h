@@ -36,6 +36,7 @@ WK_ASSUME_NONNULL_BEGIN
 @class WKWebViewConfiguration;
 @class WKWindowFeatures;
 @class WKWebView;
+@class WKUIOpenPanelParameters;
 
 /*! A class conforming to WKOpenPanelResultListener provides methods
 for interacting with files.
@@ -136,12 +137,11 @@ for interacting with files.
  @param webView The web view invoking the delegate method.
  @param listener The listener object to be called when selection has completed
  or cancelled.
- @param allowsMultipleFiles Whether or not the open panel should allow multiple
- selection.
+ @param parameters Parameters to configure the open panel with as specificed by the webpage.
 
  If you do not implement this method, the web view will behave as if the user selected the Cancel button.
  */
-- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)listener allowsMultipleFiles:(BOOL)allowsMultipleFiles;
+- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)listener parameters:(WKUIOpenPanelParameters *)parameters;
 
 @end
 

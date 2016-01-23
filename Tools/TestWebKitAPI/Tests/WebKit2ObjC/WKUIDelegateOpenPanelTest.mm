@@ -40,10 +40,11 @@ static bool doneLoading;
 
 @implementation WKOpenPanelTestDelegate
 
-- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)listener allowsMultipleFiles:(BOOL)allowsMultipleFiles
+- (void)webView:(WKWebView *)webView runOpenPanelWithResultListener:(id<WKOpenPanelResultListener>)listener parameters:(WKUIOpenPanelParameters *)parameters
 {
     EXPECT_NOT_NULL(webView);
     EXPECT_NOT_NULL(listener);
+    EXPECT_NOT_NULL(parameters);
     doneOpening = true;
 }
 

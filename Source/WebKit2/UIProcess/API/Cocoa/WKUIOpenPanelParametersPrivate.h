@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Brian Michel (brian.michel@gmail.com). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,27 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WKBackForwardList.h>
-#import <WebKit/WKBackForwardListItem.h>
-#import <WebKit/WKError.h>
-#import <WebKit/WKFoundation.h>
-#import <WebKit/WKFrameInfo.h>
-#import <WebKit/WKNavigation.h>
-#import <WebKit/WKNavigationAction.h>
-#import <WebKit/WKNavigationDelegate.h>
-#import <WebKit/WKNavigationResponse.h>
-#import <WebKit/WKPreferences.h>
-#import <WebKit/WKProcessPool.h>
-#import <WebKit/WKScriptMessage.h>
-#import <WebKit/WKScriptMessageHandler.h>
-#import <WebKit/WKSecurityOrigin.h>
-#import <WebKit/WKUIDelegate.h>
-#import <WebKit/WKUserContentController.h>
-#import <WebKit/WKUserScript.h>
 #import <WebKit/WKUIOpenPanelParameters.h>
-#import <WebKit/WKWebView.h>
-#import <WebKit/WKWebViewConfiguration.h>
-#import <WebKit/WKWebsiteDataRecord.h>
-#import <WebKit/WKWebsiteDataStore.h>
-#import <WebKit/WKWindowFeatures.h>
-#import <WebKit/WebKitLegacy.h>
+
+#if WK_API_ENABLED
+
+@interface WKUIOpenPanelParameters (WKPrivate)
+
+@property (nonatomic, setter=_setAllowsMultipleFiles:) BOOL allowsMultipleFiles;
+
+@end
+
+#endif
