@@ -449,7 +449,6 @@ static CGFloat viewScaleForMenuItemTag(NSInteger tag)
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
     [openPanel setAllowsMultipleSelection:allowsMultipleFiles];
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
     [openPanel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result)
     {
         if (result == NSModalResponseOK)
@@ -457,7 +456,6 @@ static CGFloat viewScaleForMenuItemTag(NSInteger tag)
         else
             [listener cancel];
     }];
-#endif
 }
 
 - (void)updateTextFieldFromURL:(NSURL *)URL

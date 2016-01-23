@@ -37,7 +37,7 @@ WK_ASSUME_NONNULL_BEGIN
 @class WKWindowFeatures;
 @class WKWebView;
 
-/*! A class conforming to WKOpenPanelResultListener provides methods methods
+/*! A class conforming to WKOpenPanelResultListener provides methods
 for interacting with files.
 */
 @protocol WKOpenPanelResultListener <NSObject>

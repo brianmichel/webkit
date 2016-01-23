@@ -245,11 +245,6 @@ bool UIDelegate::UIClient::runOpenPanel(WebKit::WebPageProxy *page, WebKit::WebF
         return false;
     }
 
-    if (!m_uiDelegate.m_webView) {
-        listener->invalidate();
-        return false;
-    }
-
     NSWindow *window = [m_uiDelegate.m_webView window];
 
     if (!window) {
@@ -259,13 +254,7 @@ bool UIDelegate::UIClient::runOpenPanel(WebKit::WebPageProxy *page, WebKit::WebF
 
     auto delegate = m_uiDelegate.m_delegate.get();
 
-    // If we have no delegate, invalide the listener and return false.
-    if (!delegate) {
-        listener->invalidate();
-        return false;
-    }
-
-    [((id <WKUIDelegate>) delegate) webView:m_uiDelegate.m_webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)adoptNS([[WKConcreteOpenPanelResultListener alloc] initWithListenerProxy:listener]) allowsMultipleFiles:parameters->allowMultipleFiles()];
+    [delegate webView:m_uiDelegate.m_webView runOpenPanelWithResultListener:(id <WKOpenPanelResultListener>)adoptNS([[WKConcreteOpenPanelResultListener alloc] initWithListenerProxy:listener]) allowsMultipleFiles:parameters->allowMultipleFiles()];
 
     return true;
 }
