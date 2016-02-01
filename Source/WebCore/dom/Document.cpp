@@ -90,6 +90,7 @@
 #include "HTMLScriptElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTitleElement.h"
+#include "HTMLUnknownElement.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "HashChangeEvent.h"
@@ -167,6 +168,7 @@
 #include "TreeWalker.h"
 #include "VisitedLinkState.h"
 #include "WheelEvent.h"
+#include "XMLDocument.h"
 #include "XMLDocumentParser.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
@@ -514,8 +516,6 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
     , m_loadEventDelayCount(0)
     , m_loadEventDelayTimer(*this, &Document::loadEventDelayTimerFired)
     , m_referrerPolicy(ReferrerPolicyDefault)
-    , m_directionSetOnDocumentElement(false)
-    , m_writingModeSetOnDocumentElement(false)
     , m_writeRecursionIsTooDeep(false)
     , m_writeRecursionDepth(0)
     , m_lastHandledUserGestureTimestamp(0)
@@ -881,18 +881,40 @@ void Document::childrenChanged(const ChildChange& change)
     clearStyleResolver();
 }
 
-RefPtr<Element> Document::createElement(const AtomicString& name, ExceptionCode& ec)
+static RefPtr<Element> createHTMLElementWithNameValidation(Document& document, const QualifiedName qualifiedName, ExceptionCode& ec)
 {
-    if (!isValidName(name)) {
+    RefPtr<HTMLElement> element = HTMLElementFactory::createKnownElement(qualifiedName, document);
+    if (LIKELY(element))
+        return element;
+
+#if ENABLE(CUSTOM_ELEMENTS)
+    auto* definitions = document.customElementDefinitions();
+    if (UNLIKELY(definitions)) {
+        if (auto* interface = definitions->findInterface(qualifiedName))
+            return interface->constructElement(qualifiedName.localName());
+    }
+#endif
+
+    if (UNLIKELY(!Document::isValidName(qualifiedName.localName()))) {
         ec = INVALID_CHARACTER_ERR;
         return nullptr;
     }
 
+    return HTMLUnknownElement::create(qualifiedName, document);
+}
+
+RefPtr<Element> Document::createElementForBindings(const AtomicString& name, ExceptionCode& ec)
+{
     if (isHTMLDocument())
-        return HTMLElementFactory::createElement(QualifiedName(nullAtom, name.convertToASCIILowercase(), xhtmlNamespaceURI), *this);
+        return createHTMLElementWithNameValidation(*this, QualifiedName(nullAtom, name.convertToASCIILowercase(), xhtmlNamespaceURI), ec);
 
     if (isXHTMLDocument())
-        return HTMLElementFactory::createElement(QualifiedName(nullAtom, name, xhtmlNamespaceURI), *this);
+        return createHTMLElementWithNameValidation(*this, QualifiedName(nullAtom, name, xhtmlNamespaceURI), ec);
+
+    if (!isValidName(name)) {
+        ec = INVALID_CHARACTER_ERR;
+        return nullptr;
+    }
 
     return createElement(QualifiedName(nullAtom, name, nullAtom), false);
 }
@@ -983,7 +1005,7 @@ RefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionCode& 
 }
 
 
-RefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
+RefPtr<Node> Document::adoptNode(Node* source, ExceptionCode& ec)
 {
     if (!source) {
         ec = NOT_SUPPORTED_ERR;
@@ -1022,7 +1044,7 @@ RefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
         }
     }
 
-    adoptIfNeeded(source.get());
+    adoptIfNeeded(source);
 
     return source;
 }
@@ -2585,10 +2607,8 @@ HTMLElement* Document::bodyOrFrameset() const
     return nullptr;
 }
 
-void Document::setBodyOrFrameset(PassRefPtr<HTMLElement> prpNewBody, ExceptionCode& ec)
+void Document::setBodyOrFrameset(RefPtr<HTMLElement>&& newBody, ExceptionCode& ec)
 {
-    RefPtr<HTMLElement> newBody = prpNewBody;
-
     // FIXME: This does not support setting a <frameset> Element, only a <body>. This does
     // not match the HTML specification:
     // https://html.spec.whatwg.org/multipage/dom.html#dom-document-body
@@ -2711,8 +2731,8 @@ void Document::implicitClose()
     dispatchWindowLoadEvent();
     enqueuePageshowEvent(PageshowEventNotPersisted);
     if (m_pendingStateObject)
-        enqueuePopstateEvent(m_pendingStateObject.release());
-    
+        enqueuePopstateEvent(WTFMove(m_pendingStateObject));
+
     if (f)
         f->loader().dispatchOnloadEvents();
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
@@ -3322,7 +3342,7 @@ void Document::processViewport(const String& features, ViewportArguments::Type o
         return;
 
     m_viewportArguments = ViewportArguments(origin);
-    processArguments(features, (void*)&m_viewportArguments, &setViewportFeature);
+    processArguments(features, (void*)&m_viewportArguments, setViewportFeature);
 
     updateViewportArguments();
 }
@@ -3341,6 +3361,7 @@ void Document::updateViewportArguments()
 }
 
 #if PLATFORM(IOS)
+
 // FIXME: Find a better place for this functionality.
 void setParserFeature(const String& key, const String& value, Document* document, void*)
 {
@@ -3351,7 +3372,7 @@ void setParserFeature(const String& key, const String& value, Document* document
 void Document::processFormatDetection(const String& features)
 {
     ASSERT(!features.isNull());
-    processArguments(features, nullptr, &setParserFeature);
+    processArguments(features, nullptr, setParserFeature);
 }
 
 void Document::processWebAppOrientations()
@@ -3359,6 +3380,7 @@ void Document::processWebAppOrientations()
     if (Page* page = this->page())
         page->chrome().client().webAppOrientationsUpdated();
 }
+
 #endif
 
 void Document::processReferrerPolicy(const String& policy)
@@ -3510,7 +3532,12 @@ Ref<Node> Document::cloneNodeInternal(Document&, CloningOperation type)
 
 Ref<Document> Document::cloneDocumentWithoutChildren() const
 {
-    return isXHTMLDocument() ? createXHTML(nullptr, url()) : create(nullptr, url());
+    if (isXMLDocument()) {
+        if (isXHTMLDocument())
+            return XMLDocument::createXHTML(nullptr, url());
+        return XMLDocument::create(nullptr, url());
+    }
+    return create(nullptr, url());
 }
 
 void Document::cloneDataFromDocument(const Document& other)
@@ -3758,10 +3785,9 @@ void Document::setAnnotatedRegions(const Vector<AnnotatedRegionValue>& regions)
 }
 #endif
 
-bool Document::setFocusedElement(PassRefPtr<Element> prpNewFocusedElement, FocusDirection direction)
+bool Document::setFocusedElement(Element* element, FocusDirection direction)
 {
-    RefPtr<Element> newFocusedElement = prpNewFocusedElement;
-
+    RefPtr<Element> newFocusedElement = element;
     // Make sure newFocusedElement is actually in this document
     if (newFocusedElement && (&newFocusedElement->document() != this))
         return true;
@@ -4370,7 +4396,7 @@ void Document::setDomain(const String& newDomain, ExceptionCode& ec)
     // assigns its current domain using document.domain, the page will
     // allow other pages loaded on different ports in the same domain that
     // have also assigned to access this page.
-    if (equalIgnoringCase(domain(), newDomain)) {
+    if (equalIgnoringASCIICase(domain(), newDomain)) {
         securityOrigin()->setDomainFromDOM(newDomain);
         return;
     }
@@ -4566,9 +4592,9 @@ bool Document::parseQualifiedName(const String& qualifiedName, String& prefix, S
     return true;
 }
 
-void Document::setDecoder(PassRefPtr<TextResourceDecoder> decoder)
+void Document::setDecoder(RefPtr<TextResourceDecoder>&& decoder)
 {
-    m_decoder = decoder;
+    m_decoder = WTFMove(decoder);
 }
 
 URL Document::completeURL(const String& url, const URL& baseURLOverride) const
@@ -4629,7 +4655,7 @@ void Document::documentWillBecomeInactive()
         renderView()->setIsInWindow(false);
 }
 
-void Document::suspend()
+void Document::suspend(ActiveDOMObject::ReasonForSuspension reason)
 {
     if (m_isSuspended)
         return;
@@ -4654,7 +4680,7 @@ void Document::suspend()
     }
 
     suspendScriptedAnimationControllerCallbacks();
-    suspendActiveDOMObjects(ActiveDOMObject::PageCache);
+    suspendActiveDOMObjects(reason);
 
     ASSERT(m_frame);
     m_frame->clearTimers();
@@ -4665,7 +4691,7 @@ void Document::suspend()
     m_isSuspended = true;
 }
 
-void Document::resume()
+void Document::resume(ActiveDOMObject::ReasonForSuspension reason)
 {
     if (!m_isSuspended)
         return;
@@ -4685,7 +4711,7 @@ void Document::resume()
     m_frame->loader().client().dispatchDidBecomeFrameset(isFrameSet());
     m_frame->animation().resumeAnimationsForDocument(this);
 
-    resumeActiveDOMObjects(ActiveDOMObject::PageWillBeSuspended);
+    resumeActiveDOMObjects(reason);
     resumeScriptedAnimationControllerCallbacks();
 
     m_visualUpdatesAllowed = true;
@@ -4835,7 +4861,7 @@ String Document::queryCommandValue(const String& commandName)
     return command(this, commandName).value();
 }
 
-void Document::pushCurrentScript(PassRefPtr<HTMLScriptElement> newCurrentScript)
+void Document::pushCurrentScript(HTMLScriptElement* newCurrentScript)
 {
     ASSERT(newCurrentScript);
     m_currentScriptStack.append(newCurrentScript);
@@ -5524,9 +5550,9 @@ void Document::enqueueHashchangeEvent(const String& oldURL, const String& newURL
     enqueueWindowEvent(HashChangeEvent::create(oldURL, newURL));
 }
 
-void Document::enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObject)
+void Document::enqueuePopstateEvent(RefPtr<SerializedScriptValue>&& stateObject)
 {
-    enqueueWindowEvent(PopStateEvent::create(stateObject, m_domWindow ? m_domWindow->history() : nullptr));
+    enqueueWindowEvent(PopStateEvent::create(WTFMove(stateObject), m_domWindow ? m_domWindow->history() : nullptr));
 }
 
 void Document::addMediaCanStartListener(MediaCanStartListener* listener)
@@ -6804,7 +6830,7 @@ bool Document::hasFocus() const
 #if ENABLE(WEB_REPLAY)
 void Document::setInputCursor(PassRefPtr<InputCursor> cursor)
 {
-    m_inputCursor = cursor;
+    m_inputCursor = WTFMove(cursor);
 }
 #endif
 

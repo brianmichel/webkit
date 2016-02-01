@@ -1772,9 +1772,8 @@ void FrameLoader::commitProvisionalLoad()
 
     // Check to see if we need to cache the page we are navigating away from into the back/forward cache.
     // We are doing this here because we know for sure that a new page is about to be loaded.
-    HistoryItem& item = *history().currentItem();
-    if (!m_frame.tree().parent() && PageCache::singleton().canCache(m_frame.page()) && !item.isInPageCache())
-        PageCache::singleton().add(item, *m_frame.page());
+    if (!m_frame.tree().parent() && history().currentItem())
+        PageCache::singleton().addIfCacheable(*history().currentItem(), m_frame.page());
 
     if (m_loadType != FrameLoadType::Replace)
         closeOldDataSources();
@@ -1846,7 +1845,7 @@ void FrameLoader::commitProvisionalLoad()
         if (m_frame.document()->doctype() && m_frame.page())
             m_frame.page()->chrome().didReceiveDocType(&m_frame);
 #endif
-        m_frame.document()->resume();
+        m_frame.document()->resume(ActiveDOMObject::PageCache);
 
         // Force a layout to update view size and thereby update scrollbars.
 #if PLATFORM(IOS)
@@ -2284,6 +2283,8 @@ void FrameLoader::checkLoadCompleteForThisFrame()
                 if (m_frame.settings().dataDetectorTypes() != DataDetectorTypeNone) {
                     RefPtr<Range> documentRange = makeRange(firstPositionInNode(m_frame.document()->documentElement()), lastPositionInNode(m_frame.document()->documentElement()));
                     m_frame.setDataDetectionResults(DataDetection::detectContentInRange(documentRange, m_frame.settings().dataDetectorTypes()));
+                    if (m_frame.isMainFrame())
+                        m_client.dispatchDidFinishDataDetection(m_frame.dataDetectionResults());
                 }
 #endif
                 m_client.dispatchDidFinishLoad();
@@ -2952,6 +2953,7 @@ bool FrameLoader::dispatchBeforeUnloadEvent(Chrome& chrome, FrameLoader* frameLo
 
     {
         ForbidPromptsScope forbidPrompts(m_frame.page());
+        IgnoreOpensDuringUnloadCountIncrementer ignoreOpensDuringUnloadCountIncrementer(m_frame.document());
         domWindow->dispatchEvent(beforeUnloadEvent, domWindow->document());
     }
 

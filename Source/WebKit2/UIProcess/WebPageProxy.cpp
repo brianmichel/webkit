@@ -143,14 +143,11 @@
 #include "RemoteLayerTreeDrawingAreaProxy.h"
 #include "RemoteLayerTreeScrollingPerformanceData.h"
 #include "ViewSnapshotStore.h"
+#include "WebVideoFullscreenManagerProxy.h"
+#include "WebVideoFullscreenManagerProxyMessages.h"
 #include <WebCore/MachSendRight.h>
 #include <WebCore/RunLoopObserver.h>
 #include <WebCore/TextIndicatorWindow.h>
-#endif
-
-#if PLATFORM(IOS)
-#include "WebVideoFullscreenManagerProxy.h"
-#include "WebVideoFullscreenManagerProxyMessages.h"
 #endif
 
 #if USE(CAIRO)
@@ -166,6 +163,10 @@
 #include "WebMediaSessionFocusManager.h"
 #include "WebMediaSessionMetadata.h"
 #include <WebCore/MediaSessionMetadata.h>
+#endif
+
+#if defined(__has_include) && __has_include(<WebKitAdditions/WebPageProxyIncludes.h>)
+#include <WebKitAdditions/WebPageProxyIncludes.h>
 #endif
 
 // This controls what strategy we use for mouse wheel coalescing.
@@ -466,11 +467,15 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
 #if ENABLE(FULLSCREEN_API)
     m_fullScreenManager = WebFullScreenManagerProxy::create(*this, m_pageClient.fullScreenManagerProxyClient());
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_videoFullscreenManager = WebVideoFullscreenManagerProxy::create(*this);
 #endif
 #if ENABLE(VIBRATION)
     m_vibration = WebVibrationProxy::create(this);
+#endif
+
+#if defined(__has_include) && __has_include(<WebKitAdditions/WebPageProxyInitialization.cpp>)
+#include <WebKitAdditions/WebPageProxyInitialization.cpp>
 #endif
 
     m_process->addMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_pageID, *this);
@@ -480,7 +485,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
 
 #if PLATFORM(COCOA)
     const CFIndex viewStateChangeRunLoopOrder = (CFIndex)RunLoopObserver::WellKnownRunLoopOrders::CoreAnimationCommit - 1;
-    m_viewStateChangeDispatcher = RunLoopObserver::create(viewStateChangeRunLoopOrder, [this] {
+    m_viewStateChangeDispatcher = std::make_unique<RunLoopObserver>(viewStateChangeRunLoopOrder, [this] {
         this->dispatchViewStateChange();
     });
 #endif
@@ -697,8 +702,12 @@ void WebPageProxy::reattachToWebProcess()
 #if ENABLE(FULLSCREEN_API)
     m_fullScreenManager = WebFullScreenManagerProxy::create(*this, m_pageClient.fullScreenManagerProxyClient());
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     m_videoFullscreenManager = WebVideoFullscreenManagerProxy::create(*this);
+#endif
+
+#if defined(__has_include) && __has_include(<WebKitAdditions/WebPageProxyInitialization.cpp>)
+#include <WebKitAdditions/WebPageProxyInitialization.cpp>
 #endif
 
     initializeWebPage();
@@ -1386,7 +1395,7 @@ void WebPageProxy::viewDidLeaveWindow()
     if (m_colorPicker)
         endColorPicker();
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     // When leaving the current page, close the video fullscreen.
     if (m_videoFullscreenManager)
         m_videoFullscreenManager->requestHideAndExitFullscreen();
@@ -3965,12 +3974,14 @@ WebFullScreenManagerProxy* WebPageProxy::fullScreenManager()
 }
 #endif
     
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 RefPtr<WebVideoFullscreenManagerProxy> WebPageProxy::videoFullscreenManager()
 {
     return m_videoFullscreenManager;
 }
+#endif
 
+#if PLATFORM(IOS)
 bool WebPageProxy::allowsMediaDocumentInlinePlayback() const
 {
     return m_allowsMediaDocumentInlinePlayback;
@@ -5014,12 +5025,14 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 
     m_visibleScrollerThumbRect = IntRect();
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     if (m_videoFullscreenManager) {
         m_videoFullscreenManager->invalidate();
         m_videoFullscreenManager = nullptr;
     }
+#endif
 
+#if PLATFORM(IOS)
     m_lastVisibleContentRectUpdate = VisibleContentRectUpdateInfo();
     m_dynamicViewportSizeUpdateWaitingForTarget = false;
     m_dynamicViewportSizeUpdateWaitingForLayerTreeCommit = false;
@@ -5030,6 +5043,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
     m_pageClient.mediaSessionManager().removeAllPlaybackTargetPickerClients(*this);
+#endif
+
+#if defined(__has_include) && __has_include(<WebKitAdditions/WebPageProxyInvalidation.h>)
+#include <WebKitAdditions/WebPageProxyInvalidation.h>
 #endif
 
     CallbackBase::Error error;

@@ -76,15 +76,6 @@ inline bool isX86_64()
 #endif
 }
 
-inline bool isIOS()
-{
-#if PLATFORM(IOS)
-    return true;
-#else
-    return false;
-#endif
-}
-
 inline bool optimizeForARMv7IDIVSupported()
 {
     return isARMv7IDIVSupported() && Options::useArchitectureSpecificOptimizations();
@@ -404,6 +395,8 @@ public:
         {
             masm->invalidateAllTempRegisters();
         }
+
+        bool operator==(const Label& other) const { return m_label == other.m_label; }
 
         bool isSet() const { return m_label.isSet(); }
     private:

@@ -1,4 +1,4 @@
-# Copyright (C) 2005-2007, 2010-2015 Apple Inc. All rights reserved.
+# Copyright (C) 2005-2007, 2010-2016 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Google Inc. All rights reserved.
 # Copyright (C) 2011 Research In Motion Limited. All rights reserved.
 # Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
@@ -63,7 +63,6 @@ BEGIN {
        &chdirWebKit
        &checkFrameworks
        &cmakeBasedPortArguments
-       &cmakeBasedPortName
        &currentSVNRevision
        &debugSafari
        &executableProductDir
@@ -397,7 +396,7 @@ sub determineNumberOfCPUs
         if ($numberOfCPUs eq "") {
             $numberOfCPUs = (grep /processor/, `cat /proc/cpuinfo`);
         }
-    } elsif (isWindows() || isCygwin()) {
+    } elsif (isAnyWindows()) {
         # Assumes cygwin
         $numberOfCPUs = `ls /proc/registry/HKEY_LOCAL_MACHINE/HARDWARE/DESCRIPTION/System/CentralProcessor | wc -w`;
     } elsif (isDarwin() || isBSD()) {
@@ -418,7 +417,7 @@ sub jscPath($)
     my ($productDir) = @_;
     my $jscName = "jsc";
     $jscName .= "_debug"  if configuration() eq "Debug_All";
-    $jscName .= ".exe" if (isWindows() || isCygwin());
+    $jscName .= ".exe" if (isAnyWindows());
     return "$productDir/$jscName" if -e "$productDir/$jscName";
     return "$productDir/JavaScriptCore.framework/Resources/$jscName";
 }
@@ -930,7 +929,7 @@ sub builtDylibPathForName
 # Check to see that all the frameworks are built.
 sub checkFrameworks # FIXME: This is a poor name since only the Mac calls built WebCore a Framework.
 {
-    return if isCygwin() || isWindows();
+    return if isAnyWindows();
     my @frameworks = ("JavaScriptCore", "WebCore");
     push(@frameworks, "WebKit") if isAppleMacWebKit(); # FIXME: This seems wrong, all ports should have a WebKit these days.
     for my $framework (@frameworks) {
@@ -1448,6 +1447,7 @@ sub setUpGuardMallocIfNeeded
 
     if ($shouldUseGuardMalloc) {
         appendToEnvironmentVariableList("DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib");
+        appendToEnvironmentVariableList("__XPC_DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib");
     }
 }
 
@@ -1500,20 +1500,7 @@ sub checkRequiredSystemConfig
             print "most likely fail. The latest Xcode is available from the App Store.\n";
             print "*************************************************************\n";
         }
-    } elsif (isGtk() or isEfl() or isWindows() or isCygwin()) {
-        my @cmds = qw(bison gperf flex);
-        my @missing = ();
-        my $oldPath = $ENV{PATH};
-        foreach my $cmd (@cmds) {
-            push @missing, $cmd if not commandExists($cmd);
-        }
-
-        if (@missing) {
-            my $list = join ", ", @missing;
-            die "ERROR: $list missing but required to build WebKit.\n";
-        }
     }
-    # Win32 and other platforms may want to check for minimum config
 }
 
 sub determineWindowsSourceDir()
@@ -1655,7 +1642,7 @@ sub setupAppleWinEnv()
 
 sub setupCygwinEnv()
 {
-    return if !isCygwin() && !isWindows();
+    return if !isAnyWindows();
     return if $vcBuildPath;
 
     my $programFilesPath = programFilesPath();
@@ -1824,7 +1811,7 @@ sub isCachedArgumentfileOutOfDate($@)
 
 sub wrapperPrefixIfNeeded()
 {
-    if (isWindows() || isCygwin()) {
+    if (isAnyWindows()) {
         return ();
     }
     if (isAppleMacWebKit()) {
@@ -1933,7 +1920,7 @@ sub cmakeGeneratedBuildfile(@)
     my ($willUseNinja) = @_;
     if ($willUseNinja) {
         return File::Spec->catfile(baseProductDir(), configuration(), "build.ninja")
-    } elsif (isWindows() || isCygwin()) {
+    } elsif (isAnyWindows()) {
         return File::Spec->catfile(baseProductDir(), configuration(), "WebKit.sln")
     } else {
         return File::Spec->catfile(baseProductDir(), configuration(), "Makefile")
@@ -1942,8 +1929,9 @@ sub cmakeGeneratedBuildfile(@)
 
 sub generateBuildSystemFromCMakeProject
 {
-    my ($port, $prefixPath, @cmakeArgs, $additionalCMakeArgs) = @_;
+    my ($prefixPath, @cmakeArgs, $additionalCMakeArgs) = @_;
     my $config = configuration();
+    my $port = cmakeBasedPortName();
     my $buildPath = File::Spec->catdir(baseProductDir(), $config);
     File::Path::mkpath($buildPath) unless -d $buildPath;
     my $originalWorkingDirectory = getcwd();
@@ -1990,7 +1978,7 @@ sub generateBuildSystemFromCMakeProject
     # Compiler options to keep floating point values consistent
     # between 32-bit and 64-bit architectures.
     determineArchitecture();
-    if ($architecture ne "x86_64" && !isARM() && !isCrossCompilation() && !isWindows() && !isCygwin()) {
+    if ($architecture ne "x86_64" && !isARM() && !isCrossCompilation() && !isAnyWindows()) {
         $ENV{'CXXFLAGS'} = "-march=pentium4 -msse2 -mfpmath=sse " . ($ENV{'CXXFLAGS'} || "");
     }
 
@@ -2044,9 +2032,9 @@ sub cleanCMakeGeneratedProject()
     return 0;
 }
 
-sub buildCMakeProjectOrExit($$$$@)
+sub buildCMakeProjectOrExit($$$@)
 {
-    my ($clean, $port, $prefixPath, $makeArgs, @cmakeArgs) = @_;
+    my ($clean, $prefixPath, $makeArgs, @cmakeArgs) = @_;
     my $returnCode;
 
     exit(exitStatus(cleanCMakeGeneratedProject())) if $clean;
@@ -2059,7 +2047,7 @@ sub buildCMakeProjectOrExit($$$$@)
         system("perl", "$sourceDir/Tools/Scripts/update-webkitgtk-libs") == 0 or die $!;
     }
 
-    $returnCode = exitStatus(generateBuildSystemFromCMakeProject($port, $prefixPath, @cmakeArgs));
+    $returnCode = exitStatus(generateBuildSystemFromCMakeProject($prefixPath, @cmakeArgs));
     exit($returnCode) if $returnCode;
 
     $returnCode = exitStatus(buildCMakeGeneratedProject($makeArgs));
@@ -2090,9 +2078,7 @@ sub determineIsCMakeBuild()
 
 sub isCMakeBuild()
 {
-    if (isEfl() || isGtk() || isAnyWindows()) {
-        return 1;
-    }
+    return 1 unless isAppleMacWebKit();
     determineIsCMakeBuild();
     return $isCMakeBuild;
 }

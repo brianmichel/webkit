@@ -237,10 +237,10 @@ inline static int adjustedClientY(int innerClientY, HTMLIFrameElement* iframe, F
     return iframe->offsetTop() - frameView->scrollY() + innerClientY;
 }
 
-PassRefPtr<Event> MouseEvent::cloneFor(HTMLIFrameElement* iframe) const
+Ref<Event> MouseEvent::cloneFor(HTMLIFrameElement* iframe) const
 {
     ASSERT(iframe);
-    RefPtr<MouseEvent> clonedMouseEvent = MouseEvent::create();
+    Ref<MouseEvent> clonedMouseEvent = MouseEvent::create();
     Frame* frame = iframe->document().frame();
     FrameView* frameView = frame ? frame->view() : nullptr;
     clonedMouseEvent->initMouseEvent(type(), bubbles(), cancelable(),
@@ -253,7 +253,7 @@ PassRefPtr<Event> MouseEvent::cloneFor(HTMLIFrameElement* iframe) const
         // Nullifies relatedTarget.
         0);
     clonedMouseEvent->setForce(force());
-    return clonedMouseEvent.release();
+    return WTFMove(clonedMouseEvent);
 }
 
 Ref<SimulatedMouseEvent> SimulatedMouseEvent::create(const AtomicString& eventType, AbstractView* view, PassRefPtr<Event> underlyingEvent, Element* target)
@@ -278,7 +278,7 @@ SimulatedMouseEvent::SimulatedMouseEvent(const AtomicString& eventType, Abstract
         m_shiftKey = keyStateEvent->shiftKey();
         m_metaKey = keyStateEvent->metaKey();
     }
-    setUnderlyingEvent(underlyingEvent);
+    setUnderlyingEvent(underlyingEvent.get());
 
     if (is<MouseEvent>(this->underlyingEvent())) {
         MouseEvent& mouseEvent = downcast<MouseEvent>(*this->underlyingEvent());

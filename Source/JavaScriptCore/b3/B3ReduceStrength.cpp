@@ -40,9 +40,10 @@
 #include "B3PhiChildren.h"
 #include "B3ProcedureInlines.h"
 #include "B3PureCSE.h"
+#include "B3SlotBaseValue.h"
+#include "B3StackSlot.h"
 #include "B3UpsilonValue.h"
-#include "B3UseCounts.h"
-#include "B3ValueKey.h"
+#include "B3ValueKeyInlines.h"
 #include "B3ValueInlines.h"
 #include <wtf/GraphNodeWorklist.h>
 #include <wtf/HashMap.h>
@@ -87,6 +88,8 @@ namespace {
 
 bool verbose = false;
 
+// FIXME: This IntRange stuff should be refactored into a general constant propagator. It's weird
+// that it's just sitting here in this file.
 class IntRange {
 public:
     IntRange()
@@ -161,25 +164,6 @@ public:
         }
     }
 
-    template<typename T>
-    static IntRange rangeForSShr(int32_t shiftAmount)
-    {
-        return IntRange(top<T>().min() >> shiftAmount, top<T>().max() >> shiftAmount);
-    }
-
-    static IntRange rangeForSShr(int32_t shiftAmount, Type type)
-    {
-        switch (type) {
-        case Int32:
-            return rangeForSShr<int32_t>(shiftAmount);
-        case Int64:
-            return rangeForSShr<int64_t>(shiftAmount);
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            return IntRange();
-        }
-    }
-
     int64_t min() const { return m_min; }
     int64_t max() const { return m_max; }
 
@@ -248,6 +232,157 @@ public:
             return couldOverflowMul<int64_t>(other);
         default:
             return true;
+        }
+    }
+
+    template<typename T>
+    IntRange shl(int32_t shiftAmount)
+    {
+        T newMin = static_cast<T>(m_min) << static_cast<T>(shiftAmount);
+        T newMax = static_cast<T>(m_max) << static_cast<T>(shiftAmount);
+
+        if ((newMin >> shiftAmount) != static_cast<T>(m_min))
+            newMin = std::numeric_limits<T>::min();
+        if ((newMax >> shiftAmount) != static_cast<T>(m_max))
+            newMax = std::numeric_limits<T>::max();
+
+        return IntRange(newMin, newMax);
+    }
+
+    IntRange shl(int32_t shiftAmount, Type type)
+    {
+        switch (type) {
+        case Int32:
+            return shl<int32_t>(shiftAmount);
+        case Int64:
+            return shl<int64_t>(shiftAmount);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return IntRange();
+        }
+    }
+
+    template<typename T>
+    IntRange sShr(int32_t shiftAmount)
+    {
+        T newMin = static_cast<T>(m_min) >> static_cast<T>(shiftAmount);
+        T newMax = static_cast<T>(m_max) >> static_cast<T>(shiftAmount);
+
+        return IntRange(newMin, newMax);
+    }
+
+    IntRange sShr(int32_t shiftAmount, Type type)
+    {
+        switch (type) {
+        case Int32:
+            return sShr<int32_t>(shiftAmount);
+        case Int64:
+            return sShr<int64_t>(shiftAmount);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return IntRange();
+        }
+    }
+
+    template<typename T>
+    IntRange zShr(int32_t shiftAmount)
+    {
+        // This is an awkward corner case for all of the other logic.
+        if (!shiftAmount)
+            return *this;
+
+        // If the input range may be negative, then all we can say about the output range is that it
+        // will be masked. That's because -1 right shifted just produces that mask.
+        if (m_min < 0)
+            return rangeForZShr<T>(shiftAmount);
+
+        // If the input range is non-negative, then this just brings the range closer to zero.
+        typedef typename std::make_unsigned<T>::type UnsignedT;
+        UnsignedT newMin = static_cast<UnsignedT>(m_min) >> static_cast<UnsignedT>(shiftAmount);
+        UnsignedT newMax = static_cast<UnsignedT>(m_max) >> static_cast<UnsignedT>(shiftAmount);
+        
+        return IntRange(newMin, newMax);
+    }
+
+    IntRange zShr(int32_t shiftAmount, Type type)
+    {
+        switch (type) {
+        case Int32:
+            return zShr<int32_t>(shiftAmount);
+        case Int64:
+            return zShr<int64_t>(shiftAmount);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return IntRange();
+        }
+    }
+
+    template<typename T>
+    IntRange add(const IntRange& other)
+    {
+        if (couldOverflowAdd<T>(other))
+            return top<T>();
+        return IntRange(m_min + other.m_min, m_max + other.m_max);
+    }
+
+    IntRange add(const IntRange& other, Type type)
+    {
+        switch (type) {
+        case Int32:
+            return add<int32_t>(other);
+        case Int64:
+            return add<int64_t>(other);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return IntRange();
+        }
+    }
+
+    template<typename T>
+    IntRange sub(const IntRange& other)
+    {
+        if (couldOverflowSub<T>(other))
+            return top<T>();
+        return IntRange(m_min - other.m_max, m_max - other.m_min);
+    }
+
+    IntRange sub(const IntRange& other, Type type)
+    {
+        switch (type) {
+        case Int32:
+            return sub<int32_t>(other);
+        case Int64:
+            return sub<int64_t>(other);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return IntRange();
+        }
+    }
+
+    template<typename T>
+    IntRange mul(const IntRange& other)
+    {
+        if (couldOverflowMul<T>(other))
+            return top<T>();
+        return IntRange(
+            std::min(
+                std::min(m_min * other.m_min, m_min * other.m_max),
+                std::min(m_max * other.m_min, m_max * other.m_max)),
+            std::max(
+                std::max(m_min * other.m_min, m_min * other.m_max),
+                std::max(m_max * other.m_min, m_max * other.m_max)));
+    }
+
+    IntRange mul(const IntRange& other, Type type)
+    {
+        switch (type) {
+        case Int32:
+            return mul<int32_t>(other);
+        case Int64:
+            return mul<int64_t>(other);
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return IntRange();
         }
     }
 
@@ -527,14 +662,12 @@ private:
                     // We can do this because it's precisely correct for ChillDiv and for Div we
                     // are allowed to do whatever we want.
                     m_value->replaceWithIdentity(m_value->child(1));
-                    m_changed = true;
                     break;
 
                 case 1:
                     // Turn this: Div(value, 1)
                     // Into this: value
                     m_value->replaceWithIdentity(m_value->child(0));
-                    m_changed = true;
                     break;
 
                 default:
@@ -587,12 +720,11 @@ private:
                                 m_index, ZShr, m_value->origin(), magicQuotient,
                                 m_insertionSet.insert<Const32Value>(
                                     m_index, m_value->origin(), 31))));
-                    m_changed = true;
                     break;
                 }
 
-                if (m_value->opcode() != ChillDiv && m_value->opcode() != Div)
-                    break;
+                m_changed = true;
+                break;
             }
             break;
 
@@ -601,7 +733,70 @@ private:
             // Turn this: Mod(constant1, constant2)
             // Into this: constant1 / constant2
             // Note that this uses ChillMod semantics.
-            replaceWithNewValue(m_value->child(0)->modConstant(m_proc, m_value->child(1)));
+            if (replaceWithNewValue(m_value->child(0)->modConstant(m_proc, m_value->child(1))))
+                break;
+
+            // Modulo by constant is more efficient if we turn it into Div, and then let Div get
+            // optimized.
+            if (m_value->child(1)->hasInt()) {
+                switch (m_value->child(1)->asInt()) {
+                case 0:
+                    // Turn this: Mod(value, 0)
+                    // Into this: 0
+                    // This is correct according to ChillMod semantics.
+                    m_value->replaceWithIdentity(m_value->child(1));
+                    break;
+
+                default:
+                    // Turn this: Mod(N, D)
+                    // Into this: Sub(N, Mul(Div(N, D), D))
+                    //
+                    // This is a speed-up because we use our existing Div optimizations.
+                    //
+                    // Here's an easier way to look at it:
+                    //     N % D = N - N / D * D
+                    //
+                    // Note that this does not work for D = 0 and ChillMod. The expected result is 0.
+                    // That's why we have a special-case above.
+                    //     X % 0 = X - X / 0 * 0 = X     (should be 0)
+                    //
+                    // This does work for the D = -1 special case.
+                    //     -2^31 % -1 = -2^31 - -2^31 / -1 * -1
+                    //                = -2^31 - -2^31 * -1
+                    //                = -2^31 - -2^31
+                    //                = 0
+
+                    Opcode divOpcode;
+                    switch (m_value->opcode()) {
+                    case Mod:
+                        divOpcode = Div;
+                        break;
+                    case ChillMod:
+                        divOpcode = ChillDiv;
+                        break;
+                    default:
+                        divOpcode = Oops;
+                        RELEASE_ASSERT_NOT_REACHED();
+                        break;
+                    }
+
+                    m_value->replaceWithIdentity(
+                        m_insertionSet.insert<Value>(
+                            m_index, Sub, m_value->origin(),
+                            m_value->child(0),
+                            m_insertionSet.insert<Value>(
+                                m_index, Mul, m_value->origin(),
+                                m_insertionSet.insert<Value>(
+                                    m_index, divOpcode, m_value->origin(),
+                                    m_value->child(0), m_value->child(1)),
+                                m_value->child(1))));
+                    break;
+                }
+                
+                m_changed = true;
+                break;
+            }
+            
             break;
 
         case BitAnd:
@@ -815,7 +1010,7 @@ private:
                 break;
             }
 
-            if (handleShiftByZero())
+            if (handleShiftAmount())
                 break;
 
             break;
@@ -877,7 +1072,7 @@ private:
                     break;
             }
 
-            if (handleShiftByZero())
+            if (handleShiftAmount())
                 break;
 
             break;
@@ -890,7 +1085,7 @@ private:
                 break;
             }
 
-            if (handleShiftByZero())
+            if (handleShiftAmount())
                 break;
 
             break;
@@ -1643,7 +1838,19 @@ private:
                 m_changedCFG = true;
                 break;
             }
-            
+
+            // If a check for the same property dominates us, we can kill the branch. This sort
+            // of makes sense here because it's cheap, but hacks like this show that we're going
+            // to need SCCP.
+            Value* check = m_pureCSE.findMatch(
+                ValueKey(Check, Void, branch->child(0)), m_block, *m_dominators);
+            if (check) {
+                // The Check would have side-exited if child(0) was non-zero. So, it must be
+                // zero here.
+                branch->taken().block()->removePredecessor(m_block);
+                branch->convertToJump(branch->notTaken().block());
+                m_changedCFG = true;
+            }
             break;
         }
             
@@ -1826,8 +2033,13 @@ private:
         }
     }
 
-    IntRange rangeFor(Value* value)
+    // FIXME: This should really be a forward analysis. Instead, we uses a bounded-search backwards
+    // analysis.
+    IntRange rangeFor(Value* value, unsigned timeToLive = 5)
     {
+        if (!timeToLive)
+            return IntRange::top(value->type());
+        
         switch (value->opcode()) {
         case Const32:
         case Const64: {
@@ -1841,14 +2053,37 @@ private:
             break;
 
         case SShr:
-            if (value->child(1)->hasInt32())
-                return IntRange::rangeForSShr(value->child(1)->asInt32(), value->type());
+            if (value->child(1)->hasInt32()) {
+                return rangeFor(value->child(0), timeToLive - 1).sShr(
+                    value->child(1)->asInt32(), value->type());
+            }
             break;
 
         case ZShr:
-            if (value->child(1)->hasInt32())
-                return IntRange::rangeForZShr(value->child(1)->asInt32(), value->type());
+            if (value->child(1)->hasInt32()) {
+                return rangeFor(value->child(0), timeToLive - 1).zShr(
+                    value->child(1)->asInt32(), value->type());
+            }
             break;
+
+        case Shl:
+            if (value->child(1)->hasInt32()) {
+                return rangeFor(value->child(0), timeToLive - 1).shl(
+                    value->child(1)->asInt32(), value->type());
+            }
+            break;
+
+        case Add:
+            return rangeFor(value->child(0), timeToLive - 1).add(
+                rangeFor(value->child(1), timeToLive - 1), value->type());
+
+        case Sub:
+            return rangeFor(value->child(0), timeToLive - 1).sub(
+                rangeFor(value->child(1), timeToLive - 1), value->type());
+
+        case Mul:
+            return rangeFor(value->child(0), timeToLive - 1).mul(
+                rangeFor(value->child(1), timeToLive - 1), value->type());
 
         default:
             break;
@@ -1873,14 +2108,29 @@ private:
         return true;
     }
 
-    bool handleShiftByZero()
+    bool handleShiftAmount()
     {
         // Shift anything by zero is identity.
-        if (m_value->child(1)->isInt(0)) {
+        if (m_value->child(1)->isInt32(0)) {
             m_value->replaceWithIdentity(m_value->child(0));
             m_changed = true;
             return true;
         }
+
+        // The shift already masks its shift amount. If the shift amount is being masked by a
+        // redundant amount, then remove the mask. For example,
+        // Turn this: Shl(@x, BitAnd(@y, 63))
+        // Into this: Shl(@x, @y)
+        unsigned mask = sizeofType(m_value->type()) * 8 - 1;
+        if (m_value->child(1)->opcode() == BitAnd
+            && m_value->child(1)->child(1)->hasInt32()
+            && (m_value->child(1)->child(1)->asInt32() & mask) == mask) {
+            m_value->child(1) = m_value->child(1)->child(0);
+            m_changed = true;
+            // Don't need to return true, since we're still the same shift, and we can still cascade
+            // through other optimizations.
+        }
+        
         return false;
     }
 
@@ -2064,14 +2314,18 @@ private:
                 break;
         }
 
+        IndexSet<StackSlot> liveStackSlots;
+        
         for (BasicBlock* block : m_proc) {
             size_t sourceIndex = 0;
             size_t targetIndex = 0;
             while (sourceIndex < block->size()) {
                 Value* value = block->at(sourceIndex++);
-                if (worklist.saw(value))
+                if (worklist.saw(value)) {
+                    if (SlotBaseValue* slotBase = value->as<SlotBaseValue>())
+                        liveStackSlots.add(slotBase->slot());
                     block->at(targetIndex++) = value;
-                else {
+                } else {
                     m_proc.deleteValue(value);
                     
                     // It's not entirely clear if this is needed. I think it makes sense to have
@@ -2082,6 +2336,12 @@ private:
                 }
             }
             block->values().resize(targetIndex);
+        }
+
+        for (StackSlot* slot : m_proc.stackSlots()) {
+            if (slot->isLocked() || liveStackSlots.contains(slot))
+                continue;
+            m_proc.deleteStackSlot(slot);
         }
     }
 

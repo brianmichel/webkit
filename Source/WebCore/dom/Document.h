@@ -266,7 +266,8 @@ enum DocumentClass {
     PluginDocumentClass = 1 << 3,
     MediaDocumentClass = 1 << 4,
     SVGDocumentClass = 1 << 5,
-    TextDocumentClass = 1 << 6
+    TextDocumentClass = 1 << 6,
+    XMLDocumentClass = 1 << 7,
 };
 
 typedef unsigned char DocumentClassFlags;
@@ -301,10 +302,7 @@ public:
     {
         return adoptRef(*new Document(frame, url));
     }
-    static Ref<Document> createXHTML(Frame* frame, const URL& url)
-    {
-        return adoptRef(*new Document(frame, url, XHTMLDocumentClass));
-    }
+
     static Ref<Document> createNonRenderedPlaceholder(Frame* frame, const URL& url)
     {
         return adoptRef(*new Document(frame, url, DefaultDocumentClass, NonRenderedPlaceholder));
@@ -385,7 +383,7 @@ public:
 
     bool hasManifest() const;
     
-    WEBCORE_EXPORT RefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
+    WEBCORE_EXPORT RefPtr<Element> createElementForBindings(const AtomicString& tagName, ExceptionCode&);
     WEBCORE_EXPORT Ref<DocumentFragment> createDocumentFragment();
     WEBCORE_EXPORT Ref<Text> createTextNode(const String& data);
     Ref<Comment> createComment(const String& data);
@@ -468,7 +466,7 @@ public:
     DOMSecurityPolicy& securityPolicy();
 #endif
 
-    RefPtr<Node> adoptNode(PassRefPtr<Node> source, ExceptionCode&);
+    RefPtr<Node> adoptNode(Node* source, ExceptionCode&);
 
     Ref<HTMLCollection> images();
     Ref<HTMLCollection> embeds();
@@ -487,6 +485,7 @@ public:
     bool isSynthesized() const { return m_isSynthesized; }
     bool isHTMLDocument() const { return m_documentClasses & HTMLDocumentClass; }
     bool isXHTMLDocument() const { return m_documentClasses & XHTMLDocumentClass; }
+    bool isXMLDocument() const { return m_documentClasses & XMLDocumentClass; }
     bool isImageDocument() const { return m_documentClasses & ImageDocumentClass; }
     bool isSVGDocument() const { return m_documentClasses & SVGDocumentClass; }
     bool isPluginDocument() const { return m_documentClasses & PluginDocumentClass; }
@@ -734,7 +733,7 @@ public:
     String selectedStylesheetSet() const;
     void setSelectedStylesheetSet(const String&);
 
-    WEBCORE_EXPORT bool setFocusedElement(PassRefPtr<Element>, FocusDirection = FocusDirectionNone);
+    WEBCORE_EXPORT bool setFocusedElement(Element*, FocusDirection = FocusDirectionNone);
     Element* focusedElement() const { return m_focusedElement.get(); }
     UserActionElementSet& userActionElements()  { return m_userActionElements; }
     const UserActionElementSet& userActionElements() const { return m_userActionElements; }
@@ -925,18 +924,13 @@ public:
 
     HTMLBodyElement* body() const;
     WEBCORE_EXPORT HTMLElement* bodyOrFrameset() const;
-    void setBodyOrFrameset(PassRefPtr<HTMLElement>, ExceptionCode&);
+    void setBodyOrFrameset(RefPtr<HTMLElement>&&, ExceptionCode&);
 
     Location* location() const;
 
     WEBCORE_EXPORT HTMLHeadElement* head();
 
     DocumentMarkerController& markers() const { return *m_markers; }
-
-    bool directionSetOnDocumentElement() const { return m_directionSetOnDocumentElement; }
-    bool writingModeSetOnDocumentElement() const { return m_writingModeSetOnDocumentElement; }
-    void setDirectionSetOnDocumentElement(bool b) { m_directionSetOnDocumentElement = b; }
-    void setWritingModeSetOnDocumentElement(bool b) { m_writingModeSetOnDocumentElement = b; }
 
     bool execCommand(const String& command, bool userInterface = false, const String& value = String());
     bool queryCommandEnabled(const String& command);
@@ -958,7 +952,7 @@ public:
     JSModuleLoader* moduleLoader() { return m_moduleLoader.get(); }
 
     HTMLScriptElement* currentScript() const { return !m_currentScriptStack.isEmpty() ? m_currentScriptStack.last().get() : nullptr; }
-    void pushCurrentScript(PassRefPtr<HTMLScriptElement>);
+    void pushCurrentScript(HTMLScriptElement*);
     void popCurrentScript();
 
 #if ENABLE(XSLT)
@@ -1017,8 +1011,8 @@ public:
     void unregisterForDocumentSuspensionCallbacks(Element*);
 
     void documentWillBecomeInactive();
-    void suspend();
-    void resume();
+    void suspend(ActiveDOMObject::ReasonForSuspension);
+    void resume(ActiveDOMObject::ReasonForSuspension);
 
     void registerForMediaVolumeCallbacks(Element*);
     void unregisterForMediaVolumeCallbacks(Element*);
@@ -1057,7 +1051,7 @@ public:
     WEBCORE_EXPORT void setShouldCreateRenderers(bool);
     bool shouldCreateRenderers();
 
-    void setDecoder(PassRefPtr<TextResourceDecoder>);
+    void setDecoder(RefPtr<TextResourceDecoder>&&);
     TextResourceDecoder* decoder() const { return m_decoder.get(); }
 
     WEBCORE_EXPORT String displayStringModifiedByEncoding(const String&) const;
@@ -1106,7 +1100,7 @@ public:
     void enqueueOverflowEvent(Ref<Event>&&);
     void enqueuePageshowEvent(PageshowEventPersistence);
     void enqueueHashchangeEvent(const String& oldURL, const String& newURL);
-    void enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObject);
+    void enqueuePopstateEvent(RefPtr<SerializedScriptValue>&& stateObject);
     virtual DocumentEventQueue& eventQueue() const override final { return m_eventQueue; }
 
     WEBCORE_EXPORT void addMediaCanStartListener(MediaCanStartListener*);
@@ -1662,9 +1656,6 @@ private:
     ViewportArguments m_viewportArguments;
 
     ReferrerPolicy m_referrerPolicy;
-
-    bool m_directionSetOnDocumentElement;
-    bool m_writingModeSetOnDocumentElement;
 
 #if ENABLE(WEB_TIMING)
     DocumentTiming m_documentTiming;

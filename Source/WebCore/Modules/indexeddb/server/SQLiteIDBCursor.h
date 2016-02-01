@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class IDBCursorInfo;
+class IDBGetResult;
 
 namespace IDBServer {
 
@@ -46,6 +47,12 @@ class SQLiteIDBCursor {
     WTF_MAKE_NONCOPYABLE(SQLiteIDBCursor);
 public:
     static std::unique_ptr<SQLiteIDBCursor> maybeCreate(SQLiteIDBTransaction&, const IDBCursorInfo&);
+    static std::unique_ptr<SQLiteIDBCursor> maybeCreateBackingStoreCursor(SQLiteIDBTransaction&, const uint64_t objectStoreIdentifier, const uint64_t indexIdentifier, const IDBKeyRangeData&);
+
+    SQLiteIDBCursor(SQLiteIDBTransaction&, const IDBCursorInfo&);
+    SQLiteIDBCursor(SQLiteIDBTransaction&, uint64_t objectStoreID, uint64_t indexID, const IDBKeyRangeData&);
+
+    ~SQLiteIDBCursor();
 
     const IDBResourceIdentifier& identifier() const { return m_cursorIdentifier; }
     SQLiteIDBTransaction* transaction() const { return m_transaction; }
@@ -59,13 +66,14 @@ public:
     bool advance(uint64_t count);
     bool iterate(const IDBKeyData& targetKey);
 
+    bool didComplete() const { return m_completed; }
     bool didError() const { return m_errored; }
 
     void objectStoreRecordsChanged();
 
-private:
-    SQLiteIDBCursor(SQLiteIDBTransaction&, const IDBCursorInfo&);
+    void currentData(IDBGetResult&);
 
+private:
     bool establishStatement();
     bool createSQLiteStatement(const String& sql);
     bool bindArguments();
@@ -85,24 +93,26 @@ private:
     SQLiteIDBTransaction* m_transaction;
     IDBResourceIdentifier m_cursorIdentifier;
     int64_t m_objectStoreID;
-    int64_t m_indexID;
-    IndexedDB::CursorDirection m_cursorDirection;
+    int64_t m_indexID { IDBIndexMetadata::InvalidId };
+    IndexedDB::CursorDirection m_cursorDirection { IndexedDB::CursorDirection::Next };
     IDBKeyRangeData m_keyRange;
 
     IDBKeyData m_currentLowerKey;
     IDBKeyData m_currentUpperKey;
 
-    int64_t m_currentRecordID;
+    int64_t m_currentRecordID { -1 };
     IDBKeyData m_currentKey;
     IDBKeyData m_currentPrimaryKey;
     Vector<uint8_t> m_currentValueBuffer;
 
     std::unique_ptr<SQLiteStatement> m_statement;
-    bool m_statementNeedsReset;
-    int64_t m_boundID;
+    bool m_statementNeedsReset { false };
+    int64_t m_boundID { 0 };
 
-    bool m_completed;
-    bool m_errored;
+    bool m_completed { false };
+    bool m_errored { false };
+
+    bool m_backingStoreCursor { false };
 };
 
 

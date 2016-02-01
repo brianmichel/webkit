@@ -141,6 +141,7 @@ typedef const char* optionString;
     v(bool, dumpFTLDisassembly, false, "dumps disassembly of FTL function upon compilation") \
     v(bool, dumpAllDFGNodes, false, nullptr) \
     v(optionRange, bytecodeRangeToDFGCompile, 0, "bytecode size range to allow DFG compilation on, e.g. 1:100") \
+    v(optionRange, bytecodeRangeToFTLCompile, 0, "bytecode size range to allow FTL compilation on, e.g. 1:100") \
     v(optionString, dfgWhitelist, nullptr, "file with list of function signatures to allow DFG compilation on") \
     v(bool, dumpSourceAtDFGTime, false, "dumps source code of JS function being DFG compiled") \
     v(bool, dumpBytecodeAtDFGTime, false, "dumps bytecode of JS function being DFG compiled") \
@@ -322,6 +323,7 @@ typedef const char* optionString;
     v(bool, useTypeProfiler, false, nullptr) \
     v(bool, useControlFlowProfiler, false, nullptr) \
     v(bool, useSamplingProfiler, false, nullptr) \
+    v(bool, alwaysGeneratePCToCodeOriginMap, false, "This will make sure we always generate a PCToCodeOriginMap for JITed code.") \
     \
     v(bool, verifyHeap, false, nullptr) \
     v(unsigned, numberOfGCCyclesToRecordForVerification, 3, nullptr) \

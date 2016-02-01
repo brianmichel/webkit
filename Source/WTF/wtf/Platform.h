@@ -426,6 +426,12 @@
 
 /* Operating environments */
 
+/* Standard libraries */
+#if defined(HAVE_FEATURES_H) && HAVE_FEATURES_H
+/* If the included features.h is glibc's one, __GLIBC__ is defined. */
+#include <features.h>
+#endif
+
 /* FIXME: these are all mixes of OS, operating environment and policy choices. */
 /* PLATFORM(EFL) */
 /* PLATFORM(GTK) */
@@ -798,8 +804,10 @@
 #endif
 
 /* The SamplingProfiler is the probabilistic and low-overhead profiler used by
- * JSC to measure where time is spent inside a JavaScript program. */
-#if (OS(DARWIN) || OS(WINDOWS)) && ENABLE(JIT)
+ * JSC to measure where time is spent inside a JavaScript program.
+ * In configurations other than Windows and Darwin, because layout of mcontext_t depends on standard libraries (like glibc),
+ * sampling profiler is enabled if WebKit uses pthreads and glibc. */
+#if (OS(DARWIN) || OS(WINDOWS) || (USE(PTHREADS) && defined(__GLIBC__))) && ENABLE(JIT)
 #define ENABLE_SAMPLING_PROFILER 1
 #else
 #define ENABLE_SAMPLING_PROFILER 0
@@ -1091,7 +1099,7 @@
 #endif
 
 #if PLATFORM(COCOA)
-#define ENABLE_RESOURCE_USAGE_OVERLAY 1
+#define ENABLE_RESOURCE_USAGE 1
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(EFL)
@@ -1134,10 +1142,6 @@
 
 #if PLATFORM(COCOA)
 #define USE_MEDIATOOLBOX 1
-#endif
-
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
-#define ENABLE_VIDEO_PRESENTATION_MODE 1
 #endif
 
 /* While 10.10 has support for fences, it is missing some API important for our integration of them. */

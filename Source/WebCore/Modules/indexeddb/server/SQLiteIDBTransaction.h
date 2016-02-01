@@ -33,6 +33,7 @@
 #include "IDBTransactionInfo.h"
 #include "IndexedDB.h"
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
@@ -59,6 +60,7 @@ public:
     IDBError commit();
     IDBError abort();
 
+    std::unique_ptr<SQLiteIDBCursor> maybeOpenBackingStoreCursor(uint64_t objectStoreID, uint64_t indexID, const IDBKeyRangeData&);
     SQLiteIDBCursor* maybeOpenCursor(const IDBCursorInfo&);
 
     void closeCursor(SQLiteIDBCursor&);
@@ -78,6 +80,7 @@ private:
     SQLiteIDBBackingStore& m_backingStore;
     std::unique_ptr<SQLiteTransaction> m_sqliteTransaction;
     HashMap<IDBResourceIdentifier, std::unique_ptr<SQLiteIDBCursor>> m_cursors;
+    HashSet<SQLiteIDBCursor*> m_backingStoreCursors;
 };
 
 } // namespace IDBServer

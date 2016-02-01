@@ -392,7 +392,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "flex", "inline-flex", "-webkit-grid", "-webkit-inline-grid"
     ],
     "image-rendering": [
-        "auto", "optimizeSpeed", "optimizeQuality", "-webkit-crisp-edges", "-webkit-optimize-contrast"
+        "auto", "optimizeSpeed", "optimizeQuality", "-webkit-crisp-edges", "-webkit-optimize-contrast", "crisp-edges", "pixelated"
     ],
     "alignment-baseline": [
         "baseline", "middle", "auto", "before-edge", "after-edge", "central", "text-before-edge", "text-after-edge",
@@ -439,6 +439,15 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     "margin-after-collapse": [
         "collapse", "separate", "discard"
+    ],
+    "break-after": [
+         "left", "right", "recto", "verso", "auto", "avoid", "page", "column", "region", "avoid-page", "avoid-column", "avoid-region"
+    ],
+    "break-before": [
+          "left", "right", "recto", "verso", "auto", "avoid", "page", "column", "region", "avoid-page", "avoid-column", "avoid-region"
+    ],
+    "break-inside": [
+          "auto", "avoid", "avoid-page", "avoid-column", "avoid-region"
     ],
     "page-break-after": [
         "left", "right", "auto", "always", "avoid"

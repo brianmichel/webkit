@@ -48,7 +48,6 @@
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
 #include "ThreadableLoader.h"
-#include "XMLHttpRequestException.h"
 #include "XMLHttpRequestProgressEvent.h"
 #include "XMLHttpRequestUpload.h"
 #include "markup.h"
@@ -216,7 +215,7 @@ Document* XMLHttpRequest::responseXML(ExceptionCode& ec)
             if (isHTML)
                 m_responseDocument = HTMLDocument::create(0, m_url);
             else
-                m_responseDocument = Document::create(0, m_url);
+                m_responseDocument = XMLDocument::create(0, m_url);
             // FIXME: Set Last-Modified.
             m_responseDocument->setContent(m_responseBuilder.toStringPreserveCapacity());
             m_responseDocument->setSecurityOriginPolicy(scriptExecutionContext()->securityOriginPolicy());
@@ -406,7 +405,7 @@ String XMLHttpRequest::uppercaseKnownHTTPMethod(const String& method)
 {
     const char* const methods[] = { "DELETE", "GET", "HEAD", "OPTIONS", "POST", "PUT" };
     for (auto* value : methods) {
-        if (equalIgnoringCase(method, value)) {
+        if (equalIgnoringASCIICase(method, value)) {
             // Don't bother allocating a new string if it's already all uppercase.
             if (method == value)
                 break;
@@ -712,7 +711,7 @@ void XMLHttpRequest::createRequest(ExceptionCode& ec)
 {
     // Only GET request is supported for blob URL.
     if (m_url.protocolIs("blob") && m_method != "GET") {
-        ec = XMLHttpRequestException::NETWORK_ERR;
+        ec = NETWORK_ERR;
         return;
     }
 
@@ -796,7 +795,7 @@ void XMLHttpRequest::createRequest(ExceptionCode& ec)
     }
 
     if (!m_exceptionCode && m_error)
-        m_exceptionCode = XMLHttpRequestException::NETWORK_ERR;
+        m_exceptionCode = NETWORK_ERR;
     ec = m_exceptionCode;
 }
 
@@ -1066,7 +1065,7 @@ void XMLHttpRequest::didFail(const ResourceError& error)
         return;
 
     if (error.isCancellation()) {
-        m_exceptionCode = XMLHttpRequestException::ABORT_ERR;
+        m_exceptionCode = ABORT_ERR;
         abortError();
         return;
     }
@@ -1083,7 +1082,7 @@ void XMLHttpRequest::didFail(const ResourceError& error)
         logConsoleError(scriptExecutionContext(), message);
     }
 
-    m_exceptionCode = XMLHttpRequestException::NETWORK_ERR;
+    m_exceptionCode = NETWORK_ERR;
     networkError();
 }
 
@@ -1236,7 +1235,7 @@ void XMLHttpRequest::didReachTimeout()
 
     m_sendFlag = false;
     m_error = true;
-    m_exceptionCode = XMLHttpRequestException::TIMEOUT_ERR;
+    m_exceptionCode = TIMEOUT_ERR;
 
     if (!m_async) {
         m_state = DONE;

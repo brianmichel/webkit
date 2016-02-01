@@ -81,11 +81,6 @@ static size_t activePixelMemory = 0;
 HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
     , m_size(DefaultWidth, DefaultHeight)
-    , m_rendererIsCanvas(false)
-    , m_ignoreReset(false)
-    , m_originClean(true)
-    , m_hasCreatedImageBuffer(false)
-    , m_didClearImageBuffer(false)
 {
     ASSERT(hasTagName(canvasTag));
 }
@@ -237,6 +232,10 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
             }
 
             m_context = std::make_unique<CanvasRenderingContext2D>(this, document().inQuirksMode(), usesDashbardCompatibilityMode);
+
+            downcast<CanvasRenderingContext2D>(*m_context).setUsesDisplayListDrawing(m_usesDisplayListDrawing);
+            downcast<CanvasRenderingContext2D>(*m_context).setTracksDisplayListReplay(m_tracksDisplayListReplay);
+
 #if USE(IOSURFACE_CANVAS_BACKING_STORE) || ENABLE(ACCELERATED_2D_CANVAS)
             // Need to make sure a RenderLayer and compositing layer get created for the Canvas
             setNeedsStyleRecalc(SyntheticStyleChange);
@@ -404,7 +403,7 @@ bool HTMLCanvasElement::paintsIntoCanvasBuffer() const
 }
 
 
-void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r, bool useLowQualityScale)
+void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r)
 {
     // Clear the dirty rect
     m_dirtyRect = FloatRect();
@@ -415,6 +414,7 @@ void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r, boo
     if (m_context) {
         if (!paintsIntoCanvasBuffer() && !document().printing())
             return;
+
         m_context->paintRenderingResultsToCanvas();
     }
 
@@ -426,9 +426,9 @@ void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r, boo
 #if ENABLE(CSS_IMAGE_ORIENTATION)
                 orientationDescription.setImageOrientationEnum(renderer()->style().imageOrientation());
 #endif 
-                context.drawImage(*m_presentedImage, snappedIntRect(r), ImagePaintingOptions(orientationDescription, useLowQualityScale));
+                context.drawImage(*m_presentedImage, snappedIntRect(r), ImagePaintingOptions(orientationDescription));
             } else
-                context.drawImageBuffer(*imageBuffer, snappedIntRect(r), useLowQualityScale);
+                context.drawImageBuffer(*imageBuffer, snappedIntRect(r));
         }
     }
 
@@ -592,6 +592,44 @@ size_t HTMLCanvasElement::memoryCost() const
     if (!m_imageBuffer)
         return 0;
     return 4 * m_imageBuffer->internalSize().width() * m_imageBuffer->internalSize().height();
+}
+
+void HTMLCanvasElement::setUsesDisplayListDrawing(bool usesDisplayListDrawing)
+{
+    if (usesDisplayListDrawing == m_usesDisplayListDrawing)
+        return;
+    
+    m_usesDisplayListDrawing = usesDisplayListDrawing;
+
+    if (m_context && is<CanvasRenderingContext2D>(*m_context))
+        downcast<CanvasRenderingContext2D>(*m_context).setUsesDisplayListDrawing(m_usesDisplayListDrawing);
+}
+
+void HTMLCanvasElement::setTracksDisplayListReplay(bool tracksDisplayListReplay)
+{
+    if (tracksDisplayListReplay == m_tracksDisplayListReplay)
+        return;
+
+    m_tracksDisplayListReplay = tracksDisplayListReplay;
+
+    if (m_context && is<CanvasRenderingContext2D>(*m_context))
+        downcast<CanvasRenderingContext2D>(*m_context).setTracksDisplayListReplay(m_tracksDisplayListReplay);
+}
+
+String HTMLCanvasElement::displayListAsText(DisplayList::AsTextFlags flags) const
+{
+    if (m_context && is<CanvasRenderingContext2D>(*m_context))
+        return downcast<CanvasRenderingContext2D>(*m_context).displayListAsText(flags);
+
+    return String();
+}
+
+String HTMLCanvasElement::replayDisplayListAsText(DisplayList::AsTextFlags flags) const
+{
+    if (m_context && is<CanvasRenderingContext2D>(*m_context))
+        return downcast<CanvasRenderingContext2D>(*m_context).replayDisplayListAsText(flags);
+
+    return String();
 }
 
 void HTMLCanvasElement::createImageBuffer() const

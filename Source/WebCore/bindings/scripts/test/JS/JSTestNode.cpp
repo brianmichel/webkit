@@ -38,6 +38,7 @@ namespace WebCore {
 JSC::EncodedJSValue jsTestNodeName(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
 void setJSTestNodeName(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 JSC::EncodedJSValue jsTestNodeConstructor(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
+void setJSTestNodeConstructor(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
 class JSTestNodePrototype : public JSC::JSNonFinalObject {
 public:
@@ -86,7 +87,7 @@ template<> const ClassInfo JSTestNodeConstructor::s_info = { "TestNodeConstructo
 
 static const HashTableValue JSTestNodePrototypeTableValues[] =
 {
-    { "constructor", DontEnum | ReadOnly, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "constructor", DontEnum, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNodeConstructor) } },
     { "name", CustomAccessor, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeName), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNodeName) } },
 };
 
@@ -121,11 +122,8 @@ EncodedJSValue jsTestNodeName(ExecState* state, JSObject* slotBase, EncodedJSVal
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestNode* castedThis = jsDynamicCast<JSTestNode*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestNodePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestNode", "name");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestNode", "name");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = jsStringWithCache(state, impl.name());
     return JSValue::encode(result);
@@ -140,16 +138,26 @@ EncodedJSValue jsTestNodeConstructor(ExecState* state, JSObject* baseValue, Enco
     return JSValue::encode(JSTestNode::getConstructor(state->vm(), domObject->globalObject()));
 }
 
+void setJSTestNodeConstructor(ExecState* state, JSObject* baseValue, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+{
+    JSValue value = JSValue::decode(encodedValue);
+    UNUSED_PARAM(thisValue);
+    JSTestNodePrototype* domObject = jsDynamicCast<JSTestNodePrototype*>(baseValue);
+    if (UNLIKELY(!domObject)) {
+        throwVMTypeError(state);
+        return;
+    }
+    // Shadowing a built-in constructor
+    domObject->putDirect(state->vm(), state->propertyNames().constructor, value);
+}
+
 void setJSTestNodeName(ExecState* state, JSObject* baseObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
 {
     JSValue value = JSValue::decode(encodedValue);
     UNUSED_PARAM(baseObject);
     JSTestNode* castedThis = jsDynamicCast<JSTestNode*>(JSValue::decode(thisValue));
     if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestNodePrototype*>(JSValue::decode(thisValue)))
-            reportDeprecatedSetterError(*state, "TestNode", "name");
-        else
-            throwSetterTypeError(*state, "TestNode", "name");
+        throwSetterTypeError(*state, "TestNode", "name");
         return;
     }
     auto& impl = castedThis->wrapped();

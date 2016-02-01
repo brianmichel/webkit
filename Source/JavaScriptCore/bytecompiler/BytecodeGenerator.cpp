@@ -240,10 +240,10 @@ BytecodeGenerator::BytecodeGenerator(VM& vm, FunctionNode* functionNode, Unlinke
     SourceParseMode parseMode = codeBlock->parseMode();
 
     bool containsArrowOrEvalButNotInArrowBlock = needsToUpdateArrowFunctionContext() && !m_codeBlock->isArrowFunction();
-    bool shouldCaptureSomeOfTheThings = m_shouldEmitDebugHooks || m_codeBlock->needsFullScopeChain() || containsArrowOrEvalButNotInArrowBlock;
+    bool shouldCaptureSomeOfTheThings = m_shouldEmitDebugHooks || functionNode->needsActivation() || containsArrowOrEvalButNotInArrowBlock;
 
     bool shouldCaptureAllOfTheThings = m_shouldEmitDebugHooks || codeBlock->usesEval();
-    bool needsArguments = functionNode->usesArguments() || codeBlock->usesEval();
+    bool needsArguments = (functionNode->usesArguments() || codeBlock->usesEval() || (functionNode->usesArrowFunction() && !codeBlock->isArrowFunction()));
 
     // Generator never provides "arguments". "arguments" reference will be resolved in an upper generator function scope.
     if (parseMode == SourceParseMode::GeneratorBodyMode)
@@ -508,10 +508,12 @@ BytecodeGenerator::BytecodeGenerator(VM& vm, FunctionNode* functionNode, Unlinke
                 break;
             }
         }
-        
-        if (!haveParameterNamedArguments) {
+
+        // Do not create arguments variable in case of Arrow function. Value will be loaded from parent scope
+        if (!haveParameterNamedArguments && !m_codeBlock->isArrowFunction()) {
             createVariable(
                 propertyNames().arguments, varKind(propertyNames().arguments.impl()), functionSymbolTable);
+
             m_needToInitializeArguments = true;
         }
     }
@@ -659,14 +661,11 @@ BytecodeGenerator::BytecodeGenerator(VM& vm, ModuleProgramNode* moduleProgramNod
     moduleEnvironmentSymbolTable->setUsesNonStrictEval(m_usesNonStrictEval);
     moduleEnvironmentSymbolTable->setScopeType(SymbolTable::ScopeType::LexicalScope);
 
-    bool shouldCaptureSomeOfTheThings = m_shouldEmitDebugHooks || m_codeBlock->needsFullScopeChain();
     bool shouldCaptureAllOfTheThings = m_shouldEmitDebugHooks || codeBlock->usesEval();
     if (shouldCaptureAllOfTheThings)
         moduleProgramNode->varDeclarations().markAllVariablesAsCaptured();
 
     auto captures = [&] (UniquedStringImpl* uid) -> bool {
-        if (!shouldCaptureSomeOfTheThings)
-            return false;
         return moduleProgramNode->captures(uid);
     };
     auto lookUpVarKind = [&] (UniquedStringImpl* uid, const VariableEnvironmentEntry& entry) -> VarKind {
@@ -960,7 +959,6 @@ void BytecodeGenerator::initializeParameters(FunctionParameters& parameters)
 void BytecodeGenerator::initializeVarLexicalEnvironment(int symbolTableConstantIndex)
 {
     RELEASE_ASSERT(m_lexicalEnvironmentRegister);
-    m_codeBlock->setActivationRegister(m_lexicalEnvironmentRegister->virtualRegister());
     emitOpcode(op_create_lexical_environment);
     instructions().append(m_lexicalEnvironmentRegister->index());
     instructions().append(scopeRegister()->index());

@@ -248,6 +248,14 @@ WebInspector.TimelineOverview = class TimelineOverview extends WebInspector.View
         this._timelineRuler.selectionEndTime = this._timelineRuler.selectionStartTime + x;
     }
 
+    get height()
+    {
+        let height = 0;
+        for (let graph of this._timelineOverviewGraphsMap.values())
+            height += graph.height;
+        return height;
+    }
+
     get visible()
     {
         return this._visible;
@@ -373,7 +381,9 @@ WebInspector.TimelineOverview = class TimelineOverview extends WebInspector.View
 
         if (!this._dontUpdateScrollLeft) {
             this._ignoreNextScrollEvent = true;
-            this._scrollContainerElement.scrollLeft = Math.ceil((scrollStartTime - this._startTime) / this._durationPerPixel);
+            let scrollLeft = Math.ceil((scrollStartTime - this._startTime) / this._durationPerPixel);
+            if (scrollLeft)
+                this._scrollContainerElement.scrollLeft = scrollLeft;
         }
 
         for (let timelineOverviewGraph of this._timelineOverviewGraphsMap.values()) {

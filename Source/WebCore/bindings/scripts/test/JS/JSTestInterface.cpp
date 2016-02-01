@@ -122,6 +122,7 @@ JSC::EncodedJSValue jsTestInterfaceSupplementalNode(JSC::ExecState*, JSC::JSObje
 void setJSTestInterfaceSupplementalNode(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 #endif
 JSC::EncodedJSValue jsTestInterfaceConstructor(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
+void setJSTestInterfaceConstructor(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
 class JSTestInterfacePrototype : public JSC::JSNonFinalObject {
 public:
@@ -293,7 +294,7 @@ template<> const ClassInfo JSTestInterfaceConstructor::s_info = { "TestInterface
 
 static const HashTableValue JSTestInterfacePrototypeTableValues[] =
 {
-    { "constructor", DontEnum | ReadOnly, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestInterfaceConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "constructor", DontEnum, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestInterfaceConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestInterfaceConstructor) } },
 #if ENABLE(Condition22) || ENABLE(Condition23)
     { "implementsStr1", ReadOnly | CustomAccessor, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestInterfaceImplementsStr1), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
 #else
@@ -457,11 +458,8 @@ EncodedJSValue jsTestInterfaceImplementsStr1(ExecState* state, JSObject* slotBas
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestInterface", "implementsStr1");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestInterface", "implementsStr1");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = jsStringWithCache(state, impl.implementsStr1());
     return JSValue::encode(result);
@@ -476,11 +474,8 @@ EncodedJSValue jsTestInterfaceImplementsStr2(ExecState* state, JSObject* slotBas
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestInterface", "implementsStr2");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestInterface", "implementsStr2");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = jsStringWithCache(state, impl.implementsStr2());
     return JSValue::encode(result);
@@ -507,11 +502,8 @@ EncodedJSValue jsTestInterfaceImplementsNode(ExecState* state, JSObject* slotBas
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestInterface", "implementsNode");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestInterface", "implementsNode");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = toJS(state, castedThis->globalObject(), WTF::getPtr(impl.implementsNode()));
     return JSValue::encode(result);
@@ -550,11 +542,8 @@ EncodedJSValue jsTestInterfaceSupplementalStr1(ExecState* state, JSObject* slotB
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestInterface", "supplementalStr1");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestInterface", "supplementalStr1");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = jsStringWithCache(state, WebCore::TestSupplemental::supplementalStr1(impl));
     return JSValue::encode(result);
@@ -569,11 +558,8 @@ EncodedJSValue jsTestInterfaceSupplementalStr2(ExecState* state, JSObject* slotB
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestInterface", "supplementalStr2");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestInterface", "supplementalStr2");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = jsStringWithCache(state, WebCore::TestSupplemental::supplementalStr2(impl));
     return JSValue::encode(result);
@@ -600,11 +586,8 @@ EncodedJSValue jsTestInterfaceSupplementalNode(ExecState* state, JSObject* slotB
     UNUSED_PARAM(slotBase);
     UNUSED_PARAM(thisValue);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(slotBase))
-            return reportDeprecatedGetterError(*state, "TestInterface", "supplementalNode");
+    if (UNLIKELY(!castedThis))
         return throwGetterTypeError(*state, "TestInterface", "supplementalNode");
-    }
     auto& impl = castedThis->wrapped();
     JSValue result = toJS(state, castedThis->globalObject(), WTF::getPtr(WebCore::TestSupplemental::supplementalNode(impl)));
     return JSValue::encode(result);
@@ -618,6 +601,19 @@ EncodedJSValue jsTestInterfaceConstructor(ExecState* state, JSObject* baseValue,
     if (!domObject)
         return throwVMTypeError(state);
     return JSValue::encode(JSTestInterface::getConstructor(state->vm(), domObject->globalObject()));
+}
+
+void setJSTestInterfaceConstructor(ExecState* state, JSObject* baseValue, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+{
+    JSValue value = JSValue::decode(encodedValue);
+    UNUSED_PARAM(thisValue);
+    JSTestInterfacePrototype* domObject = jsDynamicCast<JSTestInterfacePrototype*>(baseValue);
+    if (UNLIKELY(!domObject)) {
+        throwVMTypeError(state);
+        return;
+    }
+    // Shadowing a built-in constructor
+    domObject->putDirect(state->vm(), state->propertyNames().constructor, value);
 }
 
 void JSTestInterface::put(JSCell* cell, ExecState* state, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
@@ -660,10 +656,7 @@ void setJSTestInterfaceImplementsStr2(ExecState* state, JSObject* baseObject, En
     UNUSED_PARAM(baseObject);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
     if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(JSValue::decode(thisValue)))
-            reportDeprecatedSetterError(*state, "TestInterface", "implementsStr2");
-        else
-            throwSetterTypeError(*state, "TestInterface", "implementsStr2");
+        throwSetterTypeError(*state, "TestInterface", "implementsStr2");
         return;
     }
     auto& impl = castedThis->wrapped();
@@ -696,10 +689,7 @@ void setJSTestInterfaceImplementsNode(ExecState* state, JSObject* baseObject, En
     UNUSED_PARAM(baseObject);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
     if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(JSValue::decode(thisValue)))
-            reportDeprecatedSetterError(*state, "TestInterface", "implementsNode");
-        else
-            throwSetterTypeError(*state, "TestInterface", "implementsNode");
+        throwSetterTypeError(*state, "TestInterface", "implementsNode");
         return;
     }
     auto& impl = castedThis->wrapped();
@@ -731,10 +721,7 @@ void setJSTestInterfaceSupplementalStr2(ExecState* state, JSObject* baseObject, 
     UNUSED_PARAM(baseObject);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
     if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(JSValue::decode(thisValue)))
-            reportDeprecatedSetterError(*state, "TestInterface", "supplementalStr2");
-        else
-            throwSetterTypeError(*state, "TestInterface", "supplementalStr2");
+        throwSetterTypeError(*state, "TestInterface", "supplementalStr2");
         return;
     }
     auto& impl = castedThis->wrapped();
@@ -767,10 +754,7 @@ void setJSTestInterfaceSupplementalNode(ExecState* state, JSObject* baseObject, 
     UNUSED_PARAM(baseObject);
     JSTestInterface* castedThis = jsDynamicCast<JSTestInterface*>(JSValue::decode(thisValue));
     if (UNLIKELY(!castedThis)) {
-        if (jsDynamicCast<JSTestInterfacePrototype*>(JSValue::decode(thisValue)))
-            reportDeprecatedSetterError(*state, "TestInterface", "supplementalNode");
-        else
-            throwSetterTypeError(*state, "TestInterface", "supplementalNode");
+        throwSetterTypeError(*state, "TestInterface", "supplementalNode");
         return;
     }
     auto& impl = castedThis->wrapped();

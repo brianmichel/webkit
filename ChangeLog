@@ -1,3 +1,50 @@
+2016-01-30  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Enable SamplingProfiler on POSIX environment
+        https://bugs.webkit.org/show_bug.cgi?id=153584
+
+        Reviewed by Michael Saboff.
+
+        Add features.h header check. It will define __GLIBC__.
+
+        * Source/cmake/OptionsCommon.cmake:
+
+2016-01-27  Alexey Proskuryakov  <ap@apple.com>
+
+        Remove ENABLE_CURRENTSRC
+        https://bugs.webkit.org/show_bug.cgi?id=153545
+
+        Reviewed by Simon Fraser.
+
+        * Source/cmake/OptionsEfl.cmake:
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/OptionsWin.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+        * Source/cmake/tools/vsprops/FeatureDefines.props:
+        * Source/cmake/tools/vsprops/FeatureDefinesCairo.props:
+
+2016-01-25  Alex Christensen  <achristensen@webkit.org>
+
+        Fix internal Windows build
+        https://bugs.webkit.org/show_bug.cgi?id=153469
+
+        Reviewed by Brent Fulgham.
+
+        * Source/cmake/WebKitMacros.cmake:
+        Pass the GPERF_EXECUTABLE that we found to make-hash-tools.pl.
+
+2016-01-23  Aaron Chu  <arona.chu@gmail.com>
+
+        Web Inspector: AXI: node-link-list should be collapsible
+        https://bugs.webkit.org/show_bug.cgi?id=130911
+        
+        Added a manual test to test the node list in the Accessibility Inspector
+
+        Reviewed by Timothy Hatcher.
+
+        * ManualTests/accessibility/collapsible-node-link-list.html: Added.
+
 2016-01-22  Alex Christensen  <achristensen@webkit.org>
 
         Fix internal Windows build

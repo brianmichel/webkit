@@ -706,9 +706,10 @@ static inline bool isValidKeywordPropertyAndValue(CSSPropertyID propertyId, int 
         if (valueID == CSSValueNormal || valueID == CSSValueItalic || valueID == CSSValueOblique)
             return true;
         break;
-    case CSSPropertyImageRendering: // auto | optimizeSpeed | optimizeQuality | -webkit-crisp-edges | -webkit-optimize-contrast
+    case CSSPropertyImageRendering: // auto | optimizeSpeed | optimizeQuality | -webkit-crisp-edges | -webkit-optimize-contrast | crisp-edges | pixelated
+        // optimizeSpeed and optimizeQuality are deprecated; a user agent must accept them as valid values but must treat them as having the same behavior as pixelated and auto respectively.
         if (valueID == CSSValueAuto || valueID == CSSValueOptimizespeed || valueID == CSSValueOptimizequality
-            || valueID == CSSValueWebkitCrispEdges || valueID == CSSValueWebkitOptimizeContrast)
+            || valueID == CSSValueWebkitCrispEdges || valueID == CSSValueWebkitOptimizeContrast || valueID == CSSValueCrispEdges || valueID == CSSValuePixelated)
             return true;
         break;
     case CSSPropertyListStylePosition: // inside | outside | inherit
@@ -1042,6 +1043,20 @@ static inline bool isValidKeywordPropertyAndValue(CSSPropertyID propertyId, int 
         if (valueID == CSSValueNormal || valueID == CSSValueHistoricalForms)
             return true;
         break;
+            
+    case CSSPropertyBreakAfter:
+    case CSSPropertyBreakBefore:
+        // auto | avoid | left | right | recto | verso | column | page | region | avoid-page | avoid-column | avoid-region
+        if (valueID == CSSValueAuto || valueID == CSSValueAvoid || valueID == CSSValueLeft || valueID == CSSValueRight
+            || valueID == CSSValueRecto || valueID == CSSValueVerso || valueID == CSSValueColumn || valueID == CSSValuePage
+            || valueID == CSSValueRegion || valueID == CSSValueAvoidColumn || valueID == CSSValueAvoidPage || valueID == CSSValueAvoidRegion)
+            return true;
+        break;
+    case CSSPropertyBreakInside:
+        // auto | avoid | avoid-page | avoid-column | avoid-region
+        if (valueID == CSSValueAuto || valueID == CSSValueAvoid || valueID == CSSValueAvoidColumn || valueID == CSSValueAvoidPage || valueID == CSSValueAvoidRegion)
+            return true;
+        break;
     default:
         ASSERT_NOT_REACHED();
         return false;
@@ -1061,6 +1076,9 @@ static inline bool isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyBorderRightStyle:
     case CSSPropertyBorderTopStyle:
     case CSSPropertyBoxSizing:
+    case CSSPropertyBreakAfter:
+    case CSSPropertyBreakBefore:
+    case CSSPropertyBreakInside:
     case CSSPropertyCaptionSide:
     case CSSPropertyClear:
     case CSSPropertyDirection:
@@ -1309,7 +1327,7 @@ RefPtr<CSSValueList> CSSParser::parseFontFaceValue(const AtomicString& string)
 
         RefPtr<CSSValue> value;
         for (auto propertyID : { CSSValueSerif, CSSValueSansSerif, CSSValueCursive, CSSValueFantasy, CSSValueMonospace, CSSValueWebkitBody }) {
-            if (equalIgnoringCase(stripped, getValueName(propertyID))) {
+            if (equalIgnoringASCIICase(stripped, getValueName(propertyID))) {
                 value = cssValuePool.createIdentifierValue(propertyID);
                 break;
             }
@@ -3164,6 +3182,9 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
     case CSSPropertyBorderRightStyle:
     case CSSPropertyBorderTopStyle:
     case CSSPropertyBoxSizing:
+    case CSSPropertyBreakAfter:
+    case CSSPropertyBreakBefore:
+    case CSSPropertyBreakInside:
     case CSSPropertyCaptionSide:
     case CSSPropertyClear:
     case CSSPropertyDirection:
@@ -5650,7 +5671,7 @@ bool CSSParser::parseGridTemplateShorthand(bool important)
 bool CSSParser::parseGridShorthand(bool important)
 {
     ShorthandScope scope(this, CSSPropertyWebkitGrid);
-    ASSERT(shorthandForProperty(CSSPropertyWebkitGrid).length() == 6);
+    ASSERT(shorthandForProperty(CSSPropertyWebkitGrid).length() == 8);
 
     // 1- <grid-template>
     if (parseGridTemplateShorthand(important)) {
@@ -5659,6 +5680,8 @@ bool CSSParser::parseGridShorthand(bool important)
         addProperty(CSSPropertyWebkitGridAutoFlow, CSSValuePool::singleton().createImplicitInitialValue(), important);
         addProperty(CSSPropertyWebkitGridAutoColumns, CSSValuePool::singleton().createImplicitInitialValue(), important);
         addProperty(CSSPropertyWebkitGridAutoRows, CSSValuePool::singleton().createImplicitInitialValue(), important);
+        addProperty(CSSPropertyWebkitGridColumnGap, CSSValuePool::singleton().createImplicitInitialValue(), important);
+        addProperty(CSSPropertyWebkitGridRowGap, CSSValuePool::singleton().createImplicitInitialValue(), important);
         return true;
     }
 
@@ -5703,6 +5726,8 @@ bool CSSParser::parseGridShorthand(bool important)
     addProperty(CSSPropertyWebkitGridTemplateColumns, CSSValuePool::singleton().createImplicitInitialValue(), important);
     addProperty(CSSPropertyWebkitGridTemplateRows, CSSValuePool::singleton().createImplicitInitialValue(), important);
     addProperty(CSSPropertyWebkitGridTemplateAreas, CSSValuePool::singleton().createImplicitInitialValue(), important);
+    addProperty(CSSPropertyWebkitGridColumnGap, CSSValuePool::singleton().createImplicitInitialValue(), important);
+    addProperty(CSSPropertyWebkitGridRowGap, CSSValuePool::singleton().createImplicitInitialValue(), important);
 
     return true;
 }
@@ -6190,20 +6215,20 @@ bool CSSParser::parseGridTemplateAreasRow(NamedGridAreaMap& gridAreaMap, const u
 
         // We handle several grid areas with the same name at once to simplify the validation code.
         unsigned lookAheadColumn;
-        for (lookAheadColumn = currentColumn; lookAheadColumn < columnCount - 1; ++lookAheadColumn) {
-            if (columnNames[lookAheadColumn + 1] != gridAreaName)
+        for (lookAheadColumn = currentColumn + 1; lookAheadColumn < columnCount; ++lookAheadColumn) {
+            if (columnNames[lookAheadColumn] != gridAreaName)
                 break;
         }
 
         auto gridAreaIterator = gridAreaMap.find(gridAreaName);
         if (gridAreaIterator == gridAreaMap.end())
-            gridAreaMap.add(gridAreaName, GridCoordinate(GridSpan(rowCount, rowCount), GridSpan(currentColumn, lookAheadColumn)));
+            gridAreaMap.add(gridAreaName, GridCoordinate(GridSpan(rowCount, rowCount + 1), GridSpan(currentColumn, lookAheadColumn)));
         else {
             GridCoordinate& gridCoordinate = gridAreaIterator->value;
 
             // The following checks test that the grid area is a single filled-in rectangle.
             // 1. The new row is adjacent to the previously parsed row.
-            if (rowCount != gridCoordinate.rows.resolvedFinalPosition.next().toInt())
+            if (rowCount != gridCoordinate.rows.resolvedFinalPosition.toInt())
                 return false;
 
             // 2. The new area starts at the same position as the previously parsed area.
@@ -6216,7 +6241,7 @@ bool CSSParser::parseGridTemplateAreasRow(NamedGridAreaMap& gridAreaMap, const u
 
             ++gridCoordinate.rows.resolvedFinalPosition;
         }
-        currentColumn = lookAheadColumn;
+        currentColumn = lookAheadColumn - 1;
     }
 
     m_valueList->next();

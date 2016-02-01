@@ -31,7 +31,7 @@
 #include "AirCode.h"
 #include "B3Generate.h"
 #include "B3ProcedureInlines.h"
-#include "B3StackSlotValue.h"
+#include "B3StackSlot.h"
 #include "CodeBlockWithJITType.h"
 #include "CCallHelpers.h"
 #include "DFGCommon.h"
@@ -47,6 +47,7 @@
 #include "FTLUnwindInfo.h"
 #include "JITSubGenerator.h"
 #include "LinkBuffer.h"
+#include "PCToCodeOriginMap.h"
 #include "ScratchRegisterAllocator.h"
 
 namespace JSC { namespace FTL {
@@ -84,6 +85,12 @@ void compile(State& state, Safepoint::Result& safepointResult)
 
     int localsOffset =
         state.capturedValue->offsetFromFP() / sizeof(EncodedJSValue) + graph.m_nextMachineLocal;
+    if (shouldDumpDisassembly()) {
+        dataLog(
+            "localsOffset = ", localsOffset, " for stack slot: ",
+            pointerDump(state.capturedValue), " at ", RawPointer(state.capturedValue), "\n");
+    }
+    
     for (unsigned i = graph.m_inlineVariableData.size(); i--;) {
         InlineCallFrame* inlineCallFrame = graph.m_inlineVariableData[i].inlineCallFrame;
         
@@ -134,6 +141,10 @@ void compile(State& state, Safepoint::Result& safepointResult)
         state.allocationFailed = true;
         return;
     }
+    
+    B3::PCToOriginMap originMap = state.proc->releasePCToOriginMap();
+    if (vm.shouldBuilderPCToCodeOriginMapping())
+        codeBlock->setPCToCodeOriginMap(std::make_unique<PCToCodeOriginMap>(PCToCodeOriginMapBuilder(vm, WTFMove(originMap)), *state.finalizer->b3CodeLinkBuffer));
 
     state.generatedFunction = bitwise_cast<GeneratedFunction>(
         state.finalizer->b3CodeLinkBuffer->entrypoint().executableAddress());

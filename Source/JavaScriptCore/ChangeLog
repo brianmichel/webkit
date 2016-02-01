@@ -1,3 +1,1601 @@
+2016-01-31  Guillaume Emont  <guijemont@igalia.com>
+
+        [mips] don't save to a callee saved register too early
+        https://bugs.webkit.org/show_bug.cgi?id=153463
+
+        If we save $gp to $s4 in pichdr, then in some cases, we were
+        overwriting $s4 before LLInt's pushCalleeSaves() is called (as pichdr
+        is at the very beginning of a function). Now we save $gp to $s4 at the
+        end of pushCalleeSaves().
+
+        Reviewed by Michael Saboff.
+
+        * offlineasm/mips.rb:
+        * llint/LowLevelInterpreter.asm:
+        Move the saving of $gp to $s4 from pichdr to pushCalleeSaves(). Take
+        the opportunity to only save $s4 as we never use the other callee
+        saved registers.
+
+2016-01-30  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r195799 and r195828.
+        https://bugs.webkit.org/show_bug.cgi?id=153722
+
+        Caused assertion failures, severely affecting EWS (Requested
+        by ap on #webkit).
+
+        Reverted changesets:
+
+        "Web Inspector: InspectorTimelineAgent doesn't need to
+        recompile functions because it now uses the sampling profiler"
+        https://bugs.webkit.org/show_bug.cgi?id=153500
+        http://trac.webkit.org/changeset/195799
+
+        "Attempt to fix the Windows build after r195799"
+        http://trac.webkit.org/changeset/195828
+
+2016-01-30  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [B3] JetStream/quicksort.c fails/hangs on Linux with GCC
+        https://bugs.webkit.org/show_bug.cgi?id=153647
+
+        Reviewed by Filip Pizlo.
+
+        In B3ComputeDivisionMagic, we accidentally perform sub, add operation onto signed integer. (In this case, int32_t)
+        But integer overflow is undefined behavior in C![1][2]
+        As a result, in GCC 4.9 release build, computeDivisionMagic(2) returns unexpected value.
+        `divisor = 2`
+        `d = 2`
+        `signedMin = INT32_MIN = -2147483647 (-0x7fffffff)`
+        `t = signedMin`
+        `anc = t - 1 - (t % ad)` Oops, we performed overflow operation!
+
+        So, `anc` value becomes undefined.
+        In this patch, we first cast all the operated values to unsigned one.
+        Reading the code, there are no operations that depends on signedness. (For example, we used aboveEqual like unsigned operations for comparison.)
+
+        [1]: http://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html
+        [2]: http://dl.acm.org/citation.cfm?id=2522728
+
+        * b3/B3ComputeDivisionMagic.h:
+        (JSC::B3::computeDivisionMagic):
+        * b3/testb3.cpp:
+        (JSC::B3::testComputeDivisionMagic):
+        (JSC::B3::run):
+
+2016-01-30  Andreas Kling  <akling@apple.com>
+
+        Shrink Heap::m_executables after cleaning it.
+        <https://webkit.org/b/153682>
+
+        Reviewed by Darin Adler.
+
+        The Heap::m_executables Vector was never shrunk down, despite sometimes
+        getting pretty huge (~500kB in my longest-running WebContent process.)
+
+        After GC has finished pruning unmarked Executables, shrink the Vector.
+
+        * heap/Heap.cpp:
+        (JSC::Heap::clearUnmarkedExecutables):
+
+2016-01-29  Ada Chan  <adachan@apple.com>
+
+        Enable VIDEO_PRESENTATION_MODE only in Debug and Release builds on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=153665
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2016-01-30  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [B3] REGRESSION(r195882): Should break early after modConstant replaceWithNewValue succeeds
+        https://bugs.webkit.org/show_bug.cgi?id=153711
+
+        Reviewed by Filip Pizlo.
+
+        Should break after modConstant replaceWithNewValue succeeds. m_value is already replaced with Identity
+        if modConstant succeeds. So it does not have any children. m_value->child(1) breaks testb3.
+
+        * b3/B3ReduceStrength.cpp:
+
+2016-01-30  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Enable SamplingProfiler on POSIX environment
+        https://bugs.webkit.org/show_bug.cgi?id=153584
+
+        Reviewed by Michael Saboff.
+
+        In this patch, we implement suspend and resume mechanizm for POSIX threads.
+        And with GLIBC, we can retrieve registers from it.
+
+        We take the following strategy.
+
+        Suspend side.
+        1. install sigaction to the threads.
+        2. in the profiler (suspend / resume callers), emit signal with pthread_kill and wait with POSIX semaphore.
+        3. in the signal handler, up the POSIX semaphore. Use sem_post because it is the async-signal-safe function in POSIX.
+        4. in the signal handler, perform sigsuspend to stop the thread until being resumed.
+        5. in the profiler, we can be waken up from the semaphore because (3) ups.
+
+        Resume side.
+        1. in the profiler, emit signal and wait on the semaphore.
+        2. in the signal handler, it is waken up from the sigsuspend.
+        3. in the signal handler, up the semaphore.
+        4. in the profiler, the profiler is waken up from the semaphore. It is ensured that the given thread is resumed by the signal.
+
+        * heap/MachineStackMarker.cpp:
+        (pthreadSignalHandlerSuspendResume):
+        (JSC::MachineThreads::Thread::Thread):
+        (JSC::MachineThreads::Thread::~Thread):
+        (JSC::MachineThreads::Thread::suspend):
+        (JSC::MachineThreads::Thread::resume):
+        (JSC::MachineThreads::Thread::getRegisters):
+        (JSC::MachineThreads::Thread::Registers::stackPointer):
+        (JSC::MachineThreads::Thread::Registers::framePointer):
+        (JSC::MachineThreads::Thread::Registers::instructionPointer):
+        (JSC::MachineThreads::Thread::Registers::llintPC):
+        (JSC::MachineThreads::Thread::freeRegisters):
+        * heap/MachineStackMarker.h:
+        * runtime/SamplingProfiler.cpp:
+        (JSC::reportStats):
+        * tests/stress/call-varargs-from-inlined-code-with-odd-number-of-arguments.js:
+        * tests/stress/call-varargs-from-inlined-code.js:
+        * tests/stress/v8-earley-boyer-strict.js:
+
+2016-01-29  Filip Pizlo  <fpizlo@apple.com>
+
+        B3 should reduce Mod(value, constant) to Div and Mul so that our Div optimizations can do things
+        https://bugs.webkit.org/show_bug.cgi?id=153693
+
+        Reviewed by Saam Barati.
+
+        The most efficient way to handle Mod(value, constant) is to reduce it to
+        Sub(value, Mul(Div(value, constant), constant)) and then let the Div optimizations do their
+        thing.
+
+        In the future we could add special handling of Mod(value, 1 << constant), but it's not
+        obvious that this would produce better code than reducing through Div, if we also make sure
+        that we have great optimizations for Mul and Div.
+
+        * b3/B3ReduceStrength.cpp:
+
+2016-01-29  Keith Miller  <keith_miller@apple.com>
+
+        Array.prototype native functions should use Symbol.species to construct the result
+        https://bugs.webkit.org/show_bug.cgi?id=153660
+
+        Reviewed by Saam Barati.
+
+        This patch adds support for Symbol.species in the Array.prototype native functions.
+        We make an optimization to avoid regressions on some benchmarks by using an
+        adaptive watchpoint to check if Array.prototype.constructor is ever changed.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::putLength):
+        (JSC::setLength):
+        (JSC::speciesConstructArray):
+        (JSC::arrayProtoFuncConcat):
+        (JSC::arrayProtoFuncSlice):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::ArrayPrototype::setConstructor):
+        (JSC::ArrayPrototypeAdaptiveInferredPropertyWatchpoint::ArrayPrototypeAdaptiveInferredPropertyWatchpoint):
+        (JSC::ArrayPrototypeAdaptiveInferredPropertyWatchpoint::handleFire):
+        * runtime/ArrayPrototype.h:
+        (JSC::ArrayPrototype::didChangeConstructorProperty):
+        * runtime/ConstructData.cpp:
+        (JSC::construct):
+        * runtime/ConstructData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::init):
+        * tests/es6.yaml:
+        * tests/stress/array-species-functions.js: Added.
+        (Symbol.species):
+        (funcThrows):
+        (test.species):
+        (test):
+
+2016-01-29  Filip Pizlo  <fpizlo@apple.com>
+
+        CallLinkStatus should trust BadCell exit sites whenever there is no stub
+        https://bugs.webkit.org/show_bug.cgi?id=153691
+
+        Reviewed by Benjamin Poulain.
+
+        This fixes a regression in our treatment of inlining failure exit sites when deciding if we
+        should inline a call.
+
+        A long time ago, a BadCell exit site would ensure that a CallLinkStatus returned
+        takesSlowPath.
+
+        But then we added closure calls. A BadCell exit site might just mean that we should do
+        closure call inlining. We added a BadExecutable exit site to indicate that even closure call
+        inlining had failed. BadCell would no longer force CallLinkStatus to return takesSlowPath,
+        but BadExecutable would stuff do so.
+
+        But then we unified the IR for checking functions and executables, and the DFG stopped using
+        the BadExecutable exit kind. Probably this change disabled our ability to use exit site
+        counting for deciding when to takesSlowPath. But this isn't necessarily a disaster, since
+        any time you exited in this way, you'd be taken to a baseline call inline cache, and that
+        inline cache would record the slow path.
+
+        But then we introduced polymorphic call inlining. Polymorphic call inlining means that call
+        unlinking, like when one of the callees is optimized, will reset the stub. We also made it
+        so that the stub is like a gate for the slow path count. A clear inline cache must first
+        cause the creation of a stub and then cause it to overflow before the slow path is counted.
+
+        So, if the DFG or FTL exits on a cell check associated with a particular callsite being
+        speculatively inlined, then it's possible that nobody will know about the exit because:
+
+        - The exit kind is BadCell but CallLinkStatus needs BadExecutable to disable inlining.
+
+        - Between when we tiered up to the DFG (or FTL) and when the exit happened, one of the
+          callees was tiered up, causing the baseline CallLinkInfo to be unlinked. Therefore, after
+          the exit, the inline cache is in a reset state and will not count the call as taking slow
+          path.
+
+        The challenge when dealing with this is that often, we will have an super early compilation
+        of a minimorphic call site before we have seen all of its small set of callees. For example
+        we may have seen only one of two possible callees. That early compilation will OSR exit, and
+        in trunk, will be recompiled with bimorphic speculative inlining. That's a pretty good
+        outcome. Basically, we are trusting that if during the time that the function has been
+        running prior to a given compilation, a callsite has only seen a small number of callees,
+        then it's safe to assume that it won't see another one anytime soon.
+
+        So, simply forcing the CallLinkStatus to set takesSlowPath any time there was a BadCell exit
+        would hurt our performance in some cases, because trunk prior to this change would have their
+        final compilation use speculative inlining, and this change would make guarded inlining
+        instead.
+
+        The compromise that I came up with relies on the fact that a CallLinkInfo must be reset quite
+        frequently for it to routinely happen in between tier-up to DFG (or FTL) and an exit. So,
+        most likely, such a CallLinkInfo will also show up as being clear when the CallLinkStatus
+        is built during DFG profiling. The CallLinkStatus will then fall back on the CallLinkInfo's
+        lastSeenCallee field, which is persistent across resets. This change just makes it so that
+        CallLinkStatus sets takesSlowPath if there is a BadCell exit and the status had to be
+        inferred from the lastSeenCallee.
+
+        This change reduces pointless recompilations in gbemu. It's an 11% speed-up on gbemu. It
+        doesn't seem to hurt any benchmarks.
+
+        * bytecode/CallLinkStatus.cpp:
+        (JSC::CallLinkStatus::computeFor):
+        (JSC::CallLinkStatus::computeExitSiteData):
+        (JSC::CallLinkStatus::computeFromCallLinkInfo):
+        * bytecode/CallLinkStatus.h:
+        (JSC::CallLinkStatus::CallLinkStatus):
+        (JSC::CallLinkStatus::at):
+        (JSC::CallLinkStatus::operator[]):
+        (JSC::CallLinkStatus::isProved):
+        (JSC::CallLinkStatus::isBasedOnStub):
+        (JSC::CallLinkStatus::canOptimize):
+        (JSC::CallLinkStatus::maxNumArguments):
+        (JSC::CallLinkStatus::ExitSiteData::ExitSiteData): Deleted.
+
+2016-01-29  Saam barati  <sbarati@apple.com>
+
+        Pack FunctionExecutable and UnlinkedFunctionExecutable harder
+        https://bugs.webkit.org/show_bug.cgi?id=153687
+
+        Reviewed by Andreas Kling.
+
+        This patch reduces FunctionExecutable from 120 to 104 bytes.
+        This patch reduces UnlinkedFunctionExecutable from 144 to 136 bytes.
+
+        * bytecode/ExecutableInfo.h:
+        * bytecode/UnlinkedFunctionExecutable.cpp:
+        (JSC::UnlinkedFunctionExecutable::UnlinkedFunctionExecutable):
+        * bytecode/UnlinkedFunctionExecutable.h:
+        * parser/ParserModes.h:
+        (JSC::functionNameScopeIsDynamic):
+        * runtime/Executable.cpp:
+        (JSC::ScriptExecutable::ScriptExecutable):
+        * runtime/Executable.h:
+        (JSC::ScriptExecutable::needsActivation):
+        (JSC::ScriptExecutable::isArrowFunctionContext):
+        (JSC::ScriptExecutable::isStrictMode):
+        (JSC::ScriptExecutable::derivedContextType):
+        (JSC::ScriptExecutable::ecmaMode):
+        (JSC::ScriptExecutable::finishCreation):
+
+2016-01-29  Saam barati  <sbarati@apple.com>
+
+        JSC Sampling Profiler: Come up with a (program counter => CodeOrigin) mapping
+        https://bugs.webkit.org/show_bug.cgi?id=152629
+
+        Reviewed by Filip Pizlo.
+
+        This patch implements a mapping from PC to CodeOrigin
+        that lives off of JITed CodeBlocks. We build this mapping
+        while JITing code, and then we compress it and store
+        it on the CodeBlock. We only build the mapping if a debugger
+        has ever been attached to any global object.
+
+        CodeBlock consults this mapping when searching for a CodeOrigin
+        for a given PC, but it also consults other code ranges
+        off the main path that may own the PC. Specifically, it searches
+        through inline caches, OSRExits, and LazySlowPaths.
+
+        To find PC info for the LLInt, we also save the LLInt pc when
+        taking a stack trace where the top frame is in LLInt code.
+
+        This patch also cleans up code inside the SamplingProfier.
+        I realized a bug in the SamplingProfiler's implementation.
+        We used to walk the inline stack while gathering a stack
+        trace. This is wrong. It's super dangerous to do this because
+        we might pause the JSC process while it's modifying its
+        CodeOrigin table. We used to walk the inline stack while
+        taking a stack trace because doing so could save us from
+        having to verify a particular stack trace. This patch changes that.
+        We now have to verify all stack traces taken. This verification step
+        includes walking the inline stack.
+
+        Because we have a PC=>CodeOrigin map, we can now gather more
+        detailed information about the top-frame we pause. This allows
+        us to correctly observe inlining. It also allows us to observe
+        expression-level line/column information for the top frame.
+        The reason we don't consult this mapping for parent frames is 
+        that all parent frames should set the CallSiteIndex on the call
+        frame header, which means we can consult that value to get inlining 
+        and expression-level line/column information.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj:
+        * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj.filters:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::Label::Label):
+        (JSC::AbstractMacroAssembler::Label::operator==):
+        (JSC::AbstractMacroAssembler::Label::isSet):
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerLabel::labelAtOffset):
+        (JSC::AssemblerLabel::operator==):
+        * b3/B3Generate.cpp:
+        * b3/B3Origin.h:
+        (JSC::B3::Origin::data):
+        (JSC::B3::Origin::operator==):
+        * b3/B3PCToOriginMap.h: Added.
+        (JSC::B3::PCToOriginMap::PCToOriginMap):
+        (JSC::B3::PCToOriginMap::appendItem):
+        (JSC::B3::PCToOriginMap::ranges):
+        * b3/B3Procedure.h:
+        (JSC::B3::Procedure::pcToOriginMap):
+        (JSC::B3::Procedure::releasePCToOriginMap):
+        * b3/air/AirGenerate.cpp:
+        (JSC::B3::Air::generate):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::insertBasicBlockBoundariesForControlFlowProfiler):
+        (JSC::CodeBlock::setPCToCodeOriginMap):
+        (JSC::CodeBlock::findPC):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::jitCodeMap):
+        (JSC::CodeBlock::bytecodeOffset):
+        * bytecode/CodeOrigin.h:
+        (JSC::CodeOrigin::operator==):
+        (JSC::CodeOriginHash::hash):
+        (JSC::CodeOriginHash::equal):
+        * bytecode/InlineCallFrame.h:
+        (JSC::baselineCodeBlockForOriginAndBaselineCodeBlock):
+        (JSC::CodeOrigin::walkUpInlineStack):
+        * bytecode/PolymorphicAccess.h:
+        (JSC::PolymorphicAccess::containsPC):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::visitWeakReferences):
+        (JSC::StructureStubInfo::containsPC):
+        * bytecode/StructureStubInfo.h:
+        * bytecode/UnlinkedCodeBlock.h:
+        (JSC::UnlinkedCodeBlock::hasExpressionInfo):
+        (JSC::UnlinkedCodeBlock::expressionInfo):
+        (JSC::UnlinkedCodeBlock::setThisRegister):
+        * debugger/Debugger.cpp:
+        (JSC::Debugger::attach):
+        * dfg/DFGJITCode.cpp:
+        (JSC::DFG::JITCode::validateReferences):
+        (JSC::DFG::JITCode::findPC):
+        * dfg/DFGJITCode.h:
+        (JSC::DFG::JITCode::commonDataOffset):
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::JITCompiler):
+        (JSC::DFG::JITCompiler::link):
+        (JSC::DFG::JITCompiler::compile):
+        (JSC::DFG::JITCompiler::compileFunction):
+        (JSC::DFG::JITCompiler::recordCallSiteAndGenerateExceptionHandlingOSRExitIfNeeded):
+        (JSC::DFG::JITCompiler::setEndOfMainPath):
+        (JSC::DFG::JITCompiler::setEndOfCode):
+        * dfg/DFGJITCompiler.h:
+        (JSC::DFG::JITCompiler::setStartOfCode):
+        (JSC::DFG::JITCompiler::setForNode):
+        (JSC::DFG::JITCompiler::addCallSite):
+        (JSC::DFG::JITCompiler::pcToCodeOriginMapBuilder):
+        (JSC::DFG::JITCompiler::setEndOfMainPath): Deleted.
+        (JSC::DFG::JITCompiler::setEndOfCode): Deleted.
+        * dfg/DFGSlowPathGenerator.h:
+        (JSC::DFG::SlowPathGenerator::call):
+        (JSC::DFG::SlowPathGenerator::origin):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::addSlowPathGenerator):
+        (JSC::DFG::SpeculativeJIT::runSlowPathGenerators):
+        (JSC::DFG::SpeculativeJIT::compileCurrentBlock):
+        * dfg/DFGSpeculativeJIT.h:
+        * ftl/FTLB3Compile.cpp:
+        (JSC::FTL::compile):
+        * ftl/FTLJITCode.cpp:
+        (JSC::FTL::JITCode::liveRegistersToPreserveAtExceptionHandlingCallSite):
+        (JSC::FTL::JITCode::findPC):
+        * ftl/FTLJITCode.h:
+        (JSC::FTL::JITCode::b3Code):
+        * heap/MachineStackMarker.cpp:
+        (JSC::MachineThreads::Thread::Registers::instructionPointer):
+        (JSC::MachineThreads::Thread::Registers::llintPC):
+        (JSC::MachineThreads::Thread::freeRegisters):
+        * heap/MachineStackMarker.h:
+        * inspector/agents/InspectorScriptProfilerAgent.cpp:
+        (Inspector::InspectorScriptProfilerAgent::addEvent):
+        (Inspector::buildSamples):
+        (Inspector::InspectorScriptProfilerAgent::trackingComplete):
+        * jit/JIT.cpp:
+        (JSC::JIT::JIT):
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        (JSC::JIT::privateCompile):
+        * jit/JIT.h:
+        * jit/JITCode.h:
+        (JSC::JITCode::findPC):
+        * jit/PCToCodeOriginMap.cpp: Added.
+        (JSC::PCToCodeOriginMapBuilder::PCToCodeOriginMapBuilder):
+        (JSC::PCToCodeOriginMapBuilder::appendItem):
+        (JSC::PCToCodeOriginMap::PCToCodeOriginMap):
+        (JSC::PCToCodeOriginMap::~PCToCodeOriginMap):
+        (JSC::PCToCodeOriginMap::memorySize):
+        (JSC::PCToCodeOriginMap::findPC):
+        * jit/PCToCodeOriginMap.h: Added.
+        (JSC::PCToCodeOriginMapBuilder::defaultCodeOrigin):
+        (JSC::PCToCodeOriginMapBuilder::didBuildMapping):
+        * jsc.cpp:
+        (functionSamplingProfilerStackTraces):
+        * llint/LLIntPCRanges.h:
+        (JSC::LLInt::isLLIntPC):
+        * llint/LowLevelInterpreter.asm:
+        * runtime/Options.h:
+        * runtime/SamplingProfiler.cpp:
+        (JSC::reportStats):
+        (JSC::FrameWalker::FrameWalker):
+        (JSC::FrameWalker::walk):
+        (JSC::FrameWalker::resetAtMachineFrame):
+        (JSC::FrameWalker::isValidFramePointer):
+        (JSC::SamplingProfiler::SamplingProfiler):
+        (JSC::SamplingProfiler::~SamplingProfiler):
+        (JSC::tryGetBytecodeIndex):
+        (JSC::SamplingProfiler::processUnverifiedStackTraces):
+        (JSC::SamplingProfiler::visit):
+        (JSC::SamplingProfiler::noticeVMEntry):
+        (JSC::SamplingProfiler::clearData):
+        (JSC::SamplingProfiler::StackFrame::displayName):
+        (JSC::SamplingProfiler::StackFrame::displayNameForJSONTests):
+        (JSC::SamplingProfiler::StackFrame::functionStartLine):
+        (JSC::SamplingProfiler::StackFrame::functionStartColumn):
+        (JSC::SamplingProfiler::StackFrame::sourceID):
+        (JSC::SamplingProfiler::StackFrame::url):
+        (JSC::SamplingProfiler::releaseStackTraces):
+        (JSC::SamplingProfiler::stackTracesAsJSON):
+        (WTF::printInternal):
+        (JSC::SamplingProfiler::StackFrame::startLine): Deleted.
+        (JSC::SamplingProfiler::StackFrame::startColumn): Deleted.
+        (JSC::SamplingProfiler::stackTraces): Deleted.
+        * runtime/SamplingProfiler.h:
+        (JSC::SamplingProfiler::UnprocessedStackFrame::UnprocessedStackFrame):
+        (JSC::SamplingProfiler::StackFrame::StackFrame):
+        (JSC::SamplingProfiler::StackTrace::StackTrace):
+        (JSC::SamplingProfiler::totalTime):
+        (JSC::SamplingProfiler::setStopWatch):
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+        * runtime/VM.h:
+        (JSC::VM::setShouldBuildPCToCodeOriginMapping):
+        (JSC::VM::shouldBuilderPCToCodeOriginMapping):
+        * tests/stress/sampling-profiler-basic.js:
+        (platformSupportsSamplingProfiler.top):
+        (platformSupportsSamplingProfiler.jaz):
+        (platformSupportsSamplingProfiler.kaz):
+
+2016-01-29  Saam barati  <sbarati@apple.com>
+
+        Remove our notion of having a single activation register
+        https://bugs.webkit.org/show_bug.cgi?id=153673
+
+        Reviewed by Filip Pizlo.
+
+        We have many functions lurking around where we think a function 
+        might only have one activation register. This is clearly wrong
+        now that ES6 has block scoping. This patch removes this false notion.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dumpBytecode):
+        (JSC::CodeBlock::CodeBlock):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::scopeRegister):
+        (JSC::CodeBlock::codeType):
+        (JSC::CodeBlock::setActivationRegister): Deleted.
+        (JSC::CodeBlock::activationRegister): Deleted.
+        (JSC::CodeBlock::uncheckedActivationRegister): Deleted.
+        (JSC::CodeBlock::needsActivation): Deleted.
+        * bytecode/ExecutableInfo.h:
+        (JSC::ExecutableInfo::ExecutableInfo):
+        (JSC::ExecutableInfo::usesEval):
+        (JSC::ExecutableInfo::isStrictMode):
+        (JSC::ExecutableInfo::isConstructor):
+        (JSC::ExecutableInfo::isClassContext):
+        (JSC::ExecutableInfo::needsActivation): Deleted.
+        * bytecode/UnlinkedCodeBlock.cpp:
+        (JSC::UnlinkedCodeBlock::UnlinkedCodeBlock):
+        * bytecode/UnlinkedCodeBlock.h:
+        (JSC::UnlinkedCodeBlock::isArrowFunctionContext):
+        (JSC::UnlinkedCodeBlock::isClassContext):
+        (JSC::UnlinkedCodeBlock::setThisRegister):
+        (JSC::UnlinkedCodeBlock::setScopeRegister):
+        (JSC::UnlinkedCodeBlock::usesGlobalObject):
+        (JSC::UnlinkedCodeBlock::setGlobalObjectRegister):
+        (JSC::UnlinkedCodeBlock::thisRegister):
+        (JSC::UnlinkedCodeBlock::scopeRegister):
+        (JSC::UnlinkedCodeBlock::addPropertyAccessInstruction):
+        (JSC::UnlinkedCodeBlock::needsFullScopeChain): Deleted.
+        (JSC::UnlinkedCodeBlock::setActivationRegister): Deleted.
+        (JSC::UnlinkedCodeBlock::activationRegister): Deleted.
+        (JSC::UnlinkedCodeBlock::hasActivationRegister): Deleted.
+        * bytecode/UnlinkedFunctionExecutable.cpp:
+        (JSC::generateUnlinkedFunctionCodeBlock):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::initializeVarLexicalEnvironment):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::destinationForAssignResult):
+        (JSC::BytecodeGenerator::leftHandSideNeedsCopy):
+        (JSC::BytecodeGenerator::emitNodeForLeftHandSide):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::inliningCost):
+        (JSC::DFG::ByteCodeParser::parseCodeBlock):
+        * dfg/DFGGraph.h:
+        (JSC::DFG::Graph::hasExitSite):
+        (JSC::DFG::Graph::activationRegister): Deleted.
+        (JSC::DFG::Graph::uncheckedActivationRegister): Deleted.
+        (JSC::DFG::Graph::machineActivationRegister): Deleted.
+        (JSC::DFG::Graph::uncheckedMachineActivationRegister): Deleted.
+        * dfg/DFGStackLayoutPhase.cpp:
+        (JSC::DFG::StackLayoutPhase::run):
+        * interpreter/CallFrame.cpp:
+        (JSC::CallFrame::callSiteIndex):
+        (JSC::CallFrame::stack):
+        (JSC::CallFrame::callerFrame):
+        (JSC::CallFrame::friendlyFunctionName):
+        (JSC::CallFrame::hasActivation): Deleted.
+        (JSC::CallFrame::uncheckedActivation): Deleted.
+        (JSC::CallFrame::lexicalEnvironment): Deleted.
+        (JSC::CallFrame::lexicalEnvironmentOrNullptr): Deleted.
+        (JSC::CallFrame::setActivation): Deleted.
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::scope):
+        (JSC::ExecState::setCallerFrame):
+        (JSC::ExecState::setScope):
+        (JSC::ExecState::init):
+        * interpreter/Register.h:
+        * llint/LLIntSlowPaths.cpp:
+        (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+        * runtime/Executable.h:
+        (JSC::ScriptExecutable::usesEval):
+        (JSC::ScriptExecutable::usesArguments):
+        (JSC::ScriptExecutable::isArrowFunctionContext):
+        (JSC::ScriptExecutable::isStrictMode):
+        (JSC::ScriptExecutable::derivedContextType):
+        (JSC::ScriptExecutable::needsActivation): Deleted.
+        * runtime/JSLexicalEnvironment.h:
+        (JSC::asActivation):
+        (JSC::Register::lexicalEnvironment): Deleted.
+
+2016-01-29  Filip Pizlo  <fpizlo@apple.com>
+
+        Air:fixObviousSpills should handle floats and doubles
+        https://bugs.webkit.org/show_bug.cgi?id=153197
+
+        Reviewed by Saam Barati.
+
+        This adds the most obvious handling of float spills, where we just enable load elimination on
+        float spill code.
+
+        * b3/air/AirFixObviousSpills.cpp:
+
+2016-01-29  Andreas Kling  <akling@apple.com>
+
+        Shrink CodeBlock!
+        <https://webkit.org/b/153640>
+
+        Reviewed by Saam Barati.
+
+        Shrink CodeBlock by 112 bytes (from 640 to 528) by employing
+        these sophisticated tricks:
+
+            - Remove members that are not used by anyone.
+            - Don't cache both VM* and Heap* in members.
+            - Reorder members to minimize struct padding.
+            - Use RefCountedArray instead of Vector for arrays that never resize.
+            - Put a not-always-present HashMap in a std::unique_ptr.
+
+        This increases CodeBlock space efficiency by 20%, as we can now
+        fit 30 of them in a MarkedBlock, up from 25.)
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::CodeBlock):
+        (JSC::CodeBlock::finishCreation):
+        (JSC::CodeBlock::setNumParameters):
+        (JSC::CodeBlock::jettison):
+        (JSC::CodeBlock::noticeIncomingCall):
+        (JSC::CodeBlock::resultProfileForBytecodeOffset):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::setJITCode):
+        (JSC::CodeBlock::capabilityLevelState):
+        (JSC::CodeBlock::codeType):
+        (JSC::CodeBlock::ensureResultProfile):
+        (JSC::CodeBlock::heap):
+
+2016-01-29  Saam barati  <sbarati@apple.com>
+
+        Exits from exceptions shouldn't jettison code
+        https://bugs.webkit.org/show_bug.cgi?id=153564
+
+        Reviewed by Geoffrey Garen.
+
+        We create two new exit kinds for exception-handling
+        OSRExits:
+        - ExceptionCheck: an exception check after a C call.
+        - GenericUnwind: an OSR exit executes because it's jumped to from genericUnwind machinery.
+
+        Having these two new exit kinds allows us to remove fields from
+        various OSRExit variants that store booleans indicating
+        if the exit is an exception handler, and if so, what kind
+        of exception handler. Most of this patch is just removing
+        those old fields and adding new equivalent functions.
+
+        This patch also implements the policy that we should never consider jettisoning
+        code from exits that happen from an exception check to an op_catch (it might be worth
+        considering a similar policy for 'throw'). We're choosing this policy because
+        it will almost never be more expensive, in total, to execute the OSR exit than
+        to execute the baseline variant of the code. When an exception is thrown, we do
+        really expensive work, like call through to genericUnwind, and also create an error
+        object with a stack trace. The cost of OSR exiting here is small in comparison to
+        those other operations. And penalizing a CodeBlock for OSR exiting from an exception
+        is silly because the basis of our implementation of exception handling in the
+        upper tiers is to OSR exit on a caught exception. So we used to penalize
+        ourselves for having an implementation that is correct w.r.t our design goals.
+
+        I've verified this hypothesis with on v8-raytrace by adding a new 
+        benchmark that throws with very high frequency. Implementing
+        this policy on that benchmark results in about a 4-5% speed up.
+
+        * bytecode/ExitKind.cpp:
+        (JSC::exitKindToString):
+        (JSC::exitKindMayJettison):
+        (JSC::exitKindIsCountable): Deleted.
+        * bytecode/ExitKind.h:
+        * dfg/DFGJITCode.cpp:
+        (JSC::DFG::JITCode::liveRegistersToPreserveAtExceptionHandlingCallSite):
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::noticeOSREntry):
+        (JSC::DFG::JITCompiler::appendExceptionHandlingOSRExit):
+        (JSC::DFG::JITCompiler::exceptionCheck):
+        (JSC::DFG::JITCompiler::recordCallSiteAndGenerateExceptionHandlingOSRExitIfNeeded):
+        * dfg/DFGJITCompiler.h:
+        * dfg/DFGOSRExit.cpp:
+        (JSC::DFG::OSRExit::OSRExit):
+        * dfg/DFGOSRExit.h:
+        (JSC::DFG::OSRExit::considerAddingAsFrequentExitSite):
+        * dfg/DFGOSRExitBase.h:
+        (JSC::DFG::OSRExitBase::OSRExitBase):
+        (JSC::DFG::OSRExitBase::isExceptionHandler):
+        (JSC::DFG::OSRExitBase::isGenericUnwindHandler):
+        (JSC::DFG::OSRExitBase::considerAddingAsFrequentExitSite):
+        * dfg/DFGOSRExitCompiler.cpp:
+        * dfg/DFGOSRExitCompiler32_64.cpp:
+        (JSC::DFG::OSRExitCompiler::compileExit):
+        * dfg/DFGOSRExitCompiler64.cpp:
+        (JSC::DFG::OSRExitCompiler::compileExit):
+        * dfg/DFGOSRExitCompilerCommon.cpp:
+        (JSC::DFG::handleExitCounts):
+        (JSC::DFG::osrWriteBarrier):
+        (JSC::DFG::adjustAndJumpToTarget):
+        * dfg/DFGOSRExitCompilerCommon.h:
+        (JSC::DFG::adjustFrameAndStackInOSRExitCompilerThunk):
+        * ftl/FTLCompile.cpp:
+        (JSC::FTL::mmAllocateDataSection):
+        * ftl/FTLExitThunkGenerator.cpp:
+        (JSC::FTL::ExitThunkGenerator::emitThunk):
+        * ftl/FTLJITCode.cpp:
+        (JSC::FTL::JITCode::liveRegistersToPreserveAtExceptionHandlingCallSite):
+        * ftl/FTLLowerDFGToLLVM.cpp:
+        (JSC::FTL::DFG::LowerDFGToLLVM::callCheck):
+        (JSC::FTL::DFG::LowerDFGToLLVM::appendOSRExitArgumentsForPatchpointIfWillCatchException):
+        (JSC::FTL::DFG::LowerDFGToLLVM::appendOSRExit):
+        (JSC::FTL::DFG::LowerDFGToLLVM::blessSpeculation):
+        * ftl/FTLOSRExit.cpp:
+        (JSC::FTL::OSRExitDescriptor::emitOSRExit):
+        (JSC::FTL::OSRExitDescriptor::emitOSRExitLater):
+        (JSC::FTL::OSRExitDescriptor::prepareOSRExitHandle):
+        (JSC::FTL::OSRExit::OSRExit):
+        (JSC::FTL::OSRExit::spillRegistersToSpillSlot):
+        (JSC::FTL::OSRExit::recoverRegistersFromSpillSlot):
+        (JSC::FTL::OSRExit::willArriveAtExitFromIndirectExceptionCheck):
+        (JSC::FTL::OSRExit::willArriveAtOSRExitFromCallOperation):
+        (JSC::FTL::exceptionTypeWillArriveAtOSRExitFromGenericUnwind): Deleted.
+        (JSC::FTL::OSRExit::willArriveAtOSRExitFromGenericUnwind): Deleted.
+        * ftl/FTLOSRExit.h:
+        * ftl/FTLOSRExitCompiler.cpp:
+        (JSC::FTL::compileStub):
+        (JSC::FTL::compileFTLOSRExit):
+        * ftl/FTLPatchpointExceptionHandle.cpp:
+        (JSC::FTL::PatchpointExceptionHandle::scheduleExitCreation):
+        (JSC::FTL::PatchpointExceptionHandle::scheduleExitCreationForUnwind):
+        (JSC::FTL::PatchpointExceptionHandle::PatchpointExceptionHandle):
+        (JSC::FTL::PatchpointExceptionHandle::createHandle):
+        * ftl/FTLPatchpointExceptionHandle.h:
+
+2016-01-28  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [B3] REGRESSION(r195395): testComplex(64, 128) asserts on Linux with GCC
+        https://bugs.webkit.org/show_bug.cgi?id=153422
+
+        Reviewed by Filip Pizlo.
+
+        Previously proc.values() returns ValuesCollection (Not reference!).
+        values.values takes const ValueCollection&.
+        And later it produces IndexSet<Value>::Iterable<Procedure::ValuesCollection>,
+        it holds const ValueCollection& as its member.
+        But IndexSet<Value>::Iterable<Procedure::ValuesCollection> is just an instance.
+        So after creating this, the lifetime of the ValueCollection const reference finished.
+
+        To fix that, we hold ValuesCollection as a member of Procedure.
+        And change the signature to const ValuesCollection& Procedure::values().
+
+        * b3/B3Procedure.cpp:
+        (JSC::B3::Procedure::Procedure):
+        * b3/B3Procedure.h:
+        (JSC::B3::Procedure::values):
+
+2016-01-28  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Web Inspector: InspectorTimelineAgent doesn't need to recompile functions because it now uses the sampling profiler
+        https://bugs.webkit.org/show_bug.cgi?id=153500
+        <rdar://problem/24352458>
+
+        Reviewed by Timothy Hatcher.
+
+        Be more explicit about enabling legacy profiling.
+
+        * jsc.cpp:
+        * runtime/Executable.cpp:
+        (JSC::ScriptExecutable::newCodeBlockFor):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::hasLegacyProfiler):
+        (JSC::JSGlobalObject::createProgramCodeBlock):
+        (JSC::JSGlobalObject::createEvalCodeBlock):
+        (JSC::JSGlobalObject::createModuleProgramCodeBlock):
+        (JSC::JSGlobalObject::hasProfiler): Deleted.
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::supportsLegacyProfiling):
+        (JSC::JSGlobalObject::supportsProfiling): Deleted.
+
+2016-01-28  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Fix the B3 build with GCC 4.9.3
+        https://bugs.webkit.org/show_bug.cgi?id=151624
+
+        Reviewed by Filip Pizlo.
+
+        Due to GCC 4.9's compiler issue[1], method calls inside (2 or so) nested lambdas need to use `this` to avoid internal compiler errors.
+        [1]: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=62272
+
+        * b3/air/AirIteratedRegisterCoalescing.cpp:
+
+2016-01-28  Filip Pizlo  <fpizlo@apple.com>
+
+        LowerToAir::preferRightForResult() should resolve use count ties by selecting the child that is closest in an idom walk
+        https://bugs.webkit.org/show_bug.cgi?id=153583
+
+        Reviewed by Benjamin Poulain.
+
+        This undoes the AsmBench/n-body regression in r195654 while preserving that revision's
+        Kraken progression.
+
+        * b3/B3LowerToAir.cpp:
+        (JSC::B3::Air::LowerToAir::LowerToAir):
+        (JSC::B3::Air::LowerToAir::preferRightForResult):
+
+2016-01-28  Benjamin Poulain  <bpoulain@apple.com>
+
+        [JSC] B3 Tail Call with Varargs do not restore callee saved registers
+        https://bugs.webkit.org/show_bug.cgi?id=153579
+
+        Reviewed by Michael Saboff.
+
+        We were trashing the callee saved registers in Tail Calls.
+
+        I just copied the code from DFG to fix this :)
+
+        * ftl/FTLLowerDFGToLLVM.cpp:
+        (JSC::FTL::DFG::LowerDFGToLLVM::compileCallOrConstructVarargs):
+
+2016-01-27  Filip Pizlo  <fpizlo@apple.com>
+
+        B3 IntRange analysis should know more about shifting
+        https://bugs.webkit.org/show_bug.cgi?id=153568
+
+        Reviewed by Benjamin Poulain.
+
+        This teaches the IntRange analysis that the result of a right shift is usually better than
+        the worst-case mask based on the shift amount. In fact, you can reach useful conclusions
+        from looking at the IntRange of the input. This helps because Octane/crypto does something
+        like:
+
+            CheckMul((@x & $268435455) >> 14, @y >> 14, ...)
+
+        If you consider just the shifts, then this may overflow. But if you consider that @x is
+        first masked, then the IntRange coming out of the first shift is tight enough to prove that
+        the CheckMul cannot overflow.
+
+        * b3/B3ReduceStrength.cpp:
+        * b3/testb3.cpp:
+
+2016-01-27  Benjamin Poulain  <bpoulain@apple.com>
+
+        [JSC] adjustFrameAndStackInOSRExitCompilerThunk() can trash values in FTL
+        https://bugs.webkit.org/show_bug.cgi?id=153536
+
+        Reviewed by Saam Barati.
+
+        Workaround to get B3 working on ARM.
+
+        * dfg/DFGOSRExitCompilerCommon.h:
+        (JSC::DFG::adjustFrameAndStackInOSRExitCompilerThunk):
+        The code was using the scratch registers in a few places.
+
+        I initially tried to make is not use scratch registers anywhere
+        but that looked super fragile.
+
+        Instead, I just preserve the scratch registers. That's easy and
+        it should be relatively cheap compared to everything done on OSR Exits.
+
+2016-01-27  Konstantin Tokarev  <annulen@yandex.ru>
+
+        [mips] Use reinterpret_cast_ptr to suppress alignment warnings.
+        https://bugs.webkit.org/show_bug.cgi?id=153424
+
+        Reviewed by Darin Adler.
+
+        * runtime/JSGenericTypedArrayView.h:
+        (JSC::JSGenericTypedArrayView::sortFloat):
+
+2016-01-27  Per Arne Vollan  <peavo@outlook.com>
+
+        [FTL][Win64] Compile fix.
+        https://bugs.webkit.org/show_bug.cgi?id=153555
+
+        Reviewed by Alex Christensen.
+
+        MSVC does not accept preprocessor conditionals in macros.
+
+        * ftl/FTLOSRExitCompiler.cpp:
+        (JSC::FTL::compileStub):
+
+2016-01-27  Filip Pizlo  <fpizlo@apple.com>
+
+        Air::TmpWidth uses a stale pointer into its HashMap after it calls add()
+        https://bugs.webkit.org/show_bug.cgi?id=153546
+
+        Reviewed by Saam Barati.
+
+        * b3/air/AirTmpWidth.cpp:
+        (JSC::B3::Air::TmpWidth::recompute):
+
+2016-01-27  Alexey Proskuryakov  <ap@apple.com>
+
+        Remove ENABLE_CURRENTSRC
+        https://bugs.webkit.org/show_bug.cgi?id=153545
+
+        Reviewed by Simon Fraser.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2016-01-26  Benjamin Poulain  <benjamin@webkit.org>
+
+        [JSC] When lowering B3 to Air, preferRightForResult() should prefer values from the same block
+        https://bugs.webkit.org/show_bug.cgi?id=153477
+
+        Reviewed by Filip Pizlo.
+
+        In cases like this:
+
+        Block #0
+            @1 = something
+            @2 = Jump #1
+        Block #1
+            @3 = something else
+            @4 = Add(@3, @1)
+            ...
+            @42 = Branch(@x, #1, #2)
+
+        B3LowerToAir would pick @1 for the argument copied
+        for what goes into the UseDef side of Add.
+
+        This created a bunch of moves that could never be coalesced.
+        In Kraken's imaging-desaturate, there were enough Moves to slow
+        down the hot loop.
+
+        Ideally, we should not use UseCount for lowering. We should use
+        the real liveness for preferRightForResult(), and a loop-weighted
+        use-count for effective addresses. The problem is keeping the cost
+        low for those simple helpers.
+
+        In this patch, I went with a simple heuristic: prioritize the value
+        defined in the same block for UseDef.
+
+        There is one other way that would be cheap but a bit invasive:
+        -Get rid of UseDef.
+        -Make every ops, 3 operands.
+        -Tell the register allocator to attempt aliasing of the 2 uses
+         with the def.
+        -If the allocator fails, just add a move as needed.
+
+        For now, the simple heuristic seems okay for the cases have.
+
+        * b3/B3LowerToAir.cpp:
+        (JSC::B3::Air::LowerToAir::preferRightForResult):
+
+2016-01-26  Filip Pizlo  <fpizlo@apple.com>
+
+        Tail duplication should break critical edges first
+        https://bugs.webkit.org/show_bug.cgi?id=153530
+
+        Reviewed by Benjamin Poulain.
+
+        This speeds up Octane/boyer.
+
+        * b3/B3DuplicateTails.cpp:
+
+2016-01-26  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Generalize ResourceUsageData gathering to be used outside of ResourceUsageOverlay
+        https://bugs.webkit.org/show_bug.cgi?id=153509
+        <rdar://problem/24354291>
+
+        Reviewed by Andreas Kling.
+
+        * heap/Heap.h:
+        * heap/HeapInlines.h:
+        (JSC::Heap::didAllocateBlock):
+        (JSC::Heap::didFreeBlock):
+        Rename the ENABLE flag.
+
+2016-01-26  Csaba Osztrogonác  <ossy@webkit.org>
+
+        [B3] Fix control reaches end of non-void function GCC warning after r195139
+        https://bugs.webkit.org/show_bug.cgi?id=153426
+
+        Reviewed by Michael Catanzaro.
+
+        * b3/air/AirArg.h:
+        (JSC::B3::Air::Arg::cooled):
+
+2016-01-26  Saam barati  <sbarati@apple.com>
+
+        testb3 and testAir should be compiled under -O0
+        https://bugs.webkit.org/show_bug.cgi?id=153520
+
+        Reviewed by Benjamin Poulain.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2016-01-26  Filip Pizlo  <fpizlo@apple.com>
+
+        B3's integer range analysis should know that Mul'ing two sufficiently small numbers will yield a number that still has a meaningful range
+        https://bugs.webkit.org/show_bug.cgi?id=153518
+
+        Reviewed by Benjamin Poulain.
+
+        Octane/encrypt had an addition overflow check that can be proved away by being sufficiently
+        sneaky about the analysis of adds, multiplies, and shifts.
+
+        I almost added these optimizations to the DFG integer range optimization phase. That phase is
+        very complicated. B3's integer range analysis is trivial. So I added it to B3. Eventually
+        we'll want this same machinery in the DFG also.
+
+        8% speed-up on Octane/encrypt.
+
+        * b3/B3ReduceStrength.cpp:
+        * b3/B3Value.cpp:
+        (JSC::B3::Value::dump): Dumping a constant value's name now dumps its value. This makes a huge difference for reading IR.
+        (JSC::B3::Value::cloneImpl):
+        (JSC::B3::Value::deepDump):
+
+2016-01-26  Filip Pizlo  <fpizlo@apple.com>
+
+        It should be possible to disable FTL for a range like we disable DFG for a range
+        https://bugs.webkit.org/show_bug.cgi?id=153511
+
+        Reviewed by Geoffrey Garen.
+
+        * dfg/DFGTierUpCheckInjectionPhase.cpp:
+        (JSC::DFG::TierUpCheckInjectionPhase::run):
+        * runtime/Options.h:
+
+2016-01-26  Filip Pizlo  <fpizlo@apple.com>
+
+        Shifts by an amount computed using BitAnd with a mask that subsumes the shift's own mask should be rewired around the BitAnd
+        https://bugs.webkit.org/show_bug.cgi?id=153505
+
+        Reviewed by Saam Barati.
+
+        Turn this: Shl(@x, BitAnd(@y, 63))
+        Into this: Shl(@x, @y)
+
+        It matters for Octane/crypto.
+
+        We should also stop FTL from generating such code, but even if we did that, we'd still want
+        this optimization in case user code did the BitAnd.
+
+        Also we can't stop the FTL from generating such code yet, because when targetting LLVM, you
+        must mask your shifts this way.
+
+        * b3/B3ReduceStrength.cpp:
+
+2016-01-26  Filip Pizlo  <fpizlo@apple.com>
+
+        The thing that B3 uses to describe a stack slot should not be a Value
+        https://bugs.webkit.org/show_bug.cgi?id=153491
+        rdar://problem/24349446
+
+        Reviewed by Geoffrey Garen and Saam Barati.
+
+        Prior to this change, B3 represented stack slots by having a StackSlotValue that carried
+        two meanings:
+
+        - It represented a stack slot.
+
+        - It was a kind of Value for getting the base of the stack slot.
+
+        This seems like a good idea until you consider the following issues.
+
+        1) A Value can be killed if it is on an unreachable path, or if it has no effects and
+           nobody refers to it. But the FTL uses StackSlotValue to allocate space on the stack.
+           When it does this, it doesn't want it to be killed. It will dereference the object, so
+           killing it is a bug.
+
+        2) A premise of B3 is that it should be always legal to perform the following
+           transformation on a value:
+
+           value->replaceWithIdentity(insertionSet.insertValue(index, proc.clone(value)));
+
+           This inserts a new value just before the old one. The new value is a clone of the old
+           one. Then the old one is essentially deleted (anything that becomes an identity dies
+           shortly thereafter). Problem (1) prevents this from being legal, which breaks a major
+           premise of B3 IR.
+
+        3) A premise of B3 is that it should be always legal to perform the following
+           transformation on a value:
+
+           Before:
+                   @42 = Thing(...)
+
+           After:
+                   Branch(@doesntMatter, #yes, #no)
+               BB#yes:
+                   @42_one = Thing(...)
+                   Upsilon(@42_one, ^42)
+                   Jump(#done)
+               BB#no:
+                   @42_two = Thing(...)
+                   Upsilon(@42_two, ^42)
+                   Jump(#done)
+               BB#done:
+                   @42 = Phi()
+
+           But prior to this change, such a transformation makes absolutely no sense for
+           StackSlot. It will "work" in the sense that the compiler will proceed undaunted, but
+           it will disable SSA fix-up for the cloned stack slot and we will end up allocating two
+           stack slots instead of one, and then we will assume that they both escape, which will
+           disable efficient stack allocation. Note that the moral equivalent of this
+           transformation could already happen due to tail duplication, and the only reason why
+           it's not a bug right now is that we happen to hoist stack slots to the root block. But
+           the whole point of our stack slots was supposed to be that they do not have to be
+           hoisted.
+
+        This change fixes this issue by splitting StackSlotValue into two things: SlotBaseValue,
+        which is a pure operation for getting the base address of a StackSlot, and StackSlot,
+        which is a representation of the actual stack slot. StackSlot cannot get duplicated and
+        can only be killed if it's anonymous. SlotBaseValue can be killed, moved, cloned,
+        hoisted, etc. Since it has no effects and it has a ValueKey, it's one of the most
+        permissive Values in the IR, just as one would hope (after all, there is actually zero
+        code that needs to execute to evaluate SlotBaseValue).
+
+        This fixes a crash that we saw with GuardMalloc and ASan. It also makes the IR a lot more
+        easy to reason about.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * b3/B3EliminateCommonSubexpressions.cpp:
+        * b3/B3FixSSA.cpp:
+        (JSC::B3::demoteValues):
+        (JSC::B3::fixSSA):
+        * b3/B3LowerToAir.cpp:
+        (JSC::B3::Air::LowerToAir::run):
+        (JSC::B3::Air::LowerToAir::effectiveAddr):
+        (JSC::B3::Air::LowerToAir::lower):
+        * b3/B3Opcode.cpp:
+        (WTF::printInternal):
+        * b3/B3Opcode.h:
+        * b3/B3Procedure.cpp:
+        (JSC::B3::Procedure::setBlockOrderImpl):
+        (JSC::B3::Procedure::addStackSlot):
+        (JSC::B3::Procedure::addAnonymousStackSlot):
+        (JSC::B3::Procedure::clone):
+        (JSC::B3::Procedure::dump):
+        (JSC::B3::Procedure::blocksInPostOrder):
+        (JSC::B3::Procedure::deleteStackSlot):
+        (JSC::B3::Procedure::deleteValue):
+        (JSC::B3::Procedure::calleeSaveRegisters):
+        (JSC::B3::Procedure::addStackSlotIndex):
+        (JSC::B3::Procedure::addValueIndex):
+        * b3/B3Procedure.h:
+        (JSC::B3::Procedure::setBlockOrder):
+        (JSC::B3::Procedure::StackSlotsCollection::StackSlotsCollection):
+        (JSC::B3::Procedure::StackSlotsCollection::size):
+        (JSC::B3::Procedure::StackSlotsCollection::at):
+        (JSC::B3::Procedure::StackSlotsCollection::operator[]):
+        (JSC::B3::Procedure::StackSlotsCollection::iterator::iterator):
+        (JSC::B3::Procedure::StackSlotsCollection::iterator::operator*):
+        (JSC::B3::Procedure::StackSlotsCollection::iterator::operator++):
+        (JSC::B3::Procedure::StackSlotsCollection::iterator::operator==):
+        (JSC::B3::Procedure::StackSlotsCollection::iterator::operator!=):
+        (JSC::B3::Procedure::StackSlotsCollection::iterator::findNext):
+        (JSC::B3::Procedure::StackSlotsCollection::begin):
+        (JSC::B3::Procedure::StackSlotsCollection::end):
+        (JSC::B3::Procedure::stackSlots):
+        (JSC::B3::Procedure::ValuesCollection::ValuesCollection):
+        * b3/B3ReduceStrength.cpp:
+        * b3/B3SlotBaseValue.cpp: Copied from Source/JavaScriptCore/b3/B3StackSlotValue.cpp.
+        (JSC::B3::SlotBaseValue::~SlotBaseValue):
+        (JSC::B3::SlotBaseValue::dumpMeta):
+        (JSC::B3::SlotBaseValue::cloneImpl):
+        (JSC::B3::StackSlotValue::~StackSlotValue): Deleted.
+        (JSC::B3::StackSlotValue::dumpMeta): Deleted.
+        (JSC::B3::StackSlotValue::cloneImpl): Deleted.
+        * b3/B3SlotBaseValue.h: Copied from Source/JavaScriptCore/b3/B3StackSlotValue.h.
+        * b3/B3StackSlot.cpp: Added.
+        (JSC::B3::StackSlot::~StackSlot):
+        (JSC::B3::StackSlot::dump):
+        (JSC::B3::StackSlot::deepDump):
+        (JSC::B3::StackSlot::StackSlot):
+        * b3/B3StackSlot.h: Added.
+        (JSC::B3::StackSlot::byteSize):
+        (JSC::B3::StackSlot::kind):
+        (JSC::B3::StackSlot::isLocked):
+        (JSC::B3::StackSlot::index):
+        (JSC::B3::StackSlot::offsetFromFP):
+        (JSC::B3::StackSlot::setOffsetFromFP):
+        (JSC::B3::DeepStackSlotDump::DeepStackSlotDump):
+        (JSC::B3::DeepStackSlotDump::dump):
+        (JSC::B3::deepDump):
+        * b3/B3StackSlotValue.cpp: Removed.
+        * b3/B3StackSlotValue.h: Removed.
+        * b3/B3Validate.cpp:
+        * b3/B3Value.cpp:
+        (JSC::B3::Value::effects):
+        (JSC::B3::Value::key):
+        (JSC::B3::Value::checkOpcode):
+        * b3/B3ValueKey.cpp:
+        (JSC::B3::ValueKey::materialize):
+        * b3/air/AirCode.cpp:
+        (JSC::B3::Air::Code::addBlock):
+        (JSC::B3::Air::Code::addStackSlot):
+        (JSC::B3::Air::Code::addSpecial):
+        * b3/air/AirCode.h:
+        * b3/air/AirStackSlot.cpp:
+        (JSC::B3::Air::StackSlot::setOffsetFromFP):
+        (JSC::B3::Air::StackSlot::dump):
+        (JSC::B3::Air::StackSlot::deepDump):
+        (JSC::B3::Air::StackSlot::StackSlot):
+        * b3/air/AirStackSlot.h:
+        (JSC::B3::Air::StackSlot::alignment):
+        (JSC::B3::Air::StackSlot::b3Slot):
+        (JSC::B3::Air::StackSlot::offsetFromFP):
+        (WTF::printInternal):
+        (JSC::B3::Air::StackSlot::value): Deleted.
+        * b3/testb3.cpp:
+        (JSC::B3::testStackSlot):
+        (JSC::B3::testStoreLoadStackSlot):
+        * ftl/FTLB3Compile.cpp:
+        * ftl/FTLB3Output.cpp:
+        (JSC::FTL::Output::appendTo):
+        (JSC::FTL::Output::lockedStackSlot):
+        (JSC::FTL::Output::neg):
+        * ftl/FTLB3Output.h:
+        (JSC::FTL::Output::framePointer):
+        (JSC::FTL::Output::constBool):
+        (JSC::FTL::Output::constInt32):
+        * ftl/FTLLowerDFGToLLVM.cpp:
+        (JSC::FTL::DFG::LowerDFGToLLVM::lower):
+        * ftl/FTLState.h:
+
+2016-01-26  Benjamin Poulain  <benjamin@webkit.org>
+
+        Remove a useless #include
+        https://bugs.webkit.org/show_bug.cgi?id=153474
+
+        Reviewed by Alexey Proskuryakov.
+
+        * b3/B3ReduceStrength.cpp:
+
+2016-01-26  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Fix clean build after r195545.
+        ​https://bugs.webkit.org/show_bug.cgi?id=153434
+
+        * CMakeLists.txt:
+        * PlatformWin.cmake:
+        Derived sources need to be copied after the build, but everything else should be copied before.
+        This should fix ews issues like the one seen in bug 153473.
+
+2016-01-25  Filip Pizlo  <fpizlo@apple.com>
+
+        FTLB3Output should maintain good block order like the LLVM one does
+        https://bugs.webkit.org/show_bug.cgi?id=152222
+
+        Reviewed by Geoffrey Garen.
+
+        This fixes FTLB3Output to emit an ordered B3 IR. This makes inspecting IR *a lot* easier.
+        It will also be a performance win whenever we use range-based data structures for
+        liveness.
+
+        Also two small other changes:
+        - Added some more dumping in integer range optimization phase.
+        - Refined the disassembler's printing of instruction width suffixes so that "jzl" is not
+          a thing. It was using "l" as the suffix because jumps take a 32-bit immediate.
+
+        * b3/B3Procedure.cpp:
+        (JSC::B3::Procedure::addBlock):
+        (JSC::B3::Procedure::setBlockOrderImpl):
+        (JSC::B3::Procedure::clone):
+        * b3/B3Procedure.h:
+        (JSC::B3::Procedure::frontendData):
+        (JSC::B3::Procedure::setBlockOrder):
+        * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+        * disassembler/udis86/udis86_syn-att.c:
+        (ud_translate_att):
+        * ftl/FTLB3Output.cpp:
+        (JSC::FTL::Output::initialize):
+        (JSC::FTL::Output::newBlock):
+        (JSC::FTL::Output::applyBlockOrder):
+        (JSC::FTL::Output::appendTo):
+        * ftl/FTLB3Output.h:
+        (JSC::FTL::Output::setFrequency):
+        (JSC::FTL::Output::insertNewBlocksBefore):
+        (JSC::FTL::Output::callWithoutSideEffects):
+        (JSC::FTL::Output::newBlock): Deleted.
+        * ftl/FTLLowerDFGToLLVM.cpp:
+        (JSC::FTL::DFG::LowerDFGToLLVM::lower):
+
+2016-01-25  Skachkov Oleksandr  <gskachkov@gmail.com>
+
+        [ES6] Arrow function syntax. Arrow function specific features. Lexical bind "arguments"
+        https://bugs.webkit.org/show_bug.cgi?id=145132
+
+        Reviewed by Saam Barati.
+        
+        Added support of ES6 arrow function specific feature, lexical bind of arguments. 
+        http://www.ecma-international.org/ecma-262/6.0/#sec-arrow-function-definitions-runtime-semantics-evaluation
+        'arguments' variable in arrow function must resolve to a binding in a lexically enclosing environment.
+        In srict mode it points to arguments object, and in non-stric mode it points to arguments object or varible 
+        with name 'arguments' if it was declared. 
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        * parser/Parser.h:
+        (JSC::Scope::Scope):
+        (JSC::Scope::setSourceParseMode):
+        (JSC::Scope::isArrowFunction):
+        (JSC::Scope::collectFreeVariables):
+        (JSC::Scope::setIsArrowFunction):
+        * tests/es6.yaml:
+        * tests/stress/arrowfunction-lexical-bind-arguments-non-strict-1.js: Added.
+        * tests/stress/arrowfunction-lexical-bind-arguments-non-strict-2.js: Added.
+        * tests/stress/arrowfunction-lexical-bind-arguments-strict.js: Added.
+
+2016-01-25  Benjamin Poulain  <bpoulain@apple.com>
+
+        [JSC] We should never use x18 on iOS ARM64
+        https://bugs.webkit.org/show_bug.cgi?id=153461
+
+        Reviewed by Filip Pizlo.
+
+        The register x18 is reserved in the iOS variant of the ARM64 ABI.
+
+        The weird thing is: if you use it, its value will change completely
+        randomly. It looks like it is changed by the system on interrupts.
+
+        This patch adds x18 to the reserved register and add assertions
+        to the assembler to prevent similar problems in the future.
+
+        * assembler/ARM64Assembler.h:
+        (JSC::ARM64Assembler::xOrSp):
+        (JSC::ARM64Assembler::xOrZr):
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::isIOS): Deleted.
+        * assembler/AssemblerCommon.h:
+        (JSC::isIOS):
+        * jit/RegisterSet.cpp:
+        (JSC::RegisterSet::reservedHardwareRegisters):
+
+2016-01-25  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r195550.
+        https://bugs.webkit.org/show_bug.cgi?id=153471
+
+        broke animometer bot (and now we have crash logs!) (Requested
+        by kling on #webkit).
+
+        Reverted changeset:
+
+        "Restore CodeBlock jettison code Geoff accidentally removed"
+        https://bugs.webkit.org/show_bug.cgi?id=151241
+        http://trac.webkit.org/changeset/195550
+
+2016-01-25  Andreas Kling  <akling@apple.com>
+
+        MarkedSpace should have more precise allocators.
+        <https://webkit.org/b/153448>
+        <rdar://problem/23897477>
+
+        Reviewed by Geoffrey Garen.
+
+        The four classes responsible for the bulk of MarkedBlock allocations today are:
+
+            - FunctionCodeBlock (640 bytes)
+            - UnlinkedFunctionCodeBlock (304 bytes)
+            - FunctionExecutable (168 bytes)
+            - UnlinkedFunctionExecutable (144 bytes)
+
+        Due to the size class distribution in MarkedSpace, we've been wasting quite a lot
+        of heap space on these objects. Our "precise" allocators allowed allocation sizes
+        in 16-byte increments up to 128 bytes, but after that point, we'd only allocate
+        in 256-byte size increments.
+
+        Thus each instance of those classes would waste space as follows:
+
+            - FunctionCodeBlock (768-byte cell, 128 bytes wasted)
+            - UnlinkedFunctionCodeBlock (512-byte cell, 208 bytes wasted)
+            - FunctionExecutable(256-byte cell, 88 bytes wasted)
+            - UnlinkedFunctionExecutable(256-byte cell, 112 bytes wasted)
+
+        This patch raises the limit for precise allocations from 128 to 768, allowing us
+        to allocate these objects with far better space efficiency.
+
+        The cost of this is 7kB worth of MarkedAllocators and 70 (~2x) more allocators to
+        iterate whenever we iterate all the allocators.
+
+        * heap/MarkedSpace.h:
+        * heap/MarkedSpace.cpp:
+        (JSC::MarkedSpace::MarkedSpace):
+        (JSC::MarkedSpace::resetAllocators):
+        (JSC::MarkedSpace::forEachAllocator):
+        (JSC::MarkedSpace::isPagedOut):
+
+2016-01-25  Filip Pizlo  <fpizlo@apple.com>
+
+        Fix the comment about FTL_USES_B3.
+
+        * dfg/DFGCommon.h:
+
+2016-01-25  Filip Pizlo  <fpizlo@apple.com>
+
+        Switch FTL to B3 on X86_64/Mac
+        https://bugs.webkit.org/show_bug.cgi?id=153445
+
+        Rubber stamped by Geoffrey Garen.
+
+        This finally switches from LLVM to B3 in the FTL on X86_64 on the Mac. We recommend that other
+        X86_64 platforms make the switch as well. We will be focusing our performance work on B3 rather
+        than LLVM in the future. ARM64 support is also coming soon, so we will be able to remove FTL
+        LLVM code once that lands.
+
+        Right now this mostly appears as perf-neutral on the major tests. However, it does have the
+        following immediate benefits:
+
+        - Dramatic reduction in FTL compile times, on the order of 5x-10x. This means huge speed-ups in
+          shorter-running tests like V8Spider (21%) and JSRegress (8%).
+
+        - It makes the FTL simpler and more robust because we don't have to do stackmap section
+          parsing. This makes it easier to add new FTL features. We are already working on features,
+          like the sampling profiler, which will only have a FTL B3 implementation.
+
+        - Speed-ups on some throughput benchmarks like mandreel, richards, imaging-gaussian-blur. It's
+          still a slow down on other throughput benchmarks, though.
+
+        We started writing B3 in October, so it's pretty awesome that the throughput of the code it
+        generates is already on par with LLVM.
+        
+        This does not fundamentally change how the FTL works. FTL was built to lower DFG IR to a C-like
+        SSA IR, and then rely on powerful SSA optimizations and comprehensive instruction selection and
+        register allocation to turn that code into something that runs fast. B3 also has a C-like SSA
+        IR, has an instruction selector that is in some ways more powerful than LLVM's (B3 does global
+        instruction selection rather than block-local like LLVM), and it has a register allocator that
+        is in some ways more powerful also (B3 uses IRC, a mature graph coloring allocator, while LLVM
+        does not do graph coloring). We expect FTL B3's performance to improve a lot after we turn it
+        on and can focus our efforts on tuning it.
+
+        I didn't find any test regressions after running both JSC tests and layout tests. Basic
+        browsing still works. JetStream performance difference is within the margin of error. EWS is
+        happy.
+
+        * dfg/DFGCommon.h:
+
+2016-01-25  Andreas Kling  <akling@apple.com>
+
+        Restore CodeBlock jettison code Geoff accidentally removed
+        https://bugs.webkit.org/show_bug.cgi?id=151241
+
+        Rubber-stamped by Geoffrey Garen.
+
+        Geoff meant to add this back in <http://trac.webkit.org/changeset/190827>
+        but missed.
+
+        Then he added it back in, but it was rolled out due to a crash on Animometer.
+        I can no longer produce a crash on Animometer, either with today's version of
+        the benchmark, or the one that existed at the time of the rollout.
+
+        Given this, let's roll it back in and see how it goes.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::timeToLive):
+        (JSC::CodeBlock::shouldJettisonDueToOldAge):
+
+2016-01-22  Filip Pizlo  <fpizlo@apple.com>
+
+        mandreel should run just as fast in FTL B3 as FTL LLVM
+        https://bugs.webkit.org/show_bug.cgi?id=153394
+
+        Reviewed by Gavin Barraclough.
+
+        This fixes two performance bugs and one disassembler bug.
+
+        - B3 now turns Branches into Jumps when they are dominated by a Check on the same
+          condition. This is like the opposite of foldPathConstants() was doing.
+
+        - Air now supports adding to 8-bit or 16-bit memory locations on x86. B3 now knows how to
+          lower Store8(Add(Load8Z(...))) and various other things to these new instructions.
+
+        - Disassembler now knows to print out the instruction's width, whenever it has one.
+          Previously, we'd print movb, movw, movl, and movq as "mov", which is unhelpful if
+          you're storing an immediate, for example.
+
+        This adds a bunch of tests for the new instruction forms. This is a big speed-up on
+        mandreel. It makes us just as fast as LLVM on that benchmark.
+
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::add32):
+        (JSC::MacroAssemblerX86Common::add8):
+        (JSC::MacroAssemblerX86Common::add16):
+        (JSC::MacroAssemblerX86Common::add32AndSetFlags):
+        (JSC::MacroAssemblerX86Common::clz32AfterBsr):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::addl_rm):
+        (JSC::X86Assembler::addb_rm):
+        (JSC::X86Assembler::addw_rm):
+        (JSC::X86Assembler::addl_ir):
+        (JSC::X86Assembler::addl_im):
+        (JSC::X86Assembler::addb_im):
+        (JSC::X86Assembler::addw_im):
+        (JSC::X86Assembler::addq_rr):
+        * b3/B3LowerToAir.cpp:
+        (JSC::B3::Air::LowerToAir::addr):
+        (JSC::B3::Air::LowerToAir::loadPromiseAnyOpcode):
+        (JSC::B3::Air::LowerToAir::loadPromise):
+        (JSC::B3::Air::LowerToAir::tryAppendStoreBinOp):
+        (JSC::B3::Air::LowerToAir::lower):
+        * b3/B3PureCSE.cpp:
+        (JSC::B3::PureCSE::clear):
+        (JSC::B3::PureCSE::findMatch):
+        (JSC::B3::PureCSE::process):
+        * b3/B3PureCSE.h:
+        * b3/B3ReduceStrength.cpp:
+        * b3/air/AirOpcode.opcodes:
+        * b3/testb3.cpp:
+        (JSC::B3::testNegPtr):
+        (JSC::B3::testStoreAddLoad32):
+        (JSC::B3::testStoreAddLoadImm32):
+        (JSC::B3::testStoreAddLoad8):
+        (JSC::B3::testStoreAddLoadImm8):
+        (JSC::B3::testStoreAddLoad16):
+        (JSC::B3::testStoreAddLoadImm16):
+        (JSC::B3::testStoreAddLoad64):
+        (JSC::B3::testStoreAddLoadImm64):
+        (JSC::B3::testStoreAddLoad32Index):
+        (JSC::B3::testStoreAddLoadImm32Index):
+        (JSC::B3::testStoreAddLoad8Index):
+        (JSC::B3::testStoreAddLoadImm8Index):
+        (JSC::B3::testStoreAddLoad16Index):
+        (JSC::B3::testStoreAddLoadImm16Index):
+        (JSC::B3::testStoreAddLoad64Index):
+        (JSC::B3::testStoreAddLoadImm64Index):
+        (JSC::B3::testStoreSubLoad):
+        (JSC::B3::run):
+        (JSC::B3::testStoreAddLoad): Deleted.
+        * disassembler/udis86/udis86_syn-att.c:
+        (ud_translate_att):
+
+2016-01-25  Alex Christensen  <achristensen@webkit.org>
+
+        [Win] Copy forwarding headers before building a project
+        https://bugs.webkit.org/show_bug.cgi?id=153434
+
+        Reviewed by Brent Fulgham.
+
+        * CMakeLists.txt:
+        * PlatformWin.cmake:
+
+2016-01-25  Andreas Kling  <akling@apple.com>
+
+        Reduce number of Structures created at startup.
+        <https://webkit.org/b/153399>
+
+        Reviewed by Darin Adler.
+
+        For *Constructor and *Prototype objects that are only created once per JSGlobalObject,
+        build up the Structures using addPropertyWithoutTransition() helpers to avoid creating
+        tons of transitions that would just end up floating around and never getting used.
+
+        * inspector/JSInjectedScriptHostPrototype.cpp:
+        (Inspector::JSInjectedScriptHostPrototype::finishCreation):
+        * inspector/JSJavaScriptCallFramePrototype.cpp:
+        (Inspector::JSJavaScriptCallFramePrototype::finishCreation):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::ArrayPrototype::finishCreation):
+        * runtime/ConsolePrototype.cpp:
+        (JSC::ConsolePrototype::finishCreation):
+        * runtime/DatePrototype.cpp:
+        (JSC::DatePrototype::finishCreation):
+        * runtime/JSArrayBufferConstructor.cpp:
+        (JSC::JSArrayBufferConstructor::finishCreation):
+        * runtime/JSArrayBufferPrototype.cpp:
+        (JSC::JSArrayBufferPrototype::finishCreation):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::putDirectNativeFunctionWithoutTransition):
+        (JSC::JSObject::putDirectBuiltinFunctionWithoutTransition): Deleted.
+        * runtime/JSObject.h:
+        * runtime/JSPromiseConstructor.cpp:
+        (JSC::JSPromiseConstructor::addOwnInternalSlots):
+        * runtime/JSPromisePrototype.cpp:
+        (JSC::JSPromisePrototype::addOwnInternalSlots):
+        * runtime/JSTypedArrayViewConstructor.cpp:
+        (JSC::JSTypedArrayViewConstructor::finishCreation):
+        * runtime/JSTypedArrayViewPrototype.cpp:
+        (JSC::JSTypedArrayViewPrototype::finishCreation):
+        * runtime/MapIteratorPrototype.cpp:
+        (JSC::MapIteratorPrototype::finishCreation):
+        * runtime/MapPrototype.cpp:
+        (JSC::MapPrototype::finishCreation):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::finishCreation):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::finishCreation):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::ObjectPrototype::finishCreation):
+        * runtime/SetIteratorPrototype.cpp:
+        (JSC::SetIteratorPrototype::finishCreation):
+        * runtime/SetPrototype.cpp:
+        (JSC::SetPrototype::finishCreation):
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::finishCreation):
+        * runtime/WeakMapPrototype.cpp:
+        (JSC::WeakMapPrototype::finishCreation):
+        * runtime/WeakSetPrototype.cpp:
+        (JSC::WeakSetPrototype::finishCreation):
+
 2016-01-22  Filip Pizlo  <fpizlo@apple.com>
 
         B3 should strength-reduce division by a constant

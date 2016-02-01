@@ -113,7 +113,7 @@ void WebMediaSessionManager::setMockMediaPlaybackTargetPickerState(const String&
 MediaPlaybackTargetPickerMock& WebMediaSessionManager::mockPicker()
 {
     if (!m_pickerOverride)
-        m_pickerOverride = MediaPlaybackTargetPickerMock::create(*this);
+        m_pickerOverride = std::make_unique<MediaPlaybackTargetPickerMock>(*this);
 
     return *m_pickerOverride.get();
 }
@@ -215,7 +215,7 @@ void WebMediaSessionManager::clientStateDidChange(WebMediaSessionManagerClient& 
     changedClientState->flags = newFlags;
 
     MediaProducer::MediaStateFlags updateConfigurationFlags = MediaProducer::RequiresPlaybackTargetMonitoring | MediaProducer::HasPlaybackTargetAvailabilityListener | MediaProducer::HasAudioOrVideo;
-    if (!flagsAreSet(oldFlags, updateConfigurationFlags) && flagsAreSet(newFlags, updateConfigurationFlags))
+    if ((oldFlags & updateConfigurationFlags) != (newFlags & updateConfigurationFlags))
         scheduleDelayedTask(TargetMonitoringConfigurationTask);
 
     MediaProducer::MediaStateFlags playingToTargetFlags = MediaProducer::IsPlayingToExternalDevice | MediaProducer::IsPlayingVideo;
@@ -358,7 +358,7 @@ void WebMediaSessionManager::configurePlaybackTargetMonitoring()
             haveClientWithMedia = true;
     }
 
-    LOG(Media, "WebMediaSessionManager::configurePlaybackTargetMonitoring - monitoringRequired = %i", (int)monitoringRequired);
+    LOG(Media, "WebMediaSessionManager::configurePlaybackTargetMonitoring - monitoringRequired = %i", static_cast<int>(monitoringRequired || (hasAvailabilityListener && haveClientWithMedia)));
 
     if (monitoringRequired || (hasAvailabilityListener && haveClientWithMedia))
         targetPicker().startingMonitoringPlaybackTargets();

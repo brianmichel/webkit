@@ -173,13 +173,13 @@ public:
     void setCancelBubble(bool cancel) { m_cancelBubble = cancel; }
 
     Event* underlyingEvent() const { return m_underlyingEvent.get(); }
-    void setUnderlyingEvent(PassRefPtr<Event>);
+    void setUnderlyingEvent(Event*);
 
     virtual DataTransfer* internalDataTransfer() const { return 0; }
 
     bool isBeingDispatched() const { return eventPhase(); }
 
-    virtual PassRefPtr<Event> cloneFor(HTMLIFrameElement*) const;
+    virtual Ref<Event> cloneFor(HTMLIFrameElement*) const;
 
     virtual EventTarget* relatedTarget() const { return nullptr; }
 

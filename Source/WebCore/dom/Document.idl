@@ -31,7 +31,7 @@
     readonly attribute DOMImplementation implementation;
     readonly attribute Element documentElement;
 
-    [NewObject, RaisesException] Element createElement(DOMString tagName);
+    [NewObject, RaisesException, ImplementedAs=createElementForBindings] Element createElement(DOMString tagName);
     [NewObject] DocumentFragment   createDocumentFragment();
     [NewObject] Text createTextNode([Default=Undefined] optional DOMString data);
     [NewObject] Comment createComment([Default=Undefined] optional DOMString data);
@@ -325,7 +325,7 @@
     [NotEnumerable] attribute EventHandler onselectionchange;
 
     // Unique to Document
-    [NotEnumerable] attribute EventHandler onreadystatechange;
+    [LenientThis] attribute EventHandler onreadystatechange;
     [NotEnumerable, Conditional=CSP_NEXT] attribute EventHandler onsecuritypolicyviolation;
     [NotEnumerable, Conditional=POINTER_LOCK] attribute EventHandler onpointerlockchange;
     [NotEnumerable, Conditional=POINTER_LOCK] attribute EventHandler onpointerlockerror;

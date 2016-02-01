@@ -24,6 +24,7 @@
  */
 
 #import <UIKit/UIKit.h>
+#import <UIKit/UITouch.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -240,6 +241,7 @@ typedef enum {
 
 @interface UIGestureRecognizer ()
 - (void)requireOtherGestureToFail:(UIGestureRecognizer *)gestureRecognizer;
+@property(nonatomic, copy) NSArray<NSNumber *> *allowedTouchTypes;
 @end
 
 @interface UILongPressGestureRecognizer ()
@@ -293,6 +295,14 @@ typedef enum {
 - (CADisplay *)_display;
 @end
 
+typedef enum {
+    UITouchTypeDirect
+} UITouchType;
+
+@interface UITouch ()
+@property(nonatomic,readonly) UITouchType type;
+@end
+
 @interface UIScrollView ()
 - (void)_stopScrollingAndZoomingAnimations;
 - (void)_zoomToCenter:(CGPoint)center scale:(CGFloat)scale duration:(CFTimeInterval)duration force:(BOOL)force;
@@ -311,6 +321,7 @@ typedef enum {
 
 @interface UITapGestureRecognizer ()
 @property (nonatomic, readonly) CGPoint location;
+@property (nonatomic, readonly) NSArray  *touches;
 @end
 
 @class WebEvent;
@@ -842,5 +853,7 @@ extern NSString *const UIKeyInputPageUp;
 extern NSString *const UIKeyInputPageDown;
 
 extern const NSString *UIPreviewDataLink;
+extern const NSString *UIPreviewDataDDResult;
+extern const NSString *UIPreviewDataDDContext;
 
 WTF_EXTERN_C_END

@@ -99,6 +99,19 @@ void SQLiteIDBTransaction::reset()
     clearCursors();
 }
 
+std::unique_ptr<SQLiteIDBCursor> SQLiteIDBTransaction::maybeOpenBackingStoreCursor(uint64_t objectStoreID, uint64_t indexID, const IDBKeyRangeData& range)
+{
+    ASSERT(m_sqliteTransaction);
+    ASSERT(m_sqliteTransaction->inProgress());
+
+    auto cursor = SQLiteIDBCursor::maybeCreateBackingStoreCursor(*this, objectStoreID, indexID, range);
+
+    if (cursor)
+        m_backingStoreCursors.add(cursor.get());
+
+    return cursor;
+}
+
 SQLiteIDBCursor* SQLiteIDBTransaction::maybeOpenCursor(const IDBCursorInfo& info)
 {
     ASSERT(m_sqliteTransaction);
@@ -120,6 +133,12 @@ SQLiteIDBCursor* SQLiteIDBTransaction::maybeOpenCursor(const IDBCursorInfo& info
 
 void SQLiteIDBTransaction::closeCursor(SQLiteIDBCursor& cursor)
 {
+    auto backingStoreTake = m_backingStoreCursors.take(&cursor);
+    if (backingStoreTake) {
+        ASSERT(!m_cursors.contains(cursor.identifier()));
+        return;
+    }
+
     ASSERT(m_cursors.contains(cursor.identifier()));
 
     m_backingStore.unregisterCursor(cursor);
@@ -131,6 +150,11 @@ void SQLiteIDBTransaction::notifyCursorsOfChanges(int64_t objectStoreID)
     for (auto& i : m_cursors) {
         if (i.value->objectStoreID() == objectStoreID)
             i.value->objectStoreRecordsChanged();
+    }
+
+    for (auto* cursor : m_backingStoreCursors) {
+        if (cursor->objectStoreID() == objectStoreID)
+            cursor->objectStoreRecordsChanged();
     }
 }
 

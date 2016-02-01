@@ -1257,6 +1257,9 @@ webkit.org/b/149440 fast/shadow-dom/css-scoping-shadow-host-functional-rule.html
 webkit.org/b/149441 fast/shadow-dom/css-scoping-shadow-slotted-rule.html [ ImageOnlyFailure ]
 webkit.org/b/149441 fast/shadow-dom/css-scoping-shadow-slot-display-override.html [ ImageOnlyFailure ]
 
+# Touch events is not enabled on Mac
+webkit.org/b/149592 fast/shadow-dom/touch-event-ios.html [ Failure ]
+
 webkit.org/b/150225 fast/custom-elements [ Pass ]
 
 # Times out in debug.
@@ -1278,6 +1281,8 @@ imported/blink/compositing/video/video-controls-layer-creation-squashing.html [ 
 
 webkit.org/b/150806 imported/w3c/web-platform-tests/XMLHttpRequest/send-timeout-events.htm [ Pass Failure ]
 webkit.org/b/150823 imported/w3c/web-platform-tests/XMLHttpRequest/getresponseheader-chunked-trailer.htm [ Pass Failure ]
+
+webkit.org/b/152436 [ Debug ] imported/w3c/web-platform-tests/streams-api/readable-streams/garbage-collection.html [ Pass Crash ]
 
 # WOFF2 is only supported on certain Operating Systems.
 webkit.org/b/150830 [ Yosemite ElCapitan ] fast/text/woff2.html [ ImageOnlyFailure ]
@@ -1305,3 +1310,5 @@ webkit.org/b/152009 [ Debug ElCapitan ] fast/canvas/canvas-too-large-to-draw.htm
 [ Yosemite ] media/airplay-target-availability.html
 
 webkit.org/b/153086 sputnik/Conformance/15_Native_Objects/15.1_The_Global_Object/15.1.3/15.1.3.3_encodeURI/S15.1.3.3_A2.4_T2.html [ Pass Crash ]
+
+webkit.org/b/153683 [ ElCapitan ] fast/parser/external-entities-in-xslt.xml [ Pass Failure ]

@@ -93,6 +93,7 @@ private:
 #endif
         virtual RetainPtr<NSArray> actionsForElement(_WKActivatedElementInfo *, RetainPtr<NSArray> defaultActions) override;
         virtual void didNotHandleTapAsClick(const WebCore::IntPoint&) override;
+        virtual UIViewController *presentingViewController() override;
 #endif
         virtual void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&) override;
 
@@ -125,6 +126,7 @@ private:
 #endif
         bool webViewActionsForElementDefaultActions : 1;
         bool webViewDidNotHandleTapAsClickAtPoint : 1;
+        bool presentingViewControllerForWebView : 1;
 #endif
 
 #if PLATFORM(MAC)

@@ -464,12 +464,12 @@ void Editor::pasteAsPlainText(const String& pastingText, bool smartReplace)
     target->dispatchEvent(TextEvent::createForPlainTextPaste(document().domWindow(), pastingText, smartReplace));
 }
 
-void Editor::pasteAsFragment(PassRefPtr<DocumentFragment> pastingFragment, bool smartReplace, bool matchStyle, MailBlockquoteHandling respectsMailBlockquote)
+void Editor::pasteAsFragment(Ref<DocumentFragment>&& pastingFragment, bool smartReplace, bool matchStyle, MailBlockquoteHandling respectsMailBlockquote)
 {
     Node* target = findEventTargetFromSelection();
     if (!target)
         return;
-    target->dispatchEvent(TextEvent::createForFragmentPaste(document().domWindow(), pastingFragment, smartReplace, matchStyle, respectsMailBlockquote));
+    target->dispatchEvent(TextEvent::createForFragmentPaste(document().domWindow(), WTFMove(pastingFragment), smartReplace, matchStyle, respectsMailBlockquote));
 }
 
 void Editor::pasteAsPlainTextBypassingDHTML()
@@ -3562,7 +3562,10 @@ void Editor::handleAcceptedCandidate(TextCheckingResult acceptedCandidate)
         m_frame.selection().setSelectedRange(candidateRange.get(), UPSTREAM, true);
 
     insertText(acceptedCandidate.replacement, 0);
-    insertText(String(" "), 0);
+
+    // Some candidates come with a space built in, and we do not need to add another space in that case.
+    if (!acceptedCandidate.replacement.endsWith(' '))
+        insertText(ASCIILiteral(" "), 0);
 }
 
 bool Editor::unifiedTextCheckerEnabled() const
